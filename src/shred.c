@@ -112,12 +112,12 @@ verify (0 < SECTOR_SIZE && (SECTOR_SIZE & SECTOR_MASK) == 0);
 enum remove_method
 {
   remove_none = 0,      /* the default: only wipe data.  */
-  remove_unlink,        /* don't obfuscate name, just unlink.  */
+  remove_unlink,        /* do not obfuscate name, just unlink.  */
   remove_wipe,          /* obfuscate name before unlink.  */
   remove_wipesync       /* obfuscate name, syncing each byte, before unlink.  */
 };
 
-static char const *const remove_args[] =
+static const char *const remove_args[] =
 {
   "unlink", "wipe", "wipesync", NULL
 };
@@ -129,13 +129,13 @@ static enum remove_method const remove_methods[] =
 
 struct Options
 {
-  bool force;		/* -f flag: chmod files if necessary */
-  size_t n_iterations;	/* -n flag: Number of iterations */
-  off_t size;		/* -s flag: size of file */
+  bool force;   /* -f flag: chmod files if necessary */
+  size_t n_iterations;  /* -n flag: Number of iterations */
+  off_t size;   /* -s flag: size of file */
   enum remove_method remove_file; /* -u flag: remove file after shredding */
-  bool verbose;		/* -v flag: Print progress */
-  bool exact;		/* -x flag: Do not round up file size */
-  bool zero_fill;	/* -z flag: Add a final zero pass */
+  bool verbose;   /* -v flag: Print progress */
+  bool exact;   /* -x flag: Do not round up file size */
+  bool zero_fill; /* -z flag: Add a final zero pass */
 };
 
 /* For long options that have no equivalent short option, use a
@@ -145,7 +145,7 @@ enum
   RANDOM_SOURCE_OPTION = CHAR_MAX + 1
 };
 
-static struct option const long_opts[] =
+static const struct option long_options[] =
 {
   {"exact", no_argument, NULL, 'x'},
   {"force", no_argument, NULL, 'f'},
@@ -155,8 +155,6 @@ static struct option const long_opts[] =
   {"remove", optional_argument, NULL, 'u'},
   {"verbose", no_argument, NULL, 'v'},
   {"zero", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -259,7 +257,7 @@ fillpattern (int type, unsigned char *r, size_t size)
   if (i < size)
     memcpy (r + i, r, size - i);
 
-  /* Invert the first bit of every sector. */
+  /* Invert the first bit of every sector.  */
   if (type & 0x1000)
     for (i = 0; i < size; i += SECTOR_SIZE)
       r[i] ^= 0x80;
@@ -271,7 +269,7 @@ fillpattern (int type, unsigned char *r, size_t size)
  */
 #define PASS_NAME_SIZE 7
 static void
-passname (unsigned char const *data, char name[PASS_NAME_SIZE])
+passname (unsigned const char *data, char name[PASS_NAME_SIZE])
 {
   if (data)
     sprintf (name, "%02x%02x%02x", data[0], data[1], data[2]);
@@ -279,7 +277,7 @@ passname (unsigned char const *data, char name[PASS_NAME_SIZE])
     memcpy (name, "random", PASS_NAME_SIZE);
 }
 
-/* Return true when it's ok to ignore an fsync or fdatasync
+/* Return true when it is ok to ignore an fsync or fdatasync
    failure that set errno to ERRNO_VAL.  */
 static bool
 ignorable_sync_errno (int errno_val)
@@ -297,7 +295,7 @@ ignorable_sync_errno (int errno_val)
    fsync is not supported for this file, or if the file is not a
    writable file descriptor.  */
 static int
-dosync (int fd, char const *qname)
+dosync (int fd, const char *qname)
 {
   int err;
 
@@ -393,17 +391,17 @@ known (off_t size)
  * Return 1 on write error, -1 on other error, 0 on success.
  */
 static int
-dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
+dopass (int fd, struct stat const *st, const char *qname, off_t *sizep,
         int type, struct randread_source *s,
         unsigned long int k, unsigned long int n)
 {
   off_t size = *sizep;
-  off_t offset;			/* Current file position */
-  time_t thresh IF_LINT ( = 0);	/* Time to maybe print next status update */
-  time_t now = 0;		/* Current time */
-  size_t lim;			/* Amount of data to try writing */
-  size_t soff;			/* Offset into buffer for next write */
-  ssize_t ssize;		/* Return value from write */
+  off_t offset;     /* Current file position */
+  time_t thresh IF_LINT ( = 0); /* Time to maybe print next status update */
+  time_t now = 0;   /* Current time */
+  size_t lim;     /* Amount of data to try writing */
+  size_t soff;      /* Offset into buffer for next write */
+  ssize_t ssize;    /* Return value from write */
 
   /* Fill pattern buffer.  Aligning it to a page so we can do direct I/O.  */
   size_t page_size = getpagesize ();
@@ -418,29 +416,29 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
   void *fill_pattern_mem = xmalloc (PATTERNBUF_SIZE);
   unsigned char *pbuf = ptr_align (fill_pattern_mem, page_size);
 
-  char pass_string[PASS_NAME_SIZE];	/* Name of current pass */
+  char pass_string[PASS_NAME_SIZE]; /* Name of current pass */
   bool write_error = false;
   bool other_error = false;
 
   /* Printable previous offset into the file */
   char previous_offset_buf[LONGEST_HUMAN_READABLE + 1];
-  char const *previous_human_offset IF_LINT ( = 0);
+  const char *previous_human_offset IF_LINT ( = 0);
 
   /* As a performance tweak, avoid direct I/O for small sizes,
-     as it's just a performance rather then security consideration,
+     as it is just a performance rather then security consideration,
      and direct I/O can often be unsupported for small non aligned sizes.  */
   bool try_without_directio = 0 < size && size < output_size;
-  if (! try_without_directio)
+  if (!try_without_directio)
     direct_mode (fd, true);
 
-  if (! dorewind (fd, st))
+  if (!dorewind (fd, st))
     {
       error (0, errno, _("%s: cannot rewind"), qname);
       other_error = true;
       goto free_pattern_mem;
     }
 
-  /* Constant fill patterns need only be set up once. */
+  /* Constant fill patterns need only be set up once.  */
   if (type >= 0)
     {
       lim = known (size) && size < FILLPATTERN_SIZE ? size : FILLPATTERN_SIZE;
@@ -475,7 +473,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
         }
       if (type < 0)
         randread (s, pbuf, lim);
-      /* Loop to retry partial writes. */
+      /* Loop to retry partial writes.  */
       for (soff = 0; soff < lim; soff += ssize)
         {
           ssize = write (fd, pbuf + soff, lim - soff);
@@ -483,7 +481,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
             assume (ssize <= lim - soff);
           else
             {
-              if (! known (size) && (ssize == 0 || errno == ENOSPC))
+              if (!known (size) && (ssize == 0 || errno == ENOSPC))
                 {
                   /* We have found the end of the file.  */
                   if (soff <= OFF_T_MAX - offset)
@@ -499,7 +497,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
                      at all on some (file) systems, or with the current size.
                      I.e., a specified --size that is not aligned, or when
                      dealing with slop at the end of a file with --exact.  */
-                  if (! try_without_directio && errno == EINVAL)
+                  if (!try_without_directio && errno == EINVAL)
                     {
                       direct_mode (fd, false);
                       ssize = 0;
@@ -510,7 +508,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
                          qname, umaxtostr (offset + soff, buf));
 
                   /* 'shred' is often used on bad media, before throwing it
-                     out.  Thus, it shouldn't give up on bad blocks.  This
+                     out.  Thus, it should not give up on bad blocks.  This
                      code works because lim is always a multiple of
                      SECTOR_SIZE, except at the end.  This size constraint
                      also enables direct I/O on some (file) systems.  */
@@ -522,7 +520,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
                       size_t soff1 = (soff | SECTOR_MASK) + 1;
                       if (lseek (fd, offset + soff1, SEEK_SET) != -1)
                         {
-                          /* Arrange to skip this block. */
+                          /* Arrange to skip this block.  */
                           ssize = soff1 - soff;
                           write_error = true;
                           continue;
@@ -535,7 +533,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
             }
         }
 
-      /* Okay, we have written "soff" bytes. */
+      /* Okay, we have written "soff" bytes.  */
 
       if (OFF_T_MAX - offset < soff)
         {
@@ -556,13 +554,13 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
           char size_buf[LONGEST_HUMAN_READABLE + 1];
           int human_progress_opts = (human_autoscale | human_SI
                                      | human_base_1024 | human_B);
-          char const *human_offset
+          const char *human_offset
             = human_readable (offset, offset_buf,
                               human_floor | human_progress_opts, 1, 1);
 
           if (done || !STREQ (previous_human_offset, human_offset))
             {
-              if (! known (size))
+              if (!known (size))
                 error (0, 0, _("%s: pass %lu/%lu (%s)...%s"),
                        qname, k, n, pass_string, human_offset);
               else
@@ -573,7 +571,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
                                  : (off <= TYPE_MAXIMUM (uintmax_t) / 100
                                     ? off * 100 / size
                                     : off / (size / 100)));
-                  char const *human_size
+                  const char *human_size
                     = human_readable (size, size_buf,
                                       human_ceiling | human_progress_opts,
                                       1, 1);
@@ -608,7 +606,7 @@ dopass (int fd, struct stat const *st, char const *qname, off_t *sizep,
         }
     }
 
-  /* Force what we just wrote to hit the media. */
+  /* Force what we just wrote to hit the media.  */
   if (dosync (fd, qname) != 0)
     {
       if (errno != EIO)
@@ -660,7 +658,7 @@ free_pattern_mem:
  *
  * One extension that is included is to complement the first bit in each
  * 512-byte block, to alter the phase of the encoded data in the more
- * complex encodings.  This doesn't apply to MFM, so the 1-bit patterns
+ * complex encodings.  This does not apply to MFM, so the 1-bit patterns
  * are considered part of the 3-bit ones and the 2-bit patterns are
  * considered part of the 4-bit patterns.
  *
@@ -673,7 +671,7 @@ free_pattern_mem:
  * last partial group, and place them into the passes list.
  * Then shuffle the passes list into random order and use that.
  *
- * One extra detail: if we can't include a large enough fraction of the
+ * One extra detail: if we cannot include a large enough fraction of the
  * last group to be interesting, then just substitute random passes.
  *
  * If you want more passes than the entire list of groups can
@@ -682,20 +680,20 @@ free_pattern_mem:
 static int const
   patterns[] =
 {
-  -2,				/* 2 random passes */
-  2, 0x000, 0xFFF,		/* 1-bit */
-  2, 0x555, 0xAAA,		/* 2-bit */
-  -1,				/* 1 random pass */
-  6, 0x249, 0x492, 0x6DB, 0x924, 0xB6D, 0xDB6,	/* 3-bit */
+  -2,       /* 2 random passes */
+  2, 0x000, 0xFFF,    /* 1-bit */
+  2, 0x555, 0xAAA,    /* 2-bit */
+  -1,       /* 1 random pass */
+  6, 0x249, 0x492, 0x6DB, 0x924, 0xB6D, 0xDB6,  /* 3-bit */
   12, 0x111, 0x222, 0x333, 0x444, 0x666, 0x777,
-  0x888, 0x999, 0xBBB, 0xCCC, 0xDDD, 0xEEE,	/* 4-bit */
-  -1,				/* 1 random pass */
+  0x888, 0x999, 0xBBB, 0xCCC, 0xDDD, 0xEEE, /* 4-bit */
+  -1,       /* 1 random pass */
         /* The following patterns have the first bit per block flipped */
   8, 0x1000, 0x1249, 0x1492, 0x16DB, 0x1924, 0x1B6D, 0x1DB6, 0x1FFF,
   14, 0x1111, 0x1222, 0x1333, 0x1444, 0x1555, 0x1666, 0x1777,
   0x1888, 0x1999, 0x1AAA, 0x1BBB, 0x1CCC, 0x1DDD, 0x1EEE,
-  -1,				/* 1 random pass */
-  0				/* End */
+  -1,       /* 1 random pass */
+  0       /* End */
 };
 
 /*
@@ -720,18 +718,18 @@ genpattern (int *dest, size_t num, struct randint_source *s)
   /* Stage 1: choose the passes to use */
   p = patterns;
   randpasses = 0;
-  d = dest;			/* Destination for generated pass list */
-  n = num;			/* Passes remaining to fill */
+  d = dest;     /* Destination for generated pass list */
+  n = num;      /* Passes remaining to fill */
 
   while (true)
     {
-      k = *p++;			/* Block descriptor word */
+      k = *p++;     /* Block descriptor word */
       if (!k)
-        {			/* Loop back to the beginning */
+        {     /* Loop back to the beginning */
           p = patterns;
         }
       else if (k < 0)
-        {			/* -k random passes */
+        {     /* -k random passes */
           k = -k;
           if ((size_t) k >= n)
             {
@@ -742,19 +740,19 @@ genpattern (int *dest, size_t num, struct randint_source *s)
           n -= k;
         }
       else if ((size_t) k <= n)
-        {			/* Full block of patterns */
+        {     /* Full block of patterns */
           memcpy (d, p, k * sizeof (int));
           p += k;
           d += k;
           n -= k;
         }
       else if (n < 2 || 3 * n < (size_t) k)
-        {			/* Finish with random */
+        {     /* Finish with random */
           randpasses += n;
           break;
         }
       else
-        {			/* Pad out with n of the k available */
+        {     /* Pad out with n of the k available */
           do
             {
               if (n == (size_t) k || randint_choose (s, k) < n)
@@ -769,7 +767,7 @@ genpattern (int *dest, size_t num, struct randint_source *s)
           break;
         }
     }
-  top = num - randpasses;	/* Top of initialized data */
+  top = num - randpasses; /* Top of initialized data */
   /* assert (d == dest+top); */
 
   /*
@@ -792,8 +790,8 @@ genpattern (int *dest, size_t num, struct randint_source *s)
    *   entry at random between here and top-1 (inclusive)
    *   and swap the current entry with that one.
    */
-  randpasses--;			/* To speed up later math */
-  accum = randpasses;		/* Bresenham DDA accumulator */
+  randpasses--;     /* To speed up later math */
+  accum = randpasses;   /* Bresenham DDA accumulator */
   for (n = 0; n < num; n++)
     {
       if (accum <= randpasses)
@@ -819,19 +817,19 @@ genpattern (int *dest, size_t num, struct randint_source *s)
  * size bytes of the given fd.  Return true if successful.
  */
 static bool
-do_wipefd (int fd, char const *qname, struct randint_source *s,
+do_wipefd (int fd, const char *qname, struct randint_source *s,
            struct Options const *flags)
 {
   size_t i;
   struct stat st;
-  off_t size;		/* Size to write, size to read */
-  off_t i_size = 0;	/* For small files, initial size to overwrite inode */
-  unsigned long int n;	/* Number of passes for printing purposes */
+  off_t size;   /* Size to write, size to read */
+  off_t i_size = 0; /* For small files, initial size to overwrite inode */
+  unsigned long int n;  /* Number of passes for printing purposes */
   int *passarray;
   bool ok = true;
   struct randread_source *rs;
 
-  n = 0;		/* dopass takes n == 0 to mean "don't print progress" */
+  n = 0;    /* dopass takes n == 0 to mean "do not print progress" */
   if (flags->verbose)
     n = flags->n_iterations + flags->zero_fill;
 
@@ -841,9 +839,9 @@ do_wipefd (int fd, char const *qname, struct randint_source *s,
       return false;
     }
 
-  /* If we know that we can't possibly shred the file, give up now.
+  /* If we know that we cannot possibly shred the file, give up now.
      Otherwise, we may go into an infinite loop writing data before we
-     find that we can't rewind the device.  */
+     find that we cannot rewind the device.  */
   if ((S_ISCHR (st.st_mode) && isatty (fd))
       || S_ISFIFO (st.st_mode)
       || S_ISSOCK (st.st_mode))
@@ -867,7 +865,7 @@ do_wipefd (int fd, char const *qname, struct randint_source *s,
         {
           size = st.st_size;
 
-          if (! flags->exact)
+          if (!flags->exact)
             {
               /* Round up to the nearest block size to clear slack space.  */
               off_t remainder = size % ST_BLKSIZE (st);
@@ -898,7 +896,7 @@ do_wipefd (int fd, char const *qname, struct randint_source *s,
            && st.st_size < MIN (ST_BLKSIZE (st), size))
     i_size = st.st_size;
 
-  /* Schedule the passes in random order. */
+  /* Schedule the passes in random order.  */
   genpattern (passarray, flags->n_iterations, s);
 
   rs = randint_get_source (s);
@@ -943,7 +941,7 @@ do_wipefd (int fd, char const *qname, struct randint_source *s,
 
   /* Now deallocate the data.  The effect of ftruncate is specified
      on regular files and shared memory objects (also directories, but
-     they are not possible here); don't worry about errors reported
+     they are not possible here); do not worry about errors reported
      for other file types.  */
 
   if (flags->remove_file && ftruncate (fd, 0) != 0
@@ -961,7 +959,7 @@ wipefd_out:
 
 /* A wrapper with a little more checking for fds on the command line */
 static bool
-wipefd (int fd, char const *qname, struct randint_source *s,
+wipefd (int fd, const char *qname, struct randint_source *s,
         struct Options const *flags)
 {
   int fd_flags = fcntl (fd, F_GETFL);
@@ -982,7 +980,7 @@ wipefd (int fd, char const *qname, struct randint_source *s,
 /* --- Name-wiping code --- */
 
 /* Characters allowed in a file name - a safe universal set.  */
-static char const nameset[] =
+static const char nameset[] =
 "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_.";
 
 /* Increment NAME (with LEN bytes).  NAME must be a big-endian base N
@@ -995,7 +993,7 @@ incname (char *name, size_t len)
 {
   while (len--)
     {
-      char const *p = strchr (nameset, name[len]);
+      const char *p = strchr (nameset, name[len]);
 
       /* Given that NAME is composed of bytes from NAMESET,
          P will never be NULL here.  */
@@ -1036,13 +1034,13 @@ incname (char *name, size_t len)
  * is ANSI-standard.
  *
  * To force the directory data out, we try to open the directory and
- * invoke fdatasync and/or fsync on it.  This is non-standard, so don't
+ * invoke fdatasync and/or fsync on it.  This is non-standard, so do not
  * insist that it works: just fall back to a global sync in that case.
  * This is fairly significantly Unix-specific.  Of course, on any
  * file system with synchronous metadata updates, this is unnecessary.
  */
 static bool
-wipename (char *oldname, char const *qoldname, struct Options const *flags)
+wipename (char *oldname, const char *qoldname, struct Options const *flags)
 {
   char *newname = xstrdup (oldname);
   char *base = last_component (newname);
@@ -1064,7 +1062,7 @@ wipename (char *oldname, char const *qoldname, struct Options const *flags)
         memset (base, nameset[0], len);
         base[len] = 0;
         bool rename_ok;
-        while (! (rename_ok = (renameatu (AT_FDCWD, oldname, AT_FDCWD, newname,
+        while (!(rename_ok = (renameatu (AT_FDCWD, oldname, AT_FDCWD, newname,
                                           RENAME_NOREPLACE)
                                == 0))
                && errno == EEXIST && incname (base, len))
@@ -1076,10 +1074,10 @@ wipename (char *oldname, char const *qoldname, struct Options const *flags)
             if (flags->verbose)
               {
                 /* People seem to understand this better than talking
-                   about renaming OLDNAME.  NEWNAME doesn't need
+                   about renaming OLDNAME.  NEWNAME does not need
                    quoting because we picked it.  OLDNAME needs to be
                    quoted only the first time.  */
-                char const *old = first ? qoldname : oldname;
+                const char *old = first ? qoldname : oldname;
                 error (0, 0,
                        _("%s: renamed to %s"), old, newname);
                 first = false;
@@ -1119,12 +1117,12 @@ wipename (char *oldname, char const *qoldname, struct Options const *flags)
  * Detail to note: since we do not restore errno to EACCES after
  * a failed chmod, we end up printing the error code from the chmod.
  * This is actually the error that stopped us from proceeding, so
- * it's arguably the right one, and in practice it'll be either EACCES
+ * it is arguably the right one, and in practice it'll be either EACCES
  * again or EPERM, which both give similar error messages.
  * Does anyone disagree?
  */
 static bool
-wipefile (char *name, char const *qname,
+wipefile (char *name, const char *qname,
           struct randint_source *s, struct Options const *flags)
 {
   bool ok;
@@ -1169,13 +1167,12 @@ clear_random_data (void)
 int
 main (int argc, char **argv)
 {
+  int optc;
   bool ok = true;
   struct Options flags = { 0, };
   char **file;
   int n_files;
-  int c;
-  int i;
-  char const *random_source = NULL;
+  const char *random_source = NULL;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -1188,60 +1185,48 @@ main (int argc, char **argv)
   flags.n_iterations = DEFAULT_PASSES;
   flags.size = -1;
 
-  while ((c = getopt_long (argc, argv, "fn:s:uvxz", long_opts, NULL)) != -1)
-    {
-      switch (c)
-        {
-        case 'f':
-          flags.force = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'n':
-          flags.n_iterations = xdectoumax (optarg, 0,
-                                           MIN (ULONG_MAX,
-                                                SIZE_MAX / sizeof (int)), "",
-                                           _("invalid number of passes"), 0);
-          break;
-
-        case RANDOM_SOURCE_OPTION:
-          if (random_source && !STREQ (random_source, optarg))
-            die (EXIT_FAILURE, 0, _("multiple random sources specified"));
-          random_source = optarg;
-          break;
-
-        case 'u':
-          if (optarg == NULL)
-            flags.remove_file = remove_wipesync;
-          else
-            flags.remove_file = XARGMATCH ("--remove", optarg,
-                                           remove_args, remove_methods);
-          break;
-
-        case 's':
-          flags.size = xnumtoumax (optarg, 0, 0, OFF_T_MAX, "cbBkKMGTPEZY0",
-                                   _("invalid file size"), 0);
-          break;
-
-        case 'v':
-          flags.verbose = true;
-          break;
-
-        case 'x':
-          flags.exact = true;
-          break;
-
-        case 'z':
-          flags.zero_fill = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "fn:s:uvxz", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case 'f':
+        flags.force = true;
+        break;
+      case 'n':
+        flags.n_iterations = xdectoumax (optarg, 0,
+                                         MIN (ULONG_MAX, SIZE_MAX / sizeof (int)), "",
+                                         _("invalid number of passes"), 0);
+        break;
+      case RANDOM_SOURCE_OPTION:
+        if (random_source && !STREQ (random_source, optarg))
+          die (EXIT_FAILURE, 0, _("multiple random sources specified"));
+        random_source = optarg;
+        break;
+      case 'u':
+        if (optarg == NULL)
+          flags.remove_file = remove_wipesync;
+        else
+          flags.remove_file = XARGMATCH ("--remove", optarg,
+                                         remove_args, remove_methods);
+        break;
+      case 's':
+        flags.size = xnumtoumax (optarg, 0, 0, OFF_T_MAX, "cbBkKMGTPEZY0",
+                                 _("invalid file size"), 0);
+        break;
+      case 'v':
+        flags.verbose = true;
+        break;
+      case 'x':
+        flags.exact = true;
+        break;
+      case 'z':
+        flags.zero_fill = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   file = argv + optind;
   n_files = argc - optind;
@@ -1253,22 +1238,18 @@ main (int argc, char **argv)
     }
 
   randint_source = randint_all_new (random_source, SIZE_MAX);
-  if (! randint_source)
+  if (!randint_source)
     die (EXIT_FAILURE, errno, "%s", quotef (random_source));
   atexit (clear_random_data);
 
-  for (i = 0; i < n_files; i++)
+  for (int i = 0; i < n_files; i++)
     {
       char *qname = xstrdup (quotef (file[i]));
       if (STREQ (file[i], "-"))
-        {
-          ok &= wipefd (STDOUT_FILENO, qname, randint_source, &flags);
-        }
+        ok &= wipefd (STDOUT_FILENO, qname, randint_source, &flags);
       else
-        {
-          /* Plain filename - Note that this overwrites *argv! */
-          ok &= wipefile (file[i], qname, randint_source, &flags);
-        }
+        /* Plain filename - Note that this overwrites *argv! */
+        ok &= wipefile (file[i], qname, randint_source, &flags);
       free (qname);
     }
 

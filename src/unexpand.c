@@ -23,12 +23,12 @@
    Options:
    --tabs=tab1[,tab2[,...]]
    -t tab1[,tab2[,...]]
-   -tab1[,tab2[,...]]	If only one tab stop is given, set the tabs tab1
+   -tab1[,tab2[,...]] If only one tab stop is given, set the tabs tab1
                         columns apart instead of the default 8.  Otherwise,
                         set the tabs at columns tab1, tab2, etc. (numbered from
                         0); preserve any blanks beyond the tab stops given.
    --all
-   -a			Use tabs wherever they would replace 2 or more blanks,
+   -a     Use tabs wherever they would replace 2 or more blanks,
                         not just at the beginnings of lines.
 
    David MacKenzie <djm@gnu.ai.mit.edu> */
@@ -58,13 +58,11 @@ enum
   CONVERT_FIRST_ONLY_OPTION = CHAR_MAX + 1
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"tabs", required_argument, NULL, 't'},
   {"all", no_argument, NULL, 'a'},
   {"first-only", no_argument, NULL, CONVERT_FIRST_ONLY_OPTION},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -191,7 +189,7 @@ unexpand (void)
                         {
                           column++;
 
-                          if (! (prev_blank && column == next_tab_column))
+                          if (!(prev_blank && column == next_tab_column))
                             {
                               /* It is not yet known whether the pending blanks
                                  will be replaced by tabs.  */
@@ -258,7 +256,7 @@ main (int argc, char **argv)
 {
   bool have_tabval = false;
   uintmax_t tabval IF_LINT ( = 0);
-  int c;
+  int optc;
 
   /* If true, cancel the effect of any -a (explicit or implicit in -t),
      so that only leading blanks will be considered.  */
@@ -272,41 +270,39 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((c = getopt_long (argc, argv, ",0123456789at:", longopts, NULL))
-         != -1)
-    {
-      switch (c)
-        {
-        case '?':
-          usage (EXIT_FAILURE);
-        case 'a':
-          convert_entire_line = true;
-          break;
-        case 't':
-          convert_entire_line = true;
-          parse_tab_stops (optarg);
-          break;
-        case CONVERT_FIRST_ONLY_OPTION:
-          convert_first_only = true;
-          break;
-        case ',':
-          if (have_tabval)
-            add_tab_stop (tabval);
-          have_tabval = false;
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          if (!have_tabval)
-            {
-              tabval = 0;
-              have_tabval = true;
-            }
-          if (!DECIMAL_DIGIT_ACCUMULATE (tabval, c - '0', uintmax_t))
-            die (EXIT_FAILURE, 0, _("tab stop value is too large"));
-          break;
-        }
-    }
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, ",0123456789at:", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case '?':
+        usage (EXIT_FAILURE);
+      case 'a':
+        convert_entire_line = true;
+        break;
+      case 't':
+        convert_entire_line = true;
+        parse_tab_stops (optarg);
+        break;
+      case CONVERT_FIRST_ONLY_OPTION:
+        convert_first_only = true;
+        break;
+      case ',':
+        if (have_tabval)
+          add_tab_stop (tabval);
+        have_tabval = false;
+        break;
+      default:
+        if (!have_tabval)
+          {
+            tabval = 0;
+            have_tabval = true;
+          }
+        if (!DECIMAL_DIGIT_ACCUMULATE (tabval, optc - '0', uintmax_t))
+          die (EXIT_FAILURE, 0, _("tab stop value is too large"));
+        break;
+      }
 
   if (convert_first_only)
     convert_entire_line = false;

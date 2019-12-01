@@ -39,17 +39,19 @@
 
 #define AUTHORS proper_name ("Q. Frank Xia")
 
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include <stdint.h>
+
 #include "system.h"
+
 #include "fadvise.h"
 #include "xbinary-io.h"
 
 #ifdef CRCTAB
 
-# define BIT(x)	((uint_fast32_t) 1 << (x))
-# define SBIT	BIT (31)
+# define BIT(x) ((uint_fast32_t) 1 << (x))
+# define SBIT BIT (31)
 
 /* The generating polynomial is
 
@@ -58,9 +60,9 @@
 
   The i bit in GEN is set if X^i is a summand of G(X) except X^32.  */
 
-# define GEN	(BIT (26) | BIT (23) | BIT (22) | BIT (16) | BIT (12) \
-                 | BIT (11) | BIT (10) | BIT (8) | BIT (7) | BIT (5) \
-                 | BIT (4) | BIT (2) | BIT (1) | BIT (0))
+# define GEN (BIT (26) | BIT (23) | BIT (22) | BIT (16) | BIT (12)   \
+              | BIT (11) | BIT (10) | BIT (8) | BIT (7) | BIT (5)    \
+              | BIT (4) | BIT (2) | BIT (1) | BIT (0))
 
 static uint_fast32_t r[8];
 
@@ -81,7 +83,7 @@ crc_remainder (int m)
     if (BIT (i) & m)
       rem ^= r[i];
 
-  return rem & 0xFFFFFFFF;	/* Make it run on 64-bit machine.  */
+  return rem & 0xFFFFFFFF; /* Make it run on 64-bit machine.  */
 }
 
 int
@@ -165,14 +167,13 @@ static uint_fast32_t const crctab[256] =
   0xa2f33668, 0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
 };
 
-/* Nonzero if any of the files read were the standard input. */
+/* Nonzero if any of the files read were the standard input.  */
 static bool have_read_stdin;
 
 /* Calculate and print the checksum and length in bytes
    of file FILE, or of the standard input if FILE is "-".
    If PRINT_NAME is true, print FILE next to the checksum and size.
    Return true if successful.  */
-
 static bool
 cksum (const char *file, bool print_name)
 {
@@ -182,7 +183,7 @@ cksum (const char *file, bool print_name)
   size_t bytes_read;
   FILE *fp;
   char length_buf[INT_BUFSIZE_BOUND (uintmax_t)];
-  char const *hp;
+  const char *hp;
 
   if (STREQ (file, "-"))
     {
@@ -223,7 +224,7 @@ cksum (const char *file, bool print_name)
       return false;
     }
 
-  if (!STREQ (file, "-") && fclose (fp) == EOF)
+  if (!STREQ (file, "-") && fclose (fp) != 0)
     {
       error (0, errno, "%s", quotef (file));
       return false;
@@ -257,8 +258,7 @@ usage (int status)
       printf (_("\
 Usage: %s [FILE]...\n\
   or:  %s [OPTION]\n\
-"),
-              program_name, program_name);
+"), program_name, program_name);
       fputs (_("\
 Print CRC checksum and byte counts of each FILE.\n\
 \n\
@@ -273,7 +273,6 @@ Print CRC checksum and byte counts of each FILE.\n\
 int
 main (int argc, char **argv)
 {
-  int i;
   bool ok;
 
   initialize_main (&argc, &argv);
@@ -286,10 +285,11 @@ main (int argc, char **argv)
 
   /* Line buffer stdout to ensure lines are written atomically and immediately
      so that processes running in parallel do not intersperse their output.  */
-  setvbuf (stdout, NULL, _IOLBF, 0);
+  if (setvbuf (stdout, NULL, _IOLBF, 0) != 0)
+    die (EXIT_FAILURE, errno, _("could not set buffering of stdout to mode _IOLBF"));
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE, Version,
-                                   true, usage, AUTHORS, (char const *) NULL);
+                                   true, usage, AUTHORS, (const char *) NULL);
 
   have_read_stdin = false;
 
@@ -298,7 +298,7 @@ main (int argc, char **argv)
   else
     {
       ok = true;
-      for (i = optind; i < argc; i++)
+      for (int i = optind; i < argc; i++)
         ok &= cksum (argv[i], true);
     }
 

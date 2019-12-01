@@ -20,7 +20,7 @@
    flexible wrt the size specifications and the use of long options,
    to better fit the "GNU" environment.  */
 
-#include <config.h>             /* sets _FILE_OFFSET_BITS=64 etc. */
+#include <config.h>             /* sets _FILE_OFFSET_BITS=64 etc.  */
 #include <stdio.h>
 #include <getopt.h>
 #include <sys/types.h>
@@ -37,28 +37,25 @@
 
 #define AUTHORS proper_name ("Padraig Brady")
 
-/* (-c) If true, don't create if not already there */
+/* (-c) If true, do not create if not already there */
 static bool no_create;
 
 /* (-o) If true, --size refers to blocks not bytes */
 static bool block_mode;
 
 /* (-r) Reference file to use size from */
-static char const *ref_file;
+static const char *ref_file;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"no-create", no_argument, NULL, 'c'},
   {"io-blocks", no_argument, NULL, 'o'},
   {"reference", required_argument, NULL, 'r'},
   {"size", required_argument, NULL, 's'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
-typedef enum
-{ rm_abs = 0, rm_rel, rm_min, rm_max, rm_rdn, rm_rup } rel_mode_t;
+typedef enum { rm_abs = 0, rm_rel, rm_min, rm_max, rm_rdn, rm_rup } rel_mode_t;
 
 void
 usage (int status)
@@ -98,12 +95,13 @@ SIZE may also be prefixed by one of the following modifying characters:\n\
 '/' round down to multiple of, '%' round up to multiple of.\n"), stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
-/* return true on success, false on error.  */
+/* Return true on success, false on error.  */
 static bool
-do_ftruncate (int fd, char const *fname, off_t ssize, off_t rsize,
+do_ftruncate (int fd, const char *fname, off_t ssize, off_t rsize,
               rel_mode_t rel_mode)
 {
   struct stat sb;
@@ -141,7 +139,7 @@ do_ftruncate (int fd, char const *fname, off_t ssize, off_t rsize,
               if (fsize < 0)
                 {
                   /* Sanity check.  Overflow is the only reason I can think
-                     this would ever go negative. */
+                     this would ever go negative.  */
                   error (0, 0, _("%s has unusable, apparently negative size"),
                          quoteaf (fname));
                   return false;
@@ -201,13 +199,15 @@ do_ftruncate (int fd, char const *fname, off_t ssize, off_t rsize,
 int
 main (int argc, char **argv)
 {
+  int optc;
   bool got_size = false;
   bool errors = false;
   off_t size IF_LINT ( = 0);
   off_t rsize = -1;
   rel_mode_t rel_mode = rm_abs;
-  int c, fd = -1, oflags;
-  char const *fname;
+  int fd = -1;
+  int oflags;
+  const char *fname;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -217,76 +217,69 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((c = getopt_long (argc, argv, "cor:s:", longopts, NULL)) != -1)
-    {
-      switch (c)
-        {
-        case 'c':
-          no_create = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'o':
-          block_mode = true;
-          break;
-
-        case 'r':
-          ref_file = optarg;
-          break;
-
-        case 's':
-          /* skip any whitespace */
-          while (isspace (to_uchar (*optarg)))
+  while ((optc = getopt_long (argc, argv, "cor:s:", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case 'c':
+        no_create = true;
+        break;
+      case 'o':
+        block_mode = true;
+        break;
+      case 'r':
+        ref_file = optarg;
+        break;
+      case 's':
+        /* skip any whitespace */
+        while (isspace (to_uchar (*optarg)))
+          optarg++;
+        switch (*optarg)
+          {
+          case '<':
+            rel_mode = rm_max;
             optarg++;
-          switch (*optarg)
-            {
-            case '<':
-              rel_mode = rm_max;
-              optarg++;
-              break;
-            case '>':
-              rel_mode = rm_min;
-              optarg++;
-              break;
-            case '/':
-              rel_mode = rm_rdn;
-              optarg++;
-              break;
-            case '%':
-              rel_mode = rm_rup;
-              optarg++;
-              break;
-            }
-          /* skip any whitespace */
-          while (isspace (to_uchar (*optarg)))
+            break;
+          case '>':
+            rel_mode = rm_min;
             optarg++;
-          if (*optarg == '+' || *optarg == '-')
-            {
-              if (rel_mode)
-                {
-                  error (0, 0, _("multiple relative modifiers specified"));
-                  /* Note other combinations are flagged as invalid numbers */
-                  usage (EXIT_FAILURE);
-                }
-              rel_mode = rm_rel;
-            }
-          /* Support dd BLOCK size suffixes + lowercase g,t,m for bsd compat.
-             Note we don't support dd's b=512, c=1, w=2 or 21x512MiB formats. */
-          size = xdectoimax (optarg, OFF_T_MIN, OFF_T_MAX, "EgGkKmMPtTYZ0",
-                             _("Invalid number"), 0);
-          /* Rounding to multiple of 0 is nonsensical */
-          if ((rel_mode == rm_rup || rel_mode == rm_rdn) && size == 0)
-            die (EXIT_FAILURE, 0, _("division by zero"));
-          got_size = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+            break;
+          case '/':
+            rel_mode = rm_rdn;
+            optarg++;
+            break;
+          case '%':
+            rel_mode = rm_rup;
+            optarg++;
+            break;
+          }
+        /* skip any whitespace */
+        while (isspace (to_uchar (*optarg)))
+          optarg++;
+        if (*optarg == '+' || *optarg == '-')
+          {
+            if (rel_mode)
+              {
+                error (0, 0, _("multiple relative modifiers specified"));
+                /* Note other combinations are flagged as invalid numbers */
+                usage (EXIT_FAILURE);
+              }
+            rel_mode = rm_rel;
+          }
+        /* Support dd BLOCK size suffixes + lowercase g,t,m for bsd compat.
+           Note we do not support dd's b=512, c=1, w=2 or 21x512MiB formats.  */
+        size = xdectoimax (optarg, OFF_T_MIN, OFF_T_MAX, "EgGkKmMPtTYZ0",
+                           _("Invalid number"), 0);
+        /* Rounding to multiple of 0 is nonsensical */
+        if ((rel_mode == rm_rup || rel_mode == rm_rdn) && size == 0)
+          die (EXIT_FAILURE, 0, _("division by zero"));
+        got_size = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   argv += optind;
   argc -= optind;
@@ -339,7 +332,7 @@ main (int argc, char **argv)
                 file_size = file_end;
               else
                 {
-                  /* restore, in case close clobbered it. */
+                  /* restore, in case close clobbered it.  */
                   errno = saved_errno;
                 }
             }
@@ -359,7 +352,7 @@ main (int argc, char **argv)
     {
       if ((fd = open (fname, oflags, MODE_RW_UGO)) == -1)
         {
-          /* 'truncate -s0 -c no-such-file'  shouldn't gen error
+          /* 'truncate -s0 -c no-such-file'  should not gen error
              'truncate -s0 no-such-dir/file' should gen ENOENT error
              'truncate -s0 no-such-dir/' should gen EISDIR error
              'truncate -s0 .' should gen EISDIR error */

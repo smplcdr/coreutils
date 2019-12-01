@@ -23,8 +23,8 @@
 #include "minmax.h"
 
 /* Deactivate config.h's "rpl_"-prefixed definition of malloc,
-   since we don't link gnulib here, and the replacement isn't
-   needed in this case as we don't malloc(0).  */
+   since we do not link gnulib here, and the replacement is not
+   needed in this case as we do not malloc(0).  */
 #undef malloc
 
 /* Note currently for glibc (2.3.5) the following call does not change
@@ -41,7 +41,7 @@
    the size of a buffer allocated by the setvbuf function. ...
 
    Obviously some interpret the above to mean setvbuf(....,size)
-   is only a hint from the application which I don't agree with.
+   is only a hint from the application which I do not agree with.
 
    FreeBSD's libc seems more sensible in this regard. From the man page:
 
@@ -53,14 +53,14 @@
    will be allocated immediately, and released on close.  This is an extension
    to ANSI C; portable code should use a size of 0 with any NULL buffer.)
    --------------------
-   Another issue is that on glibc-2.7 the following doesn't buffer
-   the first write if it's greater than 1 byte.
+   Another issue is that on glibc-2.7 the following does not buffer
+   the first write if it is greater than 1 byte.
 
        setvbuf(stdout,buf,_IOFBF,127);
 
    Now the POSIX standard says that "allocating a buffer of size bytes does
    not necessarily imply that all of size bytes are used for the buffer area".
-   However I think it's just a buggy implementation due to the various
+   However I think it is just a buggy implementation due to the various
    inconsistencies with write sizes and subsequent writes.  */
 
 static const char *

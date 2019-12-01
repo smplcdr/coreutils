@@ -17,7 +17,7 @@
 ## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # FIXME: once lib/ and gnulib-tests/ are also converted, hoist to Makefile.am
-AM_CFLAGS = $(WERROR_CFLAGS)
+AM_CFLAGS = #$(WERROR_CFLAGS) -Wno-packed -Wno-cast-align
 
 # The list of all programs (separated in different variables to express
 # the how and when they should be installed) is defined in this makefile
@@ -35,38 +35,37 @@ bin_PROGRAMS = @bin_PROGRAMS@
 pkglibexec_PROGRAMS = @pkglibexec_PROGRAMS@
 
 # Needed by the testsuite.
-noinst_PROGRAMS =		\
-  src/getlimits			\
+noinst_PROGRAMS = \
+  src/getlimits \
   src/make-prime-list
 
-noinst_HEADERS =		\
-  src/chown-core.h		\
-  src/copy.h			\
-  src/cp-hash.h			\
-  src/die.h			\
-  src/dircolors.h		\
-  src/expand-common.h		\
-  src/fiemap.h			\
-  src/find-mount-point.h	\
-  src/fs.h			\
-  src/fs-is-local.h		\
-  src/group-list.h		\
-  src/ioblksize.h		\
-  src/longlong.h		\
-  src/ls.h			\
-  src/operand2sig.h		\
-  src/prog-fprintf.h		\
-  src/remove.h			\
-  src/set-fields.h		\
-  src/statx.h			\
-  src/system.h			\
+noinst_HEADERS = \
+  src/chown-core.h \
+  src/copy.h \
+  src/cp-hash.h \
+  src/dircolors.h \
+  src/expand-common.h \
+  src/fiemap.h \
+  src/find-mount-point.h \
+  src/fs.h \
+  src/fs-is-local.h \
+  src/group-list.h \
+  src/ioblksize.h \
+  src/longlong.h \
+  src/ls.h \
+  src/operand2sig.h \
+  src/prog-fprintf.h \
+  src/remove.h \
+  src/set-fields.h \
+  src/statx.h \
+  src/system.h \
   src/uname.h
 
-EXTRA_DIST +=		\
-  src/dcgen		\
-  src/dircolors.hin	\
-  src/primes.h		\
-  src/tac-pipe.c	\
+EXTRA_DIST += \
+  src/dcgen \
+  src/dircolors.hin \
+  src/primes.h \
+  src/tac-pipe.c \
   src/extract-magic
 
 CLEANFILES += $(SCRIPTS)
@@ -149,7 +148,6 @@ src_ls_LDADD = $(LDADD)
 # into BUILT_SOURCES.
 src_make_prime_list_LDADD =
 
-src_md5sum_LDADD = $(LDADD)
 src_mkdir_LDADD = $(LDADD)
 src_mkfifo_LDADD = $(LDADD)
 src_mknod_LDADD = $(LDADD)
@@ -174,11 +172,16 @@ src_rm_LDADD = $(LDADD)
 src_rmdir_LDADD = $(LDADD)
 src_runcon_LDADD = $(LDADD)
 src_seq_LDADD = $(LDADD)
+src_md2sum_LDADD = $(LDADD)
+src_md4sum_LDADD = $(LDADD)
+src_md5sum_LDADD = $(LDADD)
+src_md6sum_LDADD = $(LDADD)
 src_sha1sum_LDADD = $(LDADD)
 src_sha224sum_LDADD = $(LDADD)
 src_sha256sum_LDADD = $(LDADD)
 src_sha384sum_LDADD = $(LDADD)
 src_sha512sum_LDADD = $(LDADD)
+src_sha3sum_LDADD = $(LDADD)
 src_shred_LDADD = $(LDADD)
 src_shuf_LDADD = $(LDADD)
 src_sleep_LDADD = $(LDADD)
@@ -210,6 +213,7 @@ src_users_LDADD = $(LDADD)
 src_wc_LDADD = $(LDADD)
 src_who_LDADD = $(LDADD)
 src_whoami_LDADD = $(LDADD)
+src_xchg_LDADD = $(LDADD)
 src_yes_LDADD = $(LDADD)
 
 # Synonyms.  Recall that Automake transliterates '[' and '/' to '_'.
@@ -220,9 +224,11 @@ src_vdir_LDADD = $(src_ls_LDADD)
 src_cp_LDADD += $(copy_ldadd)
 src_ginstall_LDADD += $(copy_ldadd)
 src_mv_LDADD += $(copy_ldadd)
+src_xchg_LDADD += $(copy_ldadd)
 
 src_mv_LDADD += $(remove_ldadd)
 src_rm_LDADD += $(remove_ldadd)
+src_xchg_LDADD += $(remove_ldadd)
 
 # for eaccess, euidaccess
 copy_ldadd += $(LIB_EACCESS)
@@ -295,13 +301,17 @@ src_printf_LDADD += $(LIBICONV)
 src_ptx_LDADD += $(LIBICONV)
 
 # for libcrypto hash routines
-src_md5sum_LDADD += $(LIB_CRYPTO)
 src_sort_LDADD += $(LIB_CRYPTO)
+src_md2sum_LDADD += $(LIB_CRYPTO)
+src_md4sum_LDADD += $(LIB_CRYPTO)
+src_md5sum_LDADD += $(LIB_CRYPTO)
+src_md6sum_LDADD += $(LIB_CRYPTO)
 src_sha1sum_LDADD += $(LIB_CRYPTO)
 src_sha224sum_LDADD += $(LIB_CRYPTO)
 src_sha256sum_LDADD += $(LIB_CRYPTO)
 src_sha384sum_LDADD += $(LIB_CRYPTO)
 src_sha512sum_LDADD += $(LIB_CRYPTO)
+src_sha3sum_LDADD += $(LIB_CRYPTO)
 
 # for canon_host
 src_pinky_LDADD += $(GETADDRINFO_LIB)
@@ -338,16 +348,15 @@ copy_sources = \
 # confusion with the 'install' target.  The install rule transforms 'ginstall'
 # to install before applying any user-specified name transformations.
 
-# Don't apply prefix transformations to libstdbuf shared lib
+# Do not apply prefix transformations to libstdbuf shared lib
 # as that's not generally needed, and we need to reference the
-# name directly in LD_PRELOAD etc.  In general it's surprising
+# name directly in LD_PRELOAD etc.  In general it is surprising
 # that $(transform) is applied to libexec at all given that is
 # for internal package naming, not privy to $(transform).
 
 transform = s/ginstall/install/;/libstdbuf/!$(program_transform_name)
 
-src_ginstall_SOURCES = src/install.c src/prog-fprintf.c $(copy_sources) \
-		       $(selinux_sources)
+src_ginstall_SOURCES = src/install.c src/prog-fprintf.c $(copy_sources) $(selinux_sources)
 
 # This is for the '[' program.  Automake transliterates '[' and '/' to '_'.
 src___SOURCES = src/lbracket.c
@@ -355,24 +364,24 @@ src___SOURCES = src/lbracket.c
 nodist_src_coreutils_SOURCES = src/coreutils.h
 src_coreutils_SOURCES = src/coreutils.c
 
-src_cp_SOURCES = src/cp.c $(copy_sources) $(selinux_sources)
-src_dir_SOURCES = src/ls.c src/ls-dir.c
 src_env_SOURCES = src/env.c src/operand2sig.c
-src_vdir_SOURCES = src/ls.c src/ls-vdir.c
 src_id_SOURCES = src/id.c src/group-list.c
 src_groups_SOURCES = src/groups.c src/group-list.c
-src_ls_SOURCES = src/ls.c src/ls-ls.c
-src_ln_SOURCES = src/ln.c \
-  src/force-link.c src/force-link.h \
-  src/relpath.c src/relpath.h
+src_ln_SOURCES = src/ln.c src/force-link.c src/force-link.h src/relpath.c src/relpath.h
 src_chown_SOURCES = src/chown.c src/chown-core.c
 src_chgrp_SOURCES = src/chgrp.c src/chown-core.c
 src_kill_SOURCES = src/kill.c src/operand2sig.c
 src_realpath_SOURCES = src/realpath.c src/relpath.c src/relpath.h
 src_timeout_SOURCES = src/timeout.c src/operand2sig.c
 
+src_dir_SOURCES  = src/ls.c src/ls-dir.c
+src_vdir_SOURCES = src/ls.c src/ls-vdir.c
+src_ls_SOURCES   = src/ls.c src/ls-ls.c
+
+src_cp_SOURCES = src/cp.c $(copy_sources) $(selinux_sources)
 src_mv_SOURCES = src/mv.c src/remove.c $(copy_sources) $(selinux_sources)
 src_rm_SOURCES = src/rm.c src/remove.c
+src_xchg_SOURCES = src/xchg.c src/remove.c $(copy_sources) $(selinux_sources)
 
 src_mkdir_SOURCES = src/mkdir.c src/prog-fprintf.c $(selinux_sources)
 src_rmdir_SOURCES = src/rmdir.c src/prog-fprintf.c
@@ -389,28 +398,34 @@ src_arch_SOURCES = src/uname.c src/uname-arch.c
 src_cut_SOURCES = src/cut.c src/set-fields.c
 src_numfmt_SOURCES = src/numfmt.c src/set-fields.c
 
-src_md5sum_CPPFLAGS = -DHASH_ALGO_MD5=1 $(AM_CPPFLAGS)
-src_sha1sum_SOURCES = src/md5sum.c
-src_sha1sum_CPPFLAGS = -DHASH_ALGO_SHA1=1 $(AM_CPPFLAGS)
-src_sha224sum_SOURCES = src/md5sum.c
-src_sha224sum_CPPFLAGS = -DHASH_ALGO_SHA224=1 $(AM_CPPFLAGS)
-src_sha256sum_SOURCES = src/md5sum.c
-src_sha256sum_CPPFLAGS = -DHASH_ALGO_SHA256=1 $(AM_CPPFLAGS)
-src_sha384sum_SOURCES = src/md5sum.c
-src_sha384sum_CPPFLAGS = -DHASH_ALGO_SHA384=1 $(AM_CPPFLAGS)
-src_sha512sum_SOURCES = src/md5sum.c
-src_sha512sum_CPPFLAGS = -DHASH_ALGO_SHA512=1 $(AM_CPPFLAGS)
-src_b2sum_CPPFLAGS = -DHASH_ALGO_BLAKE2=1 -DHAVE_CONFIG_H $(AM_CPPFLAGS)
-src_b2sum_SOURCES = src/md5sum.c \
-		    src/blake2/blake2.h src/blake2/blake2-impl.h \
-		    src/blake2/blake2b-ref.c \
-		    src/blake2/b2sum.c src/blake2/b2sum.h
+src_b2sum_SOURCES        = src/md5sum.c
+src_b2sum_CPPFLAGS       = -DHASH_ALGO_BLAKE2B=1 -DHASH_HAVE_VARIABLE_SIZE=1 $(AM_CPPFLAGS)
+src_md2sum_SOURCES       = src/md5sum.c
+src_md2sum_CPPFLAGS      = -DHASH_ALGO_MD2=1 $(AM_CPPFLAGS)
+src_md4sum_SOURCES       = src/md5sum.c
+src_md4sum_CPPFLAGS      = -DHASH_ALGO_MD4=1 $(AM_CPPFLAGS)
+src_md5sum_SOURCES       = src/md5sum.c
+src_md5sum_CPPFLAGS      = -DHASH_ALGO_MD5=1 $(AM_CPPFLAGS)
+src_md6sum_SOURCES       = src/md5sum.c
+src_md6sum_CPPFLAGS      = -DHASH_ALGO_MD6=1 -DHASH_HAVE_VARIABLE_SIZE=1 $(AM_CPPFLAGS)
+src_sha1sum_SOURCES      = src/md5sum.c
+src_sha1sum_CPPFLAGS     = -DHASH_ALGO_SHA1=1 $(AM_CPPFLAGS)
+src_sha224sum_SOURCES    = src/md5sum.c
+src_sha224sum_CPPFLAGS   = -DHASH_ALGO_SHA224=1 $(AM_CPPFLAGS)
+src_sha256sum_SOURCES    = src/md5sum.c
+src_sha256sum_CPPFLAGS   = -DHASH_ALGO_SHA256=1 $(AM_CPPFLAGS)
+src_sha384sum_SOURCES    = src/md5sum.c
+src_sha384sum_CPPFLAGS   = -DHASH_ALGO_SHA384=1 $(AM_CPPFLAGS)
+src_sha512sum_SOURCES    = src/md5sum.c
+src_sha512sum_CPPFLAGS   = -DHASH_ALGO_SHA512=1 $(AM_CPPFLAGS)
+src_sha3sum_SOURCES      = src/md5sum.c
+src_sha3sum_CPPFLAGS     = -DHASH_ALGO_SHA3=1 -DHASH_HAVE_VARIABLE_SIZE $(AM_CPPFLAGS)
 
-src_base64_SOURCES = src/basenc.c
+src_base64_SOURCES  = src/basenc.c
 src_base64_CPPFLAGS = -DBASE_TYPE=64 $(AM_CPPFLAGS)
-src_base32_SOURCES = src/basenc.c
+src_base32_SOURCES  = src/basenc.c
 src_base32_CPPFLAGS = -DBASE_TYPE=32 $(AM_CPPFLAGS)
-src_basenc_SOURCES = src/basenc.c
+src_basenc_SOURCES  = src/basenc.c
 src_basenc_CPPFLAGS = -DBASE_TYPE=42 $(AM_CPPFLAGS)
 
 src_ginstall_CPPFLAGS = -DENABLE_MATCHPATHCON=1 $(AM_CPPFLAGS)
@@ -418,7 +433,7 @@ src_ginstall_CPPFLAGS = -DENABLE_MATCHPATHCON=1 $(AM_CPPFLAGS)
 src_expand_SOURCES = src/expand.c src/expand-common.c
 src_unexpand_SOURCES = src/unexpand.c src/expand-common.c
 
-# Ensure we don't link against libcoreutils.a as that lib is
+# Ensure we do not link against libcoreutils.a as that lib is
 # not compiled with -fPIC which causes issues on 64 bit at least
 src_libstdbuf_so_LDADD = $(LIBINTL)
 
@@ -483,8 +498,8 @@ src/dircolors.h: src/dcgen src/dircolors.hin
 	$(AM_V_at)mv $@-t $@
 
 # This file is built by maintainers.  It's architecture-independent,
-# and it needs to be built on a widest-known-int architecture, so it's
-# built only if absent.  It is not cleaned because we don't want to
+# and it needs to be built on a widest-known-int architecture, so it is
+# built only if absent.  It is not cleaned because we do not want to
 # insist that maintainers must build on hosts that support the widest
 # known ints (currently 128-bit).
 BUILT_SOURCES += $(top_srcdir)/src/primes.h
@@ -547,7 +562,7 @@ src/fs-magic: Makefile
 	  > $@-t && mv $@-t $@
 
 DISTCLEANFILES += src/fs-latest-magic.h
-# This rule currently gets the latest header, but probably isn't general
+# This rule currently gets the latest header, but probably is not general
 # enough to enable by default.
 #	@kgit='https://git.kernel.org/cgit/linux/kernel/git'; \
 #	wget -q $$kgit/torvalds/linux.git/plain/include/uapi/linux/magic.h \
@@ -588,7 +603,7 @@ src/version.c: Makefile
 	$(AM_V_GEN)rm -f $@
 	$(AM_V_at)${MKDIR_P} src
 	$(AM_V_at)printf '#include <config.h>\n' > $@t
-	$(AM_V_at)printf 'char const *Version = "$(PACKAGE_VERSION)";\n' >> $@t
+	$(AM_V_at)printf 'const char *Version = "$(PACKAGE_VERSION)";\n' >> $@t
 	$(AM_V_at)chmod a-w $@t
 	$(AM_V_at)mv $@t $@
 
@@ -596,7 +611,7 @@ BUILT_SOURCES += src/version.h
 src/version.h: Makefile
 	$(AM_V_GEN)rm -f $@
 	$(AM_V_at)${MKDIR_P} src
-	$(AM_V_at)printf 'extern char const *Version;\n' > $@t
+	$(AM_V_at)printf 'extern const char *Version;\n' > $@t
 	$(AM_V_at)chmod a-w $@t
 	$(AM_V_at)mv $@t $@
 

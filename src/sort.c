@@ -74,7 +74,7 @@ struct rlimit { size_t rlim_cur; };
    present.  */
 #ifndef SA_NOCLDSTOP
 # define SA_NOCLDSTOP 0
-/* No sigprocmask.  Always 'return' zero. */
+/* No sigprocmask.  Always 'return' zero.  */
 # define sigprocmask(How, Set, Oset) (0)
 # define sigset_t int
 # if ! HAVE_SIGINTERRUPT
@@ -97,7 +97,7 @@ struct rlimit { size_t rlim_cur; };
 
 /* Maximum number of lines to merge every time a NODE is taken from
    the merge queue.  Node is at LEVEL in the binary merge tree,
-   and is responsible for merging TOTAL lines. */
+   and is responsible for merging TOTAL lines.  */
 #define MAX_MERGE(total, level) (((total) >> (2 * ((level) + 1))) + 1)
 
 /* Heuristic value for the number of lines for which it is worth creating
@@ -130,30 +130,30 @@ enum
 enum
   {
     /* The number of times we should try to fork a compression process
-       (we retry if the fork call fails).  We don't _need_ to compress
+       (we retry if the fork call fails).  We do not _need_ to compress
        temp files, this is just to reduce disk access, so this number
        can be small.  Each retry doubles in duration.  */
     MAX_FORK_TRIES_COMPRESS = 4,
 
     /* The number of times we should try to fork a decompression process.
-       If we can't fork a decompression process, we can't sort, so this
+       If we cannot fork a decompression process, we cannot sort, so this
        number should be big.  Each retry doubles in duration.  */
     MAX_FORK_TRIES_DECOMPRESS = 9
   };
 
 enum
   {
-    /* Level of the end-of-merge node, one level above the root. */
+    /* Level of the end-of-merge node, one level above the root.  */
     MERGE_END = 0,
 
-    /* Level of the root node in merge tree. */
+    /* Level of the root node in merge tree.  */
     MERGE_ROOT = 1
   };
 
 /* The representation of the decimal point in the current locale.  */
 static int decimal_point;
 
-/* Thousands separator; if -1, then there isn't one.  */
+/* Thousands separator; if -1, then there is not one.  */
 static int thousands_sep;
 
 /* Nonzero if the corresponding locales are hard.  */
@@ -164,94 +164,94 @@ static bool hard_LC_TIME;
 
 #define NONZERO(x) ((x) != 0)
 
-/* The kind of blanks for '-b' to skip in various options. */
+/* The kind of blanks for '-b' to skip in various options.  */
 enum blanktype { bl_start, bl_end, bl_both };
 
-/* The character marking end of line. Default to \n. */
+/* The character marking end of line. Default to \n.  */
 static char eolchar = '\n';
 
-/* Lines are held in core as counted strings. */
+/* Lines are held in core as counted strings.  */
 struct line
 {
-  char *text;			/* Text of the line. */
-  size_t length;		/* Length including final newline. */
-  char *keybeg;			/* Start of first key. */
-  char *keylim;			/* Limit of first key. */
+  char *text;     /* Text of the line.  */
+  size_t length;    /* Length including final newline.  */
+  char *keybeg;     /* Start of first key.  */
+  char *keylim;     /* Limit of first key.  */
 };
 
-/* Input buffers. */
+/* Input buffers.  */
 struct buffer
 {
-  char *buf;			/* Dynamically allocated buffer,
+  char *buf;      /* Dynamically allocated buffer,
                                    partitioned into 3 regions:
                                    - input data;
                                    - unused area;
                                    - an array of lines, in reverse order.  */
-  size_t used;			/* Number of bytes used for input data.  */
-  size_t nlines;		/* Number of lines in the line array.  */
-  size_t alloc;			/* Number of bytes allocated. */
-  size_t left;			/* Number of bytes left from previous reads. */
-  size_t line_bytes;		/* Number of bytes to reserve for each line. */
-  bool eof;			/* An EOF has been read.  */
+  size_t used;      /* Number of bytes used for input data.  */
+  size_t nlines;    /* Number of lines in the line array.  */
+  size_t alloc;     /* Number of bytes allocated.  */
+  size_t left;      /* Number of bytes left from previous reads.  */
+  size_t line_bytes;    /* Number of bytes to reserve for each line.  */
+  bool eof;     /* An EOF has been read.  */
 };
 
 /* Sort key.  */
 struct keyfield
 {
-  size_t sword;			/* Zero-origin 'word' to start at. */
-  size_t schar;			/* Additional characters to skip. */
-  size_t eword;			/* Zero-origin last 'word' of key. */
-  size_t echar;			/* Additional characters in field. */
-  bool const *ignore;		/* Boolean array of characters to ignore. */
-  char const *translate;	/* Translation applied to characters. */
-  bool skipsblanks;		/* Skip leading blanks when finding start.  */
-  bool skipeblanks;		/* Skip leading blanks when finding end.  */
-  bool numeric;			/* Flag for numeric comparison.  Handle
+  size_t sword;     /* Zero-origin 'word' to start at.  */
+  size_t schar;     /* Additional characters to skip.  */
+  size_t eword;     /* Zero-origin last 'word' of key.  */
+  size_t echar;     /* Additional characters in field.  */
+  bool const *ignore;   /* Boolean array of characters to ignore.  */
+  const char *translate;  /* Translation applied to characters.  */
+  bool skipsblanks;   /* Skip leading blanks when finding start.  */
+  bool skipeblanks;   /* Skip leading blanks when finding end.  */
+  bool numeric;     /* Flag for numeric comparison.  Handle
                                    strings of digits with optional decimal
-                                   point, but no exponential notation. */
-  bool random;			/* Sort by random hash of key.  */
-  bool general_numeric;		/* Flag for general, numeric comparison.
-                                   Handle numbers in exponential notation. */
-  bool human_numeric;		/* Flag for sorting by human readable
-                                   units with either SI or IEC prefixes. */
-  bool month;			/* Flag for comparison by month name. */
-  bool reverse;			/* Reverse the sense of comparison. */
-  bool version;			/* sort by version number */
-  bool traditional_used;	/* Traditional key option format is used. */
-  struct keyfield *next;	/* Next keyfield to try. */
+                                   point, but no exponential notation.  */
+  bool random;      /* Sort by random hash of key.  */
+  bool general_numeric;   /* Flag for general, numeric comparison.
+                                   Handle numbers in exponential notation.  */
+  bool human_numeric;   /* Flag for sorting by human readable
+                                   units with either SI or IEC prefixes.  */
+  bool month;     /* Flag for comparison by month name.  */
+  bool reverse;     /* Reverse the sense of comparison.  */
+  bool version;     /* sort by version number */
+  bool traditional_used;  /* Traditional key option format is used.  */
+  struct keyfield *next;  /* Next keyfield to try.  */
 };
 
 struct month
 {
-  char const *name;
+  const char *name;
   int val;
 };
 
-/* Binary merge tree node. */
+/* Binary merge tree node.  */
 struct merge_node
 {
-  struct line *lo;              /* Lines to merge from LO child node. */
-  struct line *hi;              /* Lines to merge from HI child node. */
-  struct line *end_lo;          /* End of available lines from LO. */
-  struct line *end_hi;          /* End of available lines from HI. */
-  struct line **dest;           /* Pointer to destination of merge. */
-  size_t nlo;                   /* Total Lines remaining from LO. */
-  size_t nhi;                   /* Total lines remaining from HI. */
-  struct merge_node *parent;    /* Parent node. */
-  struct merge_node *lo_child;  /* LO child node. */
-  struct merge_node *hi_child;  /* HI child node. */
-  unsigned int level;           /* Level in merge tree. */
-  bool queued;                  /* Node is already in heap. */
-  pthread_mutex_t lock;         /* Lock for node operations. */
+  struct line *lo;              /* Lines to merge from LO child node.  */
+  struct line *hi;              /* Lines to merge from HI child node.  */
+  struct line *end_lo;          /* End of available lines from LO.  */
+  struct line *end_hi;          /* End of available lines from HI.  */
+  struct line **dest;           /* Pointer to destination of merge.  */
+  size_t nlo;                   /* Total Lines remaining from LO.  */
+  size_t nhi;                   /* Total lines remaining from HI.  */
+  struct merge_node *parent;    /* Parent node.  */
+  struct merge_node *lo_child;  /* LO child node.  */
+  struct merge_node *hi_child;  /* HI child node.  */
+  unsigned int level;           /* Level in merge tree.  */
+  bool queued;                  /* Node is already in heap.  */
+  pthread_mutex_t lock;         /* Lock for node operations.  */
 };
 
-/* Priority queue of merge nodes. */
+/* Priority queue of merge nodes.  */
 struct merge_node_queue
 {
-  struct heap *priority_queue;  /* Priority queue of merge tree nodes. */
-  pthread_mutex_t mutex;        /* Lock for queue operations. */
+  struct heap *priority_queue;  /* Priority queue of merge tree nodes.  */
+  pthread_mutex_t mutex;        /* Lock for queue operations.  */
   pthread_cond_t cond;          /* Conditional wait for empty queue to populate
-                                   when popping. */
+                                   when popping.  */
 };
 
 /* Used to implement --unique (-u).  */
@@ -266,10 +266,10 @@ static struct line saved_line;
 /* Table of blanks.  */
 static bool blanks[UCHAR_LIM];
 
-/* Table of non-printing characters. */
+/* Table of non-printing characters.  */
 static bool nonprinting[UCHAR_LIM];
 
-/* Table of non-dictionary characters (not letters, digits, or blanks). */
+/* Table of non-dictionary characters (not letters, digits, or blanks).  */
 static bool nondictionary[UCHAR_LIM];
 
 /* Translation table folding lower case to upper.  */
@@ -278,7 +278,7 @@ static char fold_toupper[UCHAR_LIM];
 #define MONTHS_PER_YEAR 12
 
 /* Table mapping month names to integers.
-   Alphabetic order allows binary search. */
+   Alphabetic order allows binary search.  */
 static struct month monthtab[] =
 {
   {"APR", 4},
@@ -295,7 +295,7 @@ static struct month monthtab[] =
   {"SEP", 9}
 };
 
-/* During the merge phase, the number of files to merge at once. */
+/* During the merge phase, the number of files to merge at once.  */
 #define NMERGE_DEFAULT 16
 
 /* Minimum size for a merge or check buffer.  */
@@ -315,13 +315,13 @@ static size_t sort_size;
 
 /* The initial allocation factor for non-regular files.
    This is used, e.g., when reading from a pipe.
-   Don't make it too big, since it is multiplied by ~130 to
+   Do not make it too big, since it is multiplied by ~130 to
    obtain the size of the actual buffer sort will allocate.
    Also, there may be 8 threads all doing this at the same time.  */
 #define INPUT_FILE_SIZE_GUESS (128 * 1024)
 
-/* Array of directory names in which any temporary files are to be created. */
-static char const **temp_dirs;
+/* Array of directory names in which any temporary files are to be created.  */
+static const char **temp_dirs;
 
 /* Number of temporary directory names used.  */
 static size_t temp_dir_count;
@@ -329,7 +329,7 @@ static size_t temp_dir_count;
 /* Number of allocated slots in temp_dirs.  */
 static size_t temp_dir_alloc;
 
-/* Flag to reverse the order of all comparisons. */
+/* Flag to reverse the order of all comparisons.  */
 static bool reverse;
 
 /* Flag for stable sort.  This turns off the last ditch bytewise
@@ -342,27 +342,27 @@ enum { TAB_DEFAULT = CHAR_MAX + 1 };
 
 /* Tab character separating fields.  If TAB_DEFAULT, then fields are
    separated by the empty string between a non-blank character and a blank
-   character. */
+   character.  */
 static int tab = TAB_DEFAULT;
 
 /* Flag to remove consecutive duplicate lines from the output.
-   Only the last of a sequence of equal lines will be output. */
+   Only the last of a sequence of equal lines will be output.  */
 static bool unique;
 
-/* Nonzero if any of the input files are the standard input. */
+/* Nonzero if any of the input files are the standard input.  */
 static bool have_read_stdin;
 
 /* List of key field comparisons to be tried.  */
 static struct keyfield *keylist;
 
 /* Program used to (de)compress temp files.  Must accept -d.  */
-static char const *compress_program;
+static const char *compress_program;
 
 /* Annotate the output with extra info to aid the user.  */
 static bool debug;
 
 /* Maximum number of files to merge in one go.  If more than this
-   number are present, temp files will be used. */
+   number are present, temp files will be used.  */
 static unsigned int nmerge = NMERGE_DEFAULT;
 
 /* Output an error to stderr and exit using async-signal-safe routines.
@@ -375,7 +375,7 @@ async_safe_die (int errnum, const char *errstr)
 {
   ignore_value (write (STDERR_FILENO, errstr, strlen (errstr)));
 
-  /* Even if defined HAVE_STRERROR_R, we can't use it,
+  /* Even if defined HAVE_STRERROR_R, we cannot use it,
      as it may return a translated string etc. and even if not
      may call malloc which is unsafe.  We might improve this
      by testing for sys_errlist and using that if available.
@@ -396,9 +396,9 @@ async_safe_die (int errnum, const char *errstr)
 /* Report MESSAGE for FILE, then clean up and exit.
    If FILE is null, it represents standard output.  */
 
-static void sort_die (char const *, char const *) ATTRIBUTE_NORETURN;
+static void sort_die (const char *, const char *) ATTRIBUTE_NORETURN;
 static void
-sort_die (char const *message, char const *file)
+sort_die (const char *message, const char *file)
 {
   die (SORT_FAILURE, errno, "%s: %s", message,
        quotef (file ? file : _("standard output")));
@@ -542,9 +542,9 @@ enum
   PARALLEL_OPTION
 };
 
-static char const short_options[] = "-bcCdfghik:mMno:rRsS:t:T:uVy:z";
+static const char short_options[] = "-bcCdfghik:mMno:rRsS:t:T:uVy:z";
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"ignore-leading-blanks", no_argument, NULL, 'b'},
   {"check", optional_argument, NULL, CHECK_OPTION},
@@ -574,8 +574,6 @@ static struct option const long_options[] =
   {"unique", no_argument, NULL, 'u'},
   {"zero-terminated", no_argument, NULL, 'z'},
   {"parallel", required_argument, NULL, PARALLEL_OPTION},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0},
 };
 
@@ -584,13 +582,13 @@ static struct option const long_options[] =
   _ct_("silent",         'C') \
   _ct_("diagnose-first", 'c')
 
-static char const *const check_args[] =
+static const char *const check_args[] =
 {
 #define _ct_(_s, _c) _s,
   CHECK_TABLE NULL
 #undef  _ct_
 };
-static char const check_types[] =
+static const char check_types[] =
 {
 #define _ct_(_s, _c) _c,
   CHECK_TABLE
@@ -605,13 +603,13 @@ static char const check_types[] =
   _st_("random",          'R') \
   _st_("version",         'V')
 
-static char const *const sort_args[] =
+static const char *const sort_args[] =
 {
 #define _st_(_s, _c) _s,
   SORT_TABLE NULL
 #undef  _st_
 };
-static char const sort_types[] =
+static const char sort_types[] =
 {
 #define _st_(_s, _c) _c,
   SORT_TABLE
@@ -642,7 +640,7 @@ cs_leave (struct cs_status const *status)
 {
   if (status->valid)
     {
-      /* Ignore failure when restoring the signal mask. */
+      /* Ignore failure when restoring the signal mask.  */
       pthread_sigmask (SIG_SETMASK, &status->sigs, NULL);
     }
 }
@@ -652,7 +650,7 @@ cs_leave (struct cs_status const *status)
    the subprocess to finish.  */
 enum { UNCOMPRESSED, UNREAPED, REAPED };
 
-/* The list of temporary files. */
+/* The list of temporary files.  */
 struct tempnode
 {
   struct tempnode *volatile next;
@@ -667,7 +665,7 @@ static struct tempnode *volatile *temptail = &temphead;
 struct sortfile
 {
   /* The file's name.  */
-  char const *name;
+  const char *name;
 
   /* Non-null if this is a temporary file, in which case NAME == TEMP->name.  */
   struct tempnode *temp;
@@ -716,7 +714,7 @@ reap (pid_t pid)
          quoteaf (compress_program));
   else if (0 < cpid && (0 < pid || delete_proc (cpid)))
     {
-      if (! WIFEXITED (status) || WEXITSTATUS (status))
+      if (!WIFEXITED (status) || WEXITSTATUS (status))
         die (SORT_FAILURE, 0, _("%s [-d] terminated abnormally"),
              quoteaf (compress_program));
       --nprocs;
@@ -726,24 +724,24 @@ reap (pid_t pid)
 }
 
 /* TEMP represents a new process; add it to the process table.  Create
-   the process table the first time it's called.  */
+   the process table the first time it is called.  */
 
 static void
 register_proc (struct tempnode *temp)
 {
-  if (! proctab)
+  if (!proctab)
     {
       proctab = hash_initialize (INIT_PROCTAB_SIZE, NULL,
                                  proctab_hasher,
                                  proctab_comparator,
                                  NULL);
-      if (! proctab)
+      if (!proctab)
         xalloc_die ();
     }
 
   temp->state = UNREAPED;
 
-  if (! hash_insert (proctab, temp))
+  if (!hash_insert (proctab, temp))
     xalloc_die ();
 }
 
@@ -757,7 +755,7 @@ delete_proc (pid_t pid)
 
   test.pid = pid;
   struct tempnode *node = hash_delete (proctab, &test);
-  if (! node)
+  if (!node)
     return false;
   node->state = REAPED;
   return true;
@@ -840,11 +838,11 @@ exit_cleanup (void)
 static struct tempnode *
 create_temp_file (int *pfd, bool survive_fd_exhaustion)
 {
-  static char const slashbase[] = "/sortXXXXXX";
+  static const char slashbase[] = "/sortXXXXXX";
   static size_t temp_dir_index;
   int fd;
   int saved_errno;
-  char const *temp_dir = temp_dirs[temp_dir_index];
+  const char *temp_dir = temp_dirs[temp_dir_index];
   size_t len = strlen (temp_dir);
   struct tempnode *node =
     xmalloc (FLEXSIZEOF (struct tempnode, name, len + sizeof slashbase));
@@ -871,7 +869,7 @@ create_temp_file (int *pfd, bool survive_fd_exhaustion)
 
   if (fd < 0)
     {
-      if (! (survive_fd_exhaustion && errno == EMFILE))
+      if (!(survive_fd_exhaustion && errno == EMFILE))
         die (SORT_FAILURE, errno, _("cannot create temporary file in %s"),
              quoteaf (temp_dir));
       free (node);
@@ -934,7 +932,7 @@ get_outstatus (void)
    the priority of input data in the cache as sort will
    only need to process it once.  However its functionality
    has changed over Linux kernel versions and as of 2.6.31
-   it does nothing and thus we can't depend on what it might
+   it does nothing and thus we cannot depend on what it might
    do in future.
 
    FADVISE_DONTNEED is not appropriate for user specified
@@ -943,7 +941,7 @@ get_outstatus (void)
    however when the files are unlinked.  */
 
 static FILE *
-stream_open (char const *file, char const *how)
+stream_open (const char *file, const char *how)
 {
   FILE *fp;
 
@@ -974,27 +972,28 @@ stream_open (char const *file, char const *how)
       fp = stdout;
     }
   else
-    assert (!"unexpected mode passed to stream_open");
+    {
+      assert (!"unexpected mode passed to stream_open");
+      return NULL;
+    }
 
   return fp;
 }
 
 /* Same as stream_open, except always return a non-null value; die on
    failure.  */
-
 static FILE *
-xfopen (char const *file, char const *how)
+xfopen (const char *file, const char *how)
 {
   FILE *fp = stream_open (file, how);
-  if (!fp)
+  if (fp == NULL)
     sort_die (_("open failed"), file);
   return fp;
 }
 
 /* Close FP, whose name is FILE, and report any errors.  */
-
 static void
-xfclose (FILE *fp, char const *file)
+xfclose (FILE *fp, const char *file)
 {
   switch (fileno (fp))
     {
@@ -1003,13 +1002,11 @@ xfclose (FILE *fp, char const *file)
       if (feof (fp))
         clearerr (fp);
       break;
-
     case STDOUT_FILENO:
-      /* Don't close stdout just yet.  close_stdout does that.  */
+      /* Do not close stdout just yet.  close_stdout does that.  */
       if (fflush (fp) != 0)
         sort_die (_("fflush failed"), file);
       break;
-
     default:
       if (fclose (fp) != 0)
         sort_die (_("close failed"), file);
@@ -1018,7 +1015,6 @@ xfclose (FILE *fp, char const *file)
 }
 
 /* Move OLDFD to NEWFD.  If OLDFD != NEWFD, NEWFD is not close-on-exec.  */
-
 static void
 move_fd (int oldfd, int newfd)
 {
@@ -1033,8 +1029,7 @@ move_fd (int oldfd, int newfd)
 /* Fork a child process for piping to and do common cleanup.  The
    TRIES parameter specifies how many times to try to fork before
    giving up.  Return the PID of the child, or -1 (setting errno)
-   on failure. */
-
+   on failure.  */
 static pid_t
 pipe_fork (int pipefds[2], size_t tries)
 {
@@ -1117,7 +1112,7 @@ maybe_create_temp (FILE **pfp, bool survive_fd_exhaustion)
 {
   int tempfd;
   struct tempnode *node = create_temp_file (&tempfd, survive_fd_exhaustion);
-  if (! node)
+  if (!node)
     return NULL;
 
   node->state = UNCOMPRESSED;
@@ -1150,7 +1145,7 @@ maybe_create_temp (FILE **pfp, bool survive_fd_exhaustion)
     }
 
   *pfp = fdopen (tempfd, "w");
-  if (! *pfp)
+  if (!*pfp)
     sort_die (_("couldn't create temporary file"), node->name);
 
   return node;
@@ -1214,7 +1209,7 @@ open_temp (struct tempnode *temp)
       close (pipefds[1]);
 
       fp = fdopen (pipefds[0], "r");
-      if (! fp)
+      if (!fp)
         {
           int saved_errno = errno;
           close (pipefds[0]);
@@ -1228,7 +1223,7 @@ open_temp (struct tempnode *temp)
 
 /* Append DIR to the array of temporary directory names.  */
 static void
-add_temp_dir (char const *dir)
+add_temp_dir (const char *dir)
 {
   if (temp_dir_count == temp_dir_alloc)
     temp_dirs = X2NREALLOC (temp_dirs, &temp_dir_alloc);
@@ -1239,7 +1234,7 @@ add_temp_dir (char const *dir)
 /* Remove NAME from the list of temporary files.  */
 
 static void
-zaptemp (char const *name)
+zaptemp (const char *name)
 {
   struct tempnode *volatile *pnode;
   struct tempnode *node;
@@ -1264,7 +1259,7 @@ zaptemp (char const *name)
 
   if (unlink_status != 0)
     error (0, unlink_errno, _("warning: cannot remove: %s"), quotef (name));
-  if (! next)
+  if (!next)
     temptail = pnode;
   free (node);
 }
@@ -1281,7 +1276,7 @@ struct_month_cmp (void const *m1, void const *m2)
 
 #endif
 
-/* Initialize the character class tables. */
+/* Initialize the character class tables.  */
 
 static void
 inittables (void)
@@ -1302,7 +1297,7 @@ inittables (void)
     {
       for (i = 0; i < MONTHS_PER_YEAR; i++)
         {
-          char const *s;
+          const char *s;
           size_t s_len;
           size_t j, k;
           char *name;
@@ -1313,7 +1308,7 @@ inittables (void)
           monthtab[i].val = i + 1;
 
           for (j = k = 0; j < s_len; j++)
-            if (! isblank (to_uchar (s[j])))
+            if (!isblank (to_uchar (s[j])))
               name[k++] = fold_toupper[to_uchar (s[j])];
           name[k] = '\0';
         }
@@ -1324,9 +1319,9 @@ inittables (void)
 
 /* Specify how many inputs may be merged at once.
    This may be set on the command-line with the
-   --batch-size option. */
+   --batch-size option.  */
 static void
-specify_nmerge (int oi, char c, char const *s)
+specify_nmerge (int oi, char c, const char *s)
 {
   uintmax_t n;
   struct rlimit rlimit;
@@ -1334,7 +1329,7 @@ specify_nmerge (int oi, char c, char const *s)
 
   /* Try to find out how many file descriptors we'll be able
      to open.  We need at least nmerge + 3 (STDIN_FILENO,
-     STDOUT_FILENO and STDERR_FILENO). */
+     STDOUT_FILENO and STDERR_FILENO).  */
   unsigned int max_nmerge = ((getrlimit (RLIMIT_NOFILE, &rlimit) == 0
                               ? rlimit.rlim_cur
                               : OPEN_MAX)
@@ -1380,7 +1375,7 @@ specify_nmerge (int oi, char c, char const *s)
 
 /* Specify the amount of main memory to use when sorting.  */
 static void
-specify_sort_size (int oi, char c, char const *s)
+specify_sort_size (int oi, char c, const char *s)
 {
   uintmax_t n;
   char *suffix;
@@ -1441,7 +1436,7 @@ specify_sort_size (int oi, char c, char const *s)
 
 /* Specify the number of threads to spawn during internal sort.  */
 static size_t
-specify_nthreads (int oi, char c, char const *s)
+specify_nthreads (int oi, char c, const char *s)
 {
   uintmax_t nthreads;
   enum strtol_error e = xstrtoumax (s, NULL, 10, &nthreads, "");
@@ -1461,7 +1456,7 @@ static size_t
 default_sort_size (void)
 {
   /* Let SIZE be MEM, but no more than the maximum object size,
-     total memory, or system resource limits.  Don't bother to check
+     total memory, or system resource limits.  Do not bother to check
      for values like RLIM_INFINITY since in practice they are not much
      less than SIZE_MAX.  */
   size_t size = SIZE_MAX;
@@ -1548,10 +1543,10 @@ sort_buffer_size (FILE *const *fps, size_t nfps,
           file_size = INPUT_FILE_SIZE_GUESS;
         }
 
-      if (! size_bound)
+      if (!size_bound)
         {
           size_bound = sort_size;
-          if (! size_bound)
+          if (!size_bound)
             size_bound = default_sort_size ();
         }
 
@@ -1606,7 +1601,7 @@ buffer_linelim (struct buffer const *buf)
 }
 
 /* Return a pointer to the first character of the field specified
-   by KEY in LINE. */
+   by KEY in LINE.  */
 
 static char *
 begfield (struct line const *line, struct keyfield const *key)
@@ -1648,7 +1643,7 @@ begfield (struct line const *line, struct keyfield const *key)
 }
 
 /* Return the limit of (a pointer to the first character after) the field
-   in LINE specified by KEY. */
+   in LINE specified by KEY.  */
 
 static char *
 limfield (struct line const *line, struct keyfield const *key)
@@ -1685,8 +1680,8 @@ limfield (struct line const *line, struct keyfield const *key)
 
 #ifdef POSIX_UNSPECIFIED
   /* The following block of code makes GNU sort incompatible with
-     standard Unix sort, so it's ifdef'd out for now.
-     The POSIX spec isn't clear on how to interpret this.
+     standard Unix sort, so it is ifdef'd out for now.
+     The POSIX spec is not clear on how to interpret this.
      FIXME: request clarification.
 
      From: kwzh@gnu.ai.mit.edu (Karl Heuer)
@@ -1756,7 +1751,7 @@ limfield (struct line const *line, struct keyfield const *key)
    Return true if some input was read.  */
 
 static bool
-fillbuf (struct buffer *buf, FILE *fp, char const *file)
+fillbuf (struct buffer *buf, FILE *fp, const char *file)
 {
   struct keyfield const *key = keylist;
   char eol = eolchar;
@@ -1870,7 +1865,7 @@ fillbuf (struct buffer *buf, FILE *fp, char const *file)
 }
 
 /* Table that maps characters to order-of-magnitude values.  */
-static char const unit_order[UCHAR_LIM] =
+static const char unit_order[UCHAR_LIM] =
   {
 #if ! ('K' == 75 && 'M' == 77 && 'G' == 71 && 'T' == 84 && 'P' == 80 \
      && 'E' == 69 && 'Z' == 90 && 'Y' == 89 && 'k' == 107)
@@ -1903,9 +1898,9 @@ static char const unit_order[UCHAR_LIM] =
    or '\0' if no digit has been found.  Upon return *number points at the
    character that immediately follows after the given number.  */
 static unsigned char
-traverse_raw_number (char const **number)
+traverse_raw_number (const char **number)
 {
-  char const *p = *number;
+  const char *p = *number;
   unsigned char ch;
   unsigned char max_digit = '\0';
   bool ends_with_thousands_sep = false;
@@ -1951,10 +1946,10 @@ traverse_raw_number (char const **number)
    Negative numbers get negative orders; zero numbers have a zero order.  */
 
 static int _GL_ATTRIBUTE_PURE
-find_unit_order (char const *number)
+find_unit_order (const char *number)
 {
   bool minus_sign = (*number == '-');
-  char const *p = number + minus_sign;
+  const char *p = number + minus_sign;
   unsigned char max_digit = traverse_raw_number (&p);
   if ('0' < max_digit)
     {
@@ -1970,7 +1965,7 @@ find_unit_order (char const *number)
        <none/unknown> < K/k < M < G < T < P < E < Z < Y  */
 
 static int
-human_numcompare (char const *a, char const *b)
+human_numcompare (const char *a, const char *b)
 {
   while (blanks[to_uchar (*a)])
     a++;
@@ -1983,10 +1978,10 @@ human_numcompare (char const *a, char const *b)
 
 /* Compare strings A and B as numbers without explicitly converting them to
    machine numbers.  Comparatively slow for short strings, but asymptotically
-   hideously fast. */
+   hideously fast.  */
 
 static int
-numcompare (char const *a, char const *b)
+numcompare (const char *a, const char *b)
 {
   while (blanks[to_uchar (*a)])
     a++;
@@ -2001,7 +1996,7 @@ numcompare (char const *a, char const *b)
    A and B before calling strtold.  FIXME: remove this function if
    gnulib guarantees that strtold's result is always well defined.  */
 static int
-nan_compare (char const *sa, char const *sb)
+nan_compare (const char *sa, const char *sb)
 {
   long double a;
   memset (&a, 0, sizeof a);
@@ -2015,10 +2010,10 @@ nan_compare (char const *sa, char const *sb)
 }
 
 static int
-general_numcompare (char const *sa, char const *sb)
+general_numcompare (const char *sa, const char *sb)
 {
   /* FIXME: maybe add option to try expensive FP conversion
-     only if A and B can't be compared more cheaply/accurately.  */
+     only if A and B cannot be compared more cheaply/accurately.  */
 
   char *ea;
   char *eb;
@@ -2046,7 +2041,7 @@ general_numcompare (char const *sa, char const *sb)
    Return 0 if the name in S is not recognized.  */
 
 static int
-getmonth (char const *month, char **ea)
+getmonth (const char *month, char **ea)
 {
   size_t lo = 0;
   size_t hi = MONTHS_PER_YEAR;
@@ -2057,8 +2052,8 @@ getmonth (char const *month, char **ea)
   do
     {
       size_t ix = (lo + hi) / 2;
-      char const *m = month;
-      char const *n = monthtab[ix].name;
+      const char *m = month;
+      const char *n = monthtab[ix].name;
 
       for (;; m++, n++)
         {
@@ -2091,11 +2086,11 @@ static struct md5_ctx random_md5_state;
 /* Initialize the randomly chosen MD5 state.  */
 
 static void
-random_md5_state_init (char const *random_source)
+random_md5_state_init (const char *random_source)
 {
   unsigned char buf[MD5_DIGEST_SIZE];
   struct randread_source *r = randread_new (random_source, sizeof buf);
-  if (! r)
+  if (!r)
     sort_die (_("open failed"), random_source);
   randread (r, buf, sizeof buf);
   if (randread_free (r) != 0)
@@ -2107,7 +2102,7 @@ random_md5_state_init (char const *random_source)
 /* This is like strxfrm, except it reports any error and exits.  */
 
 static size_t
-xstrxfrm (char *restrict dest, char const *restrict src, size_t destsize)
+xstrxfrm (char *restrict dest, const char *restrict src, size_t destsize)
 {
   errno = 0;
   size_t translated_size = strxfrm (dest, src, destsize);
@@ -2148,8 +2143,8 @@ compare_random (char *restrict texta, size_t lena,
 
   if (hard_LC_COLLATE)
     {
-      char const *lima = texta + lena;
-      char const *limb = textb + lenb;
+      const char *lima = texta + lena;
+      const char *limb = textb + lenb;
 
       while (true)
         {
@@ -2166,7 +2161,7 @@ compare_random (char *restrict texta, size_t lena,
           /* Store the transformed data into a big-enough buffer.  */
 
           /* A 3X size guess avoids the overhead of calling strxfrm
-             twice on typical implementations.  Don't worry about
+             twice on typical implementations.  Do not worry about
              size_t overflow, as the guess need not be correct.  */
           size_t guess_bufsize = 3 * (lena + lenb) + 2;
           if (bufsize < guess_bufsize)
@@ -2174,7 +2169,7 @@ compare_random (char *restrict texta, size_t lena,
               bufsize = MAX (guess_bufsize, bufsize * 3 / 2);
               free (allocated);
               buf = allocated = malloc (bufsize);
-              if (! buf)
+              if (!buf)
                 {
                   buf = stackbuf;
                   bufsize = sizeof stackbuf;
@@ -2191,7 +2186,7 @@ compare_random (char *restrict texta, size_t lena,
                 + 1)
              : 0);
 
-          if (! (a_fits && sizea + sizeb <= bufsize))
+          if (!(a_fits && sizea + sizeb <= bufsize))
             {
               bufsize = sizea + sizeb;
               if (bufsize < SIZE_MAX / 3)
@@ -2212,7 +2207,7 @@ compare_random (char *restrict texta, size_t lena,
             texta += strlen (texta) + 1;
           if (textb < limb)
             textb += strlen (textb) + 1;
-          if (! (texta < lima || textb < limb))
+          if (!(texta < lima || textb < limb))
             {
               lena = sizea; texta = buf;
               lenb = sizeb; textb = buf + sizea;
@@ -2225,10 +2220,10 @@ compare_random (char *restrict texta, size_t lena,
           md5_process_bytes (buf + sizea, sizeb, &s[1]);
 
           /* Update the tiebreaker comparison of the transformed data.  */
-          if (! xfrm_diff)
+          if (!xfrm_diff)
             {
               xfrm_diff = memcmp (buf, buf + sizea, MIN (sizea, sizeb));
-              if (! xfrm_diff)
+              if (!xfrm_diff)
                 xfrm_diff = (sizea > sizeb) - (sizea < sizeb);
             }
         }
@@ -2240,12 +2235,12 @@ compare_random (char *restrict texta, size_t lena,
   int diff = memcmp (dig[0], dig[1], sizeof dig[0]);
 
   /* Fall back on the tiebreaker if the checksums collide.  */
-  if (! diff)
+  if (!diff)
     {
-      if (! xfrm_diff)
+      if (!xfrm_diff)
         {
           xfrm_diff = memcmp (texta, textb, MIN (lena, lenb));
-          if (! xfrm_diff)
+          if (!xfrm_diff)
             xfrm_diff = (lena > lenb) - (lena < lenb);
         }
 
@@ -2262,7 +2257,7 @@ compare_random (char *restrict texta, size_t lena,
    FIXME: Should we generally be counting non printable chars?  */
 
 static size_t
-debug_width (char const *text, char const *lim)
+debug_width (const char *text, const char *lim)
 {
   size_t width = mbsnwidth (text, lim - text, 0);
   while (text < lim)
@@ -2335,7 +2330,7 @@ debug_key (struct line const *line, struct keyfield const *key)
             ignore_value (strtold (beg, &tighter_lim));
           else if (key->numeric || key->human_numeric)
             {
-              char const *p = beg + (beg < lim && *beg == '-');
+              const char *p = beg + (beg < lim && *beg == '-');
               unsigned char max_digit = traverse_raw_number (&p);
               if ('0' <= max_digit)
                 {
@@ -2523,7 +2518,7 @@ key_warnings (struct keyfield const *gkey, bool gkey_only)
 }
 
 /* Compare two lines A and B trying every key in sequence until there
-   are no more keys or a difference is found. */
+   are no more keys or a difference is found.  */
 
 static int
 keycompare (struct line const *a, struct line const *b)
@@ -2531,7 +2526,7 @@ keycompare (struct line const *a, struct line const *b)
   struct keyfield *key = keylist;
 
   /* For the first iteration only, the key positions have been
-     precomputed for us. */
+     precomputed for us.  */
   char *texta = a->keybeg;
   char *textb = b->keybeg;
   char *lima = a->keylim;
@@ -2541,14 +2536,14 @@ keycompare (struct line const *a, struct line const *b)
 
   while (true)
     {
-      char const *translate = key->translate;
+      const char *translate = key->translate;
       bool const *ignore = key->ignore;
 
       /* Treat field ends before field starts as empty fields.  */
       lima = MAX (texta, lima);
       limb = MAX (textb, limb);
 
-      /* Find the lengths. */
+      /* Find the lengths.  */
       size_t lena = lima - texta;
       size_t lenb = limb - textb;
 
@@ -2584,14 +2579,14 @@ keycompare (struct line const *a, struct line const *b)
               /* Put into each copy a version of the key in which the
                  requested characters are ignored or translated.  */
               for (tlena = i = 0; i < lena; i++)
-                if (! (ignore && ignore[to_uchar (texta[i])]))
+                if (!(ignore && ignore[to_uchar (texta[i])]))
                   ta[tlena++] = (translate
                                  ? translate[to_uchar (texta[i])]
                                  : texta[i]);
               ta[tlena] = '\0';
 
               for (tlenb = i = 0; i < lenb; i++)
-                if (! (ignore && ignore[to_uchar (textb[i])]))
+                if (!(ignore && ignore[to_uchar (textb[i])]))
                   tb[tlenb++] = (translate
                                  ? translate[to_uchar (textb[i])]
                                  : textb[i]);
@@ -2638,26 +2633,26 @@ keycompare (struct line const *a, struct line const *b)
         }
       else if (ignore)
         {
-#define CMP_WITH_IGNORE(A, B)						\
-  do									\
-    {									\
-          while (true)							\
-            {								\
-              while (texta < lima && ignore[to_uchar (*texta)])		\
-                ++texta;						\
-              while (textb < limb && ignore[to_uchar (*textb)])		\
-                ++textb;						\
-              if (! (texta < lima && textb < limb))			\
-                break;							\
-              diff = to_uchar (A) - to_uchar (B);			\
-              if (diff)							\
-                goto not_equal;						\
-              ++texta;							\
-              ++textb;							\
-            }								\
+#define CMP_WITH_IGNORE(A, B)           \
+  do                  \
+    {                 \
+          while (true)              \
+            {               \
+              while (texta < lima && ignore[to_uchar (*texta)])   \
+                ++texta;            \
+              while (textb < limb && ignore[to_uchar (*textb)])   \
+                ++textb;            \
+              if (!(texta < lima && textb < limb))     \
+                break;              \
+              diff = to_uchar (A) - to_uchar (B);     \
+              if (diff)             \
+                goto not_equal;           \
+              ++texta;              \
+              ++textb;              \
+            }               \
                                                                         \
-          diff = (texta < lima) - (textb < limb);			\
-    }									\
+          diff = (texta < lima) - (textb < limb);     \
+    }                 \
   while (0)
 
           if (translate)
@@ -2695,7 +2690,7 @@ keycompare (struct line const *a, struct line const *b)
         goto not_equal;
 
       key = key->next;
-      if (! key)
+      if (!key)
         break;
 
       /* Find the beginning and limit of the next field.  */
@@ -2728,7 +2723,7 @@ keycompare (struct line const *a, struct line const *b)
 }
 
 /* Compare two lines A and B, returning negative, zero, or positive
-   depending on whether A compares less than, equal to, or greater than B. */
+   depending on whether A compares less than, equal to, or greater than B.  */
 
 static int
 compare (struct line const *a, struct line const *b)
@@ -2738,7 +2733,7 @@ compare (struct line const *a, struct line const *b)
 
   /* First try to compare on the specified keys (if any).
      The only two cases with no key at all are unadorned sort,
-     and unadorned sort -r. */
+     and unadorned sort -r.  */
   if (keylist)
     {
       diff = keycompare (a, b);
@@ -2762,7 +2757,7 @@ compare (struct line const *a, struct line const *b)
          a 3% increase in performance for short lines.  */
       diff = xmemcoll0 (a->text, alen + 1, b->text, blen + 1);
     }
-  else if (! (diff = memcmp (a->text, b->text, MIN (alen, blen))))
+  else if (!(diff = memcmp (a->text, b->text, MIN (alen, blen))))
     diff = alen < blen ? -1 : alen != blen;
 
   return reverse ? -diff : diff;
@@ -2774,7 +2769,7 @@ compare (struct line const *a, struct line const *b)
    append some debugging information.  */
 
 static void
-write_line (struct line const *line, FILE *fp, char const *output_file)
+write_line (struct line const *line, FILE *fp, const char *output_file)
 {
   char *buf = line->text;
   size_t n_bytes = line->length;
@@ -2783,7 +2778,7 @@ write_line (struct line const *line, FILE *fp, char const *output_file)
   if (!output_file && debug)
     {
       /* Convert TAB to '>' and EOL to \n, and then output debugging info.  */
-      char const *c = buf;
+      const char *c = buf;
 
       while (c < ebuf)
         {
@@ -2813,11 +2808,11 @@ write_line (struct line const *line, FILE *fp, char const *output_file)
    they are not in order.  */
 
 static bool
-check (char const *file_name, char checkonly)
+check (const char *file_name, char checkonly)
 {
   FILE *fp = xfopen (file_name, "r");
-  struct buffer buf;		/* Input buffer. */
-  struct line temp;		/* Copy of previous line. */
+  struct buffer buf;    /* Input buffer.  */
+  struct line temp;   /* Copy of previous line.  */
   size_t alloc = 0;
   uintmax_t line_number = 0;
   struct keyfield const *key = keylist;
@@ -2834,7 +2829,7 @@ check (char const *file_name, char checkonly)
       struct line const *linebase = line - buf.nlines;
 
       /* Make sure the line saved from the old buffer contents is
-         less than or equal to the first line of the new buffer. */
+         less than or equal to the first line of the new buffer.  */
       if (alloc && nonunique <= compare (&temp, line - 1))
         {
         found_disorder:
@@ -2869,7 +2864,7 @@ check (char const *file_name, char checkonly)
           do
             {
               alloc *= 2;
-              if (! alloc)
+              if (!alloc)
                 {
                   alloc = line->length;
                   break;
@@ -2929,29 +2924,29 @@ open_input_files (struct sortfile *files, size_t nfiles, FILE ***pfps)
 
 static void
 mergefps (struct sortfile *files, size_t ntemps, size_t nfiles,
-          FILE *ofp, char const *output_file, FILE **fps)
+          FILE *ofp, const char *output_file, FILE **fps)
 {
   struct buffer *buffer = xnmalloc (nfiles, sizeof *buffer);
-                                /* Input buffers for each file. */
-  struct line saved;		/* Saved line storage for unique check. */
+                                /* Input buffers for each file.  */
+  struct line saved;    /* Saved line storage for unique check.  */
   struct line const *savedline = NULL;
-                                /* &saved if there is a saved line. */
-  size_t savealloc = 0;		/* Size allocated for the saved line. */
+                                /* &saved if there is a saved line.  */
+  size_t savealloc = 0;   /* Size allocated for the saved line.  */
   struct line const **cur = xnmalloc (nfiles, sizeof *cur);
-                                /* Current line in each line table. */
+                                /* Current line in each line table.  */
   struct line const **base = xnmalloc (nfiles, sizeof *base);
                                 /* Base of each line table.  */
   size_t *ord = xnmalloc (nfiles, sizeof *ord);
                                 /* Table representing a permutation of fps,
                                    such that cur[ord[0]] is the smallest line
-                                   and will be next output. */
+                                   and will be next output.  */
   size_t i;
   size_t j;
   size_t t;
   struct keyfield const *key = keylist;
   saved.text = NULL;
 
-  /* Read initial lines from each input file. */
+  /* Read initial lines from each input file.  */
   for (i = 0; i < nfiles; )
     {
       initbuf (&buffer[i], sizeof (struct line),
@@ -2984,20 +2979,20 @@ mergefps (struct sortfile *files, size_t ntemps, size_t nfiles,
 
   /* Set up the ord table according to comparisons among input lines.
      Since this only reorders two items if one is strictly greater than
-     the other, it is stable. */
+     the other, it is stable.  */
   for (i = 0; i < nfiles; ++i)
     ord[i] = i;
   for (i = 1; i < nfiles; ++i)
     if (0 < compare (cur[ord[i - 1]], cur[ord[i]]))
       t = ord[i - 1], ord[i - 1] = ord[i], ord[i] = t, i = 0;
 
-  /* Repeatedly output the smallest line until no input remains. */
+  /* Repeatedly output the smallest line until no input remains.  */
   while (nfiles)
     {
       struct line const *smallest = cur[ord[0]];
 
       /* If uniquified output is turned on, output only the first of
-         an identical series of lines. */
+         an identical series of lines.  */
       if (unique)
         {
           if (savedline && compare (savedline, smallest))
@@ -3011,7 +3006,7 @@ mergefps (struct sortfile *files, size_t ntemps, size_t nfiles,
               if (savealloc < smallest->length)
                 {
                   do
-                    if (! savealloc)
+                    if (!savealloc)
                       {
                         savealloc = smallest->length;
                         break;
@@ -3035,7 +3030,7 @@ mergefps (struct sortfile *files, size_t ntemps, size_t nfiles,
       else
         write_line (smallest, ofp, output_file);
 
-      /* Check if we need to read more lines into core. */
+      /* Check if we need to read more lines into core.  */
       if (base[ord[0]] < smallest)
         cur[ord[0]] = smallest - 1;
       else
@@ -3128,7 +3123,7 @@ mergefps (struct sortfile *files, size_t ntemps, size_t nfiles,
 
 static size_t
 mergefiles (struct sortfile *files, size_t ntemps, size_t nfiles,
-            FILE *ofp, char const *output_file)
+            FILE *ofp, const char *output_file)
 {
   FILE **fps;
   size_t nopened = open_input_files (files, nfiles, &fps);
@@ -3156,17 +3151,17 @@ mergelines (struct line *restrict t, size_t nlines,
     if (compare (lo - 1, hi - 1) <= 0)
       {
         *--t = *--lo;
-        if (! --nlo)
+        if (!--nlo)
           {
             /* HI must equal T now, and there is no need to copy from
-               HI to T. */
+               HI to T.  */
             return;
           }
       }
     else
       {
         *--t = *--hi;
-        if (! --nhi)
+        if (!--nhi)
           {
             do
               *--t = *--lo;
@@ -3267,7 +3262,7 @@ merge_tree_init (size_t nthreads, size_t nlines, struct line *dest)
   return merge_tree;
 }
 
-/* Destroy the merge tree. */
+/* Destroy the merge tree.  */
 static void
 merge_tree_destroy (size_t nthreads, struct merge_node *merge_tree)
 {
@@ -3354,7 +3349,7 @@ lock_node (struct merge_node *node)
   pthread_mutex_lock (&node->lock);
 }
 
-/* Unlock a merge tree NODE. */
+/* Unlock a merge tree NODE.  */
 
 static inline void
 unlock_node (struct merge_node *node)
@@ -3362,7 +3357,7 @@ unlock_node (struct merge_node *node)
   pthread_mutex_unlock (&node->lock);
 }
 
-/* Destroy merge QUEUE. */
+/* Destroy merge QUEUE.  */
 
 static void
 queue_destroy (struct merge_node_queue *queue)
@@ -3378,7 +3373,7 @@ queue_destroy (struct merge_node_queue *queue)
 static void
 queue_init (struct merge_node_queue *queue, size_t nthreads)
 {
-  /* Though it's highly unlikely all nodes are in the heap at the same
+  /* Though it is highly unlikely all nodes are in the heap at the same
      time, the heap should accommodate all of them.  Counting a NULL
      dummy head for the heap, reserve 2 * NTHREADS nodes.  */
   queue->priority_queue = heap_alloc (compare_nodes, 2 * nthreads);
@@ -3406,7 +3401,7 @@ queue_pop (struct merge_node_queue *queue)
 {
   struct merge_node *node;
   pthread_mutex_lock (&queue->mutex);
-  while (! (node = heap_remove_top (queue->priority_queue)))
+  while (!(node = heap_remove_top (queue->priority_queue)))
     pthread_cond_wait (&queue->cond, &queue->mutex);
   pthread_mutex_unlock (&queue->mutex);
   lock_node (node);
@@ -3422,7 +3417,7 @@ queue_pop (struct merge_node_queue *queue)
    appropriate only for internal sort.  */
 
 static void
-write_unique (struct line const *line, FILE *tfp, char const *temp_output)
+write_unique (struct line const *line, FILE *tfp, const char *temp_output)
 {
   if (unique)
     {
@@ -3443,7 +3438,7 @@ write_unique (struct line const *line, FILE *tfp, char const *temp_output)
 
 static void
 mergelines_node (struct merge_node *restrict node, size_t total_lines,
-                 FILE *tfp, char const *temp_output)
+                 FILE *tfp, const char *temp_output)
 {
   struct line *lo_orig = node->lo;
   struct line *hi_orig = node->hi;
@@ -3453,7 +3448,7 @@ mergelines_node (struct merge_node *restrict node, size_t total_lines,
 
   if (node->level > MERGE_ROOT)
     {
-      /* Merge to destination buffer. */
+      /* Merge to destination buffer.  */
       struct line *dest = *node->dest;
       while (node->lo != node->end_lo && node->hi != node->end_hi && to_merge--)
         if (compare (node->lo - 1, node->hi - 1) <= 0)
@@ -3474,7 +3469,7 @@ mergelines_node (struct merge_node *restrict node, size_t total_lines,
     }
   else
     {
-      /* Merge directly to output. */
+      /* Merge directly to output.  */
       while (node->lo != node->end_lo && node->hi != node->end_hi && to_merge--)
         {
           if (compare (node->lo - 1, node->hi - 1) <= 0)
@@ -3498,7 +3493,7 @@ mergelines_node (struct merge_node *restrict node, size_t total_lines,
         }
     }
 
-  /* Update NODE. */
+  /* Update NODE.  */
   merged_lo = lo_orig - node->lo;
   merged_hi = hi_orig - node->hi;
   node->nlo -= merged_lo;
@@ -3512,7 +3507,7 @@ mergelines_node (struct merge_node *restrict node, size_t total_lines,
 static void
 queue_check_insert (struct merge_node_queue *queue, struct merge_node *node)
 {
-  if (! node->queued)
+  if (!node->queued)
     {
       bool lo_avail = (node->lo - node->end_lo) != 0;
       bool hi_avail = (node->hi - node->end_hi) != 0;
@@ -3549,16 +3544,16 @@ queue_check_insert_parent (struct merge_node_queue *queue,
 
 static void
 merge_loop (struct merge_node_queue *queue,
-            size_t total_lines, FILE *tfp, char const *temp_output)
+            size_t total_lines, FILE *tfp, const char *temp_output)
 {
-  while (1)
+  while (true)
     {
       struct merge_node *node = queue_pop (queue);
 
       if (node->level == MERGE_END)
         {
           unlock_node (node);
-          /* Reinsert so other threads can pop it. */
+          /* Reinsert so other threads can pop it.  */
           queue_insert (queue, node);
           break;
         }
@@ -3573,9 +3568,9 @@ merge_loop (struct merge_node_queue *queue,
 
 static void sortlines (struct line *restrict, size_t, size_t,
                        struct merge_node *, struct merge_node_queue *,
-                       FILE *, char const *);
+                       FILE *, const char *);
 
-/* Thread arguments for sortlines_thread. */
+/* Thread arguments for sortlines_thread.  */
 
 struct thread_args
 {
@@ -3590,7 +3585,7 @@ struct thread_args
   size_t const total_lines;
 
   /* Merge node. Lines from this node and this node's sibling will merged
-     to this node's parent. */
+     to this node's parent.  */
   struct merge_node *const node;
 
   /* The priority queue controlling available work for the entire
@@ -3600,7 +3595,7 @@ struct thread_args
   /* If at the top level, the file to output to, and the file's name.
      If the file is standard output, the file's name is null.  */
   FILE *tfp;
-  char const *output_temp;
+  const char *output_temp;
 };
 
 /* Like sortlines, except with a signature acceptable to pthread_create.  */
@@ -3637,16 +3632,16 @@ sortlines_thread (void *data)
    available to that NODE, and potentially insert NODE or its parent back
    into the queue if there are sufficient available lines for them to
    merge. This continues until all lines at all nodes of the merge tree
-   have been merged. */
+   have been merged.  */
 
 static void
 sortlines (struct line *restrict lines, size_t nthreads,
            size_t total_lines, struct merge_node *node,
-           struct merge_node_queue *queue, FILE *tfp, char const *temp_output)
+           struct merge_node_queue *queue, FILE *tfp, const char *temp_output)
 {
   size_t nlines = node->nlo + node->nhi;
 
-  /* Calculate thread arguments. */
+  /* Calculate thread arguments.  */
   size_t lo_threads = nthreads / 2;
   size_t hi_threads = nthreads - lo_threads;
   pthread_t thread;
@@ -3663,7 +3658,7 @@ sortlines (struct line *restrict lines, size_t nthreads,
   else
     {
       /* Nthreads = 1, this is a leaf NODE, or pthread_create failed.
-         Sort with 1 thread. */
+         Sort with 1 thread.  */
       size_t nlo = node->nlo;
       size_t nhi = node->nhi;
       struct line *temp = lines - total_lines;
@@ -3672,7 +3667,7 @@ sortlines (struct line *restrict lines, size_t nthreads,
       if (1 < nlo)
         sequential_sort (lines, nlo, temp, false);
 
-      /* Update merge NODE. No need to lock yet. */
+      /* Update merge NODE. No need to lock yet.  */
       node->lo = lines;
       node->hi = lines - nlo;
       node->end_lo = lines - nlo;
@@ -3687,22 +3682,22 @@ sortlines (struct line *restrict lines, size_t nthreads,
    the same as OUTFILE.  If found, replace each with the same
    temporary copy that can be merged into OUTFILE without destroying
    OUTFILE before it is completely read.  This temporary copy does not
-   count as a merge temp, so don't worry about incrementing NTEMPS in
+   count as a merge temp, so do not worry about incrementing NTEMPS in
    the caller; final cleanup will remove it, not zaptemp.
 
    This test ensures that an otherwise-erroneous use like
    "sort -m -o FILE ... FILE ..." copies FILE before writing to it.
    It's not clear that POSIX requires this nicety.
-   Detect common error cases, but don't try to catch obscure cases like
+   Detect common error cases, but do not try to catch obscure cases like
    "cat ... FILE ... | sort -m -o FILE"
-   where traditional "sort" doesn't copy the input and where
+   where traditional "sort" does not copy the input and where
    people should know that they're getting into trouble anyway.
    Catching these obscure cases would slow down performance in
    common cases.  */
 
 static void
 avoid_trashing_input (struct sortfile *files, size_t ntemps,
-                      size_t nfiles, char const *outfile)
+                      size_t nfiles, const char *outfile)
 {
   struct tempnode *tempcopy = NULL;
 
@@ -3729,7 +3724,7 @@ avoid_trashing_input (struct sortfile *files, size_t ntemps,
 
       if (same)
         {
-          if (! tempcopy)
+          if (!tempcopy)
             {
               FILE *tftp;
               tempcopy = create_temp (&tftp);
@@ -3769,7 +3764,7 @@ check_inputs (char *const *files, size_t nfiles)
    Exit with a diagnostic on failure.  */
 
 static void
-check_output (char const *outfile)
+check_output (const char *outfile)
 {
   if (outfile)
     {
@@ -3788,7 +3783,7 @@ check_output (char const *outfile)
 
 static void
 merge (struct sortfile *files, size_t ntemps, size_t nfiles,
-       char const *output_file)
+       const char *output_file)
 {
   while (nmerge < nfiles)
     {
@@ -3825,7 +3820,7 @@ merge (struct sortfile *files, size_t ntemps, size_t nfiles,
 
       if (cheap_slots < remainder)
         {
-          /* So many files remain that they can't all be put into the last
+          /* So many files remain that they cannot all be put into the last
              NMERGE-sized output window.  Do one more merge.  Merge as few
              files as possible, to avoid needless I/O.  */
           size_t nshortmerge = remainder - cheap_slots + 1;
@@ -3848,9 +3843,9 @@ merge (struct sortfile *files, size_t ntemps, size_t nfiles,
 
   avoid_trashing_input (files, ntemps, nfiles, output_file);
 
-  /* We aren't guaranteed that this final mergefiles will work, therefore we
+  /* We are not guaranteed that this final mergefiles will work, therefore we
      try to merge into the output, and then merge as much as we can into a
-     temp file if we can't. Repeat.  */
+     temp file if we cannot. Repeat.  */
 
   while (true)
     {
@@ -3903,7 +3898,7 @@ merge (struct sortfile *files, size_t ntemps, size_t nfiles,
 /* Sort NFILES FILES onto OUTPUT_FILE.  Use at most NTHREADS threads.  */
 
 static void
-sort (char *const *files, size_t nfiles, char const *output_file,
+sort (char *const *files, size_t nfiles, const char *output_file,
       size_t nthreads)
 {
   struct buffer buf;
@@ -3915,15 +3910,15 @@ sort (char *const *files, size_t nfiles, char const *output_file,
 
   while (nfiles)
     {
-      char const *temp_output;
-      char const *file = *files;
+      const char *temp_output;
+      const char *file = *files;
       FILE *fp = xfopen (file, "r");
       FILE *tfp;
 
       size_t bytes_per_line;
       if (nthreads > 1)
         {
-          /* Get log P. */
+          /* Get log P.  */
           size_t tmp = 1;
           size_t mult = 1;
           while (tmp < nthreads)
@@ -3936,7 +3931,7 @@ sort (char *const *files, size_t nfiles, char const *output_file,
       else
         bytes_per_line = sizeof (struct line) * 3 / 2;
 
-      if (! buf.alloc)
+      if (!buf.alloc)
         initbuf (&buf, bytes_per_line,
                  sort_buffer_size (&fp, 1, files, nfiles, bytes_per_line));
       buf.eof = false;
@@ -3982,10 +3977,8 @@ sort (char *const *files, size_t nfiles, char const *output_file,
               sortlines (line, nthreads, buf.nlines, merge_tree + 1,
                          &queue, tfp, temp_output);
 
-#ifdef lint
-              merge_tree_destroy (nthreads, merge_tree);
-              queue_destroy (&queue);
-#endif
+              IF_LINT (merge_tree_destroy (nthreads, merge_tree));
+              IF_LINT (queue_destroy (&queue));
             }
           else
             write_unique (line - 1, tfp, temp_output);
@@ -4001,7 +3994,7 @@ sort (char *const *files, size_t nfiles, char const *output_file,
  finish:
   free (buf.buf);
 
-  if (! output_file_created)
+  if (!output_file_created)
     {
       struct tempnode *node = temphead;
       struct sortfile *tempfiles = xnmalloc (ntemps, sizeof *tempfiles);
@@ -4034,10 +4027,10 @@ insertkey (struct keyfield *key_arg)
 
 /* Report a bad field specification SPEC, with extra info MSGID.  */
 
-static void badfieldspec (char const *, char const *)
+static void badfieldspec (const char *, const char *)
      ATTRIBUTE_NORETURN;
 static void
-badfieldspec (char const *spec, char const *msgid)
+badfieldspec (const char *spec, const char *msgid)
 {
   die (SORT_FAILURE, 0, _("%s: invalid field specification %s"),
        _(msgid), quote (spec));
@@ -4045,9 +4038,9 @@ badfieldspec (char const *spec, char const *msgid)
 
 /* Report incompatible options.  */
 
-static void incompatible_options (char const *) ATTRIBUTE_NORETURN;
+static void incompatible_options (const char *) ATTRIBUTE_NORETURN;
 static void
-incompatible_options (char const *opts)
+incompatible_options (const char *opts)
 {
   die (SORT_FAILURE, 0, _("options '-%s' are incompatible"), (opts));
 }
@@ -4078,8 +4071,8 @@ check_ordering_compatibility (void)
    substitute SIZE_MAX.  If MSGID is NULL, return NULL after
    failure; otherwise, report MSGID and exit on failure.  */
 
-static char const *
-parse_field_count (char const *string, size_t *val, char const *msgid)
+static const char *
+parse_field_count (const char *string, size_t *val, const char *msgid)
 {
   char *suffix;
   uintmax_t n;
@@ -4107,12 +4100,12 @@ parse_field_count (char const *string, size_t *val, char const *msgid)
   return suffix;
 }
 
-/* Handle interrupts and hangups. */
+/* Handle interrupts and hangups.  */
 
 static void
 sighandler (int sig)
 {
-  if (! SA_NOCLDSTOP)
+  if (!SA_NOCLDSTOP)
     signal (sig, SIG_IGN);
 
   cleanup ();
@@ -4124,10 +4117,10 @@ sighandler (int sig)
 /* Set the ordering options for KEY specified in S.
    Return the address of the first character in S that
    is not a valid ordering option.
-   BLANKTYPE is the kind of blanks that 'b' should skip. */
+   BLANKTYPE is the kind of blanks that 'b' should skip.  */
 
 static char *
-set_ordering (char const *s, struct keyfield *key, enum blanktype blanktype)
+set_ordering (const char *s, struct keyfield *key, enum blanktype blanktype)
 {
   while (*s)
     {
@@ -4152,9 +4145,9 @@ set_ordering (char const *s, struct keyfield *key, enum blanktype blanktype)
           key->human_numeric = true;
           break;
         case 'i':
-          /* Option order should not matter, so don't let -i override
+          /* Option order should not matter, so do not let -i override
              -d.  -d implies -i, but -i does not imply -d.  */
-          if (! key->ignore)
+          if (!key->ignore)
             key->ignore = nonprinting;
           break;
         case 'M':
@@ -4193,12 +4186,12 @@ key_init (struct keyfield *key)
 int
 main (int argc, char **argv)
 {
+  int optc = 0;
   struct keyfield *key;
   struct keyfield key_buf;
   struct keyfield gkey;
   bool gkey_only = false;
-  char const *s;
-  int c = 0;
+  const char *s;
   char checkonly = 0;
   bool mergeonly = false;
   char *random_source = NULL;
@@ -4211,7 +4204,7 @@ main (int argc, char **argv)
   char **files;
   char *files_from = NULL;
   struct Tokens tok;
-  char const *outfile = NULL;
+  const char *outfile = NULL;
   bool locale_ok;
 
   initialize_main (&argc, &argv);
@@ -4231,16 +4224,16 @@ main (int argc, char **argv)
   {
     struct lconv const *locale = localeconv ();
 
-    /* If the locale doesn't define a decimal point, or if the decimal
+    /* If the locale does not define a decimal point, or if the decimal
        point is multibyte, use the C locale's decimal point.  FIXME:
        add support for multibyte decimal points.  */
     decimal_point = to_uchar (locale->decimal_point[0]);
-    if (! decimal_point || locale->decimal_point[1])
+    if (!decimal_point || locale->decimal_point[1])
       decimal_point = '.';
 
     /* FIXME: add support for multibyte thousands separators.  */
     thousands_sep = to_uchar (*locale->thousands_sep);
-    if (! thousands_sep || locale->thousands_sep[1])
+    if (!thousands_sep || locale->thousands_sep[1])
       thousands_sep = -1;
   }
 
@@ -4298,7 +4291,7 @@ main (int argc, char **argv)
         }
 #endif
   }
-  signal (SIGCHLD, SIG_DFL); /* Don't inherit CHLD handling from parent.  */
+  signal (SIGCHLD, SIG_DFL); /* Do not inherit CHLD handling from parent.  */
 
   /* The signal mask is known, so it is safe to invoke exit_cleanup.  */
   atexit (exit_cleanup);
@@ -4308,6 +4301,9 @@ main (int argc, char **argv)
 
   files = xnmalloc (argc, sizeof *files);
 
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
   while (true)
     {
       /* Parse an operand as a file after "--" was seen; or if
@@ -4316,274 +4312,252 @@ main (int argc, char **argv)
          "-o FILE" or "-oFILE".  */
       int oi = -1;
 
-      if (c == -1
+      if (optc == EOF
           || (posixly_correct && nfiles != 0
               && ! (traditional_usage
                     && ! checkonly
                     && optind != argc
                     && argv[optind][0] == '-' && argv[optind][1] == 'o'
                     && (argv[optind][2] || optind + 1 != argc)))
-          || ((c = getopt_long (argc, argv, short_options,
+          || ((optc = getopt_long (argc, argv, short_options,
                                 long_options, &oi))
-              == -1))
+              == EOF))
         {
           if (argc <= optind)
             break;
           files[nfiles++] = argv[optind++];
         }
-      else switch (c)
-        {
-        case 1:
-          key = NULL;
-          if (optarg[0] == '+')
-            {
-              bool minus_pos_usage = (optind != argc && argv[optind][0] == '-'
-                                      && ISDIGIT (argv[optind][1]));
-              traditional_usage |= minus_pos_usage && !posixly_correct;
-              if (traditional_usage)
-                {
-                  /* Treat +POS1 [-POS2] as a key if possible; but silently
-                     treat an operand as a file if it is not a valid +POS1.  */
-                  key = key_init (&key_buf);
-                  s = parse_field_count (optarg + 1, &key->sword, NULL);
-                  if (s && *s == '.')
-                    s = parse_field_count (s + 1, &key->schar, NULL);
-                  if (! (key->sword || key->schar))
-                    key->sword = SIZE_MAX;
-                  if (! s || *set_ordering (s, key, bl_start))
-                    key = NULL;
-                  else
-                    {
-                      if (minus_pos_usage)
-                        {
-                          char const *optarg1 = argv[optind++];
-                          s = parse_field_count (optarg1 + 1, &key->eword,
-                                             N_("invalid number after '-'"));
-                          /* When called with a non-NULL message ID,
-                             parse_field_count cannot return NULL.  Tell static
-                             analysis tools that dereferencing S is safe.  */
-                          assert (s);
-                          if (*s == '.')
-                            s = parse_field_count (s + 1, &key->echar,
-                                               N_("invalid number after '.'"));
-                          if (!key->echar && key->eword)
-                            {
-                              /* obsolescent syntax +A.x -B.y is equivalent to:
+      else
+        switch (optc)
+          {
+          case 1:
+            key = NULL;
+            if (optarg[0] == '+')
+              {
+                bool minus_pos_usage = (optind != argc && argv[optind][0] == '-'
+                                        && ISDIGIT (argv[optind][1]));
+                traditional_usage |= minus_pos_usage && !posixly_correct;
+                if (traditional_usage)
+                  {
+                    /* Treat +POS1 [-POS2] as a key if possible; but silently
+                       treat an operand as a file if it is not a valid +POS1.  */
+                    key = key_init (&key_buf);
+                    s = parse_field_count (optarg + 1, &key->sword, NULL);
+                    if (s && *s == '.')
+                      s = parse_field_count (s + 1, &key->schar, NULL);
+                    if (!(key->sword || key->schar))
+                      key->sword = SIZE_MAX;
+                    if (!s || *set_ordering (s, key, bl_start))
+                      key = NULL;
+                    else
+                      {
+                        if (minus_pos_usage)
+                          {
+                            const char *optarg1 = argv[optind++];
+                            s = parse_field_count (optarg1 + 1, &key->eword,
+                                                   N_("invalid number after '-'"));
+                            /* When called with a non-NULL message ID,
+                               parse_field_count cannot return NULL.  Tell static
+                               analysis tools that dereferencing S is safe.  */
+                            assert (s);
+                            if (*s == '.')
+                              s = parse_field_count (s + 1, &key->echar,
+                                                     N_("invalid number after '.'"));
+                            if (!key->echar && key->eword)
+                              {
+                                /* obsolescent syntax +A.x -B.y is equivalent to:
                                    -k A+1.x+1,B.y   (when y = 0)
                                    -k A+1.x+1,B+1.y (when y > 0)
-                                 So eword is decremented as in the -k case
-                                 only when the end field (B) is specified and
-                                 echar (y) is 0.  */
-                              key->eword--;
-                            }
-                          if (*set_ordering (s, key, bl_end))
-                            badfieldspec (optarg1,
-                                      N_("stray character in field spec"));
-                        }
-                      key->traditional_used = true;
-                      insertkey (key);
-                    }
-                }
-            }
-          if (! key)
-            files[nfiles++] = optarg;
-          break;
-
-        case SORT_OPTION:
-          c = XARGMATCH ("--sort", optarg, sort_args, sort_types);
-          FALLTHROUGH;
-        case 'b':
-        case 'd':
-        case 'f':
-        case 'g':
-        case 'h':
-        case 'i':
-        case 'M':
-        case 'n':
-        case 'r':
-        case 'R':
-        case 'V':
-          {
-            char str[2];
-            str[0] = c;
-            str[1] = '\0';
-            set_ordering (str, &gkey, bl_both);
-          }
-          break;
-
-        case CHECK_OPTION:
-          c = (optarg
-               ? XARGMATCH ("--check", optarg, check_args, check_types)
-               : 'c');
-          FALLTHROUGH;
-        case 'c':
-        case 'C':
-          if (checkonly && checkonly != c)
-            incompatible_options ("cC");
-          checkonly = c;
-          break;
-
-        case COMPRESS_PROGRAM_OPTION:
-          if (compress_program && !STREQ (compress_program, optarg))
-            die (SORT_FAILURE, 0, _("multiple compress programs specified"));
-          compress_program = optarg;
-          break;
-
-        case DEBUG_PROGRAM_OPTION:
-          debug = true;
-          break;
-
-        case FILES0_FROM_OPTION:
-          files_from = optarg;
-          break;
-
-        case 'k':
-          key = key_init (&key_buf);
-
-          /* Get POS1. */
-          s = parse_field_count (optarg, &key->sword,
-                                 N_("invalid number at field start"));
-          if (! key->sword--)
-            {
-              /* Provoke with 'sort -k0' */
-              badfieldspec (optarg, N_("field number is zero"));
-            }
-          if (*s == '.')
-            {
-              s = parse_field_count (s + 1, &key->schar,
-                                     N_("invalid number after '.'"));
-              if (! key->schar--)
-                {
-                  /* Provoke with 'sort -k1.0' */
-                  badfieldspec (optarg, N_("character offset is zero"));
-                }
-            }
-          if (! (key->sword || key->schar))
-            key->sword = SIZE_MAX;
-          s = set_ordering (s, key, bl_start);
-          if (*s != ',')
-            {
-              key->eword = SIZE_MAX;
-              key->echar = 0;
-            }
-          else
-            {
-              /* Get POS2. */
-              s = parse_field_count (s + 1, &key->eword,
-                                     N_("invalid number after ','"));
-              if (! key->eword--)
-                {
-                  /* Provoke with 'sort -k1,0' */
-                  badfieldspec (optarg, N_("field number is zero"));
-                }
-              if (*s == '.')
-                {
-                  s = parse_field_count (s + 1, &key->echar,
-                                         N_("invalid number after '.'"));
-                }
-              s = set_ordering (s, key, bl_end);
-            }
-          if (*s)
-            badfieldspec (optarg, N_("stray character in field spec"));
-          insertkey (key);
-          break;
-
-        case 'm':
-          mergeonly = true;
-          break;
-
-        case NMERGE_OPTION:
-          specify_nmerge (oi, c, optarg);
-          break;
-
-        case 'o':
-          if (outfile && !STREQ (outfile, optarg))
-            die (SORT_FAILURE, 0, _("multiple output files specified"));
-          outfile = optarg;
-          break;
-
-        case RANDOM_SOURCE_OPTION:
-          if (random_source && !STREQ (random_source, optarg))
-            die (SORT_FAILURE, 0, _("multiple random sources specified"));
-          random_source = optarg;
-          break;
-
-        case 's':
-          stable = true;
-          break;
-
-        case 'S':
-          specify_sort_size (oi, c, optarg);
-          break;
-
-        case 't':
-          {
-            char newtab = optarg[0];
-            if (! newtab)
-              die (SORT_FAILURE, 0, _("empty tab"));
-            if (optarg[1])
-              {
-                if (STREQ (optarg, "\\0"))
-                  newtab = '\0';
-                else
-                  {
-                    /* Provoke with 'sort -txx'.  Complain about
-                       "multi-character tab" instead of "multibyte tab", so
-                       that the diagnostic's wording does not need to be
-                       changed once multibyte characters are supported.  */
-                    die (SORT_FAILURE, 0, _("multi-character tab %s"),
-                         quote (optarg));
+                                   So eword is decremented as in the -k case
+                                   only when the end field (B) is specified and
+                                   echar (y) is 0.  */
+                                key->eword--;
+                              }
+                            if (*set_ordering (s, key, bl_end))
+                              badfieldspec (optarg1,
+                                            N_("stray character in field spec"));
+                          }
+                        key->traditional_used = true;
+                        insertkey (key);
+                      }
                   }
               }
-            if (tab != TAB_DEFAULT && tab != newtab)
-              die (SORT_FAILURE, 0, _("incompatible tabs"));
-            tab = newtab;
-          }
-          break;
-
-        case 'T':
-          add_temp_dir (optarg);
-          break;
-
-        case PARALLEL_OPTION:
-          nthreads = specify_nthreads (oi, c, optarg);
-          break;
-
-        case 'u':
-          unique = true;
-          break;
-
-        case 'y':
-          /* Accept and ignore e.g. -y0 for compatibility with Solaris 2.x
-             through Solaris 7.  It is also accepted by many non-Solaris
-             "sort" implementations, e.g., AIX 5.2, HP-UX 11i v2, IRIX 6.5.
-             -y is marked as obsolete starting with Solaris 8 (1999), but is
-             still accepted as of Solaris 10 prerelease (2004).
-
-             Solaris 2.5.1 "sort -y 100" reads the input file "100", but
-             emulate Solaris 8 and 9 "sort -y 100" which ignores the "100",
-             and which in general ignores the argument after "-y" if it
-             consists entirely of digits (it can even be empty).  */
-          if (optarg == argv[optind - 1])
+            if (!key)
+              files[nfiles++] = optarg;
+            break;
+          case SORT_OPTION:
+            optc = XARGMATCH ("--sort", optarg, sort_args, sort_types);
+            FALLTHROUGH;
+          case 'b':
+          case 'd':
+          case 'f':
+          case 'g':
+          case 'h':
+          case 'i':
+          case 'M':
+          case 'n':
+          case 'r':
+          case 'R':
+          case 'V':
             {
-              char const *p;
-              for (p = optarg; ISDIGIT (*p); p++)
-                continue;
-              optind -= (*p != '\0');
+              char str[2];
+              str[0] = optc;
+              str[1] = '\0';
+              set_ordering (str, &gkey, bl_both);
             }
-          break;
+            break;
 
-        case 'z':
-          eolchar = 0;
-          break;
+          case CHECK_OPTION:
+            optc = (optarg
+                    ? XARGMATCH ("--check", optarg, check_args, check_types)
+                    : 'c');
+            FALLTHROUGH;
+          case 'c':
+          case 'C':
+            if (checkonly && checkonly != optc)
+              incompatible_options ("cC");
+            checkonly = optc;
+            break;
+          case COMPRESS_PROGRAM_OPTION:
+            if (compress_program && !STREQ (compress_program, optarg))
+              die (SORT_FAILURE, 0, _("multiple compress programs specified"));
+            compress_program = optarg;
+            break;
+          case DEBUG_PROGRAM_OPTION:
+            debug = true;
+            break;
+          case FILES0_FROM_OPTION:
+            files_from = optarg;
+            break;
+          case 'k':
+            key = key_init (&key_buf);
+            /* Get POS1.  */
+            s = parse_field_count (optarg, &key->sword,
+                                   N_("invalid number at field start"));
+            if (!key->sword--)
+              {
+                /* Provoke with 'sort -k0'.  */
+                badfieldspec (optarg, N_("field number is zero"));
+              }
+            if (*s == '.')
+              {
+                s = parse_field_count (s + 1, &key->schar,
+                                       N_("invalid number after '.'"));
+                if (!key->schar--)
+                  {
+                    /* Provoke with 'sort -k1.0' */
+                    badfieldspec (optarg, N_("character offset is zero"));
+                  }
+              }
+            if (!(key->sword || key->schar))
+              key->sword = SIZE_MAX;
+            s = set_ordering (s, key, bl_start);
+            if (*s != ',')
+              {
+                key->eword = SIZE_MAX;
+                key->echar = 0;
+              }
+            else
+              {
+                /* Get POS2.  */
+                s = parse_field_count (s + 1, &key->eword,
+                                       N_("invalid number after ','"));
+                if (!key->eword--)
+                  {
+                    /* Provoke with 'sort -k1,0' */
+                    badfieldspec (optarg, N_("field number is zero"));
+                  }
+                if (*s == '.')
+                  {
+                    s = parse_field_count (s + 1, &key->echar,
+                                           N_("invalid number after '.'"));
+                  }
+                s = set_ordering (s, key, bl_end);
+              }
+            if (*s)
+              badfieldspec (optarg, N_("stray character in field spec"));
+            insertkey (key);
+            break;
+          case 'm':
+            mergeonly = true;
+            break;
+          case NMERGE_OPTION:
+            specify_nmerge (oi, optc, optarg);
+            break;
+          case 'o':
+            if (outfile && !STREQ (outfile, optarg))
+              die (SORT_FAILURE, 0, _("multiple output files specified"));
+            outfile = optarg;
+            break;
+          case RANDOM_SOURCE_OPTION:
+            if (random_source && !STREQ (random_source, optarg))
+              die (SORT_FAILURE, 0, _("multiple random sources specified"));
+            random_source = optarg;
+            break;
+          case 's':
+            stable = true;
+            break;
+          case 'S':
+            specify_sort_size (oi, optc, optarg);
+            break;
+          case 't':
+            {
+              char newtab = optarg[0];
+              if (!newtab)
+                die (SORT_FAILURE, 0, _("empty tab"));
+              if (optarg[1])
+                {
+                  if (STREQ (optarg, "\\0"))
+                    newtab = '\0';
+                  else
+                    {
+                      /* Provoke with 'sort -txx'.  Complain about
+                         "multi-character tab" instead of "multibyte tab", so
+                         that the diagnostic's wording does not need to be
+                         changed once multibyte characters are supported.  */
+                      die (SORT_FAILURE, 0, _("multi-character tab %s"),
+                           quote (optarg));
+                    }
+                }
+              if (tab != TAB_DEFAULT && tab != newtab)
+                die (SORT_FAILURE, 0, _("incompatible tabs"));
+              tab = newtab;
+            }
+            break;
+          case 'T':
+            add_temp_dir (optarg);
+            break;
+          case PARALLEL_OPTION:
+            nthreads = specify_nthreads (oi, optc, optarg);
+            break;
+          case 'u':
+            unique = true;
+            break;
+          case 'y':
+            /* Accept and ignore e.g. -y0 for compatibility with Solaris 2.x
+               through Solaris 7.  It is also accepted by many non-Solaris
+               "sort" implementations, e.g., AIX 5.2, HP-UX 11i v2, IRIX 6.5.
+               -y is marked as obsolete starting with Solaris 8 (1999), but is
+               still accepted as of Solaris 10 prerelease (2004).
 
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (SORT_FAILURE);
-        }
+               Solaris 2.5.1 "sort -y 100" reads the input file "100", but
+               emulate Solaris 8 and 9 "sort -y 100" which ignores the "100",
+               and which in general ignores the argument after "-y" if it
+               consists entirely of digits (it can even be empty).  */
+            if (optarg == argv[optind - 1])
+              {
+                const char *p;
+                for (p = optarg; ISDIGIT (*p); p++)
+                  continue;
+                optind -= (*p != '\0');
+              }
+            break;
+          case 'z':
+            eolchar = 0;
+            break;
+          default:
+            usage (SORT_FAILURE);
+          }
     }
 
   if (files_from)
@@ -4602,7 +4576,7 @@ main (int argc, char **argv)
 
       readtokens0_init (&tok);
 
-      if (! readtokens0 (stream, &tok))
+      if (!readtokens0 (stream, &tok))
         die (SORT_FAILURE, 0, _("cannot read file names from %s"),
              quoteaf (files_from));
       xfclose (stream, files_from);
@@ -4635,7 +4609,7 @@ main (int argc, char **argv)
              quoteaf (files_from));
     }
 
-  /* Inheritance of global options to individual keys. */
+  /* Inheritance of global options to individual keys.  */
   for (key = keylist; key; key = key->next)
     {
       if (default_key_compare (key) && !key->reverse)
@@ -4681,7 +4655,7 @@ main (int argc, char **argv)
          so set LC_COLLATE explicitly to flag errors.  */
       if (locale_ok)
         locale_ok = !! setlocale (LC_COLLATE, "");
-      if (! locale_ok)
+      if (!locale_ok)
           error (0, 0, "%s", _("failed to set locale"));
       if (hard_LC_COLLATE)
         error (0, 0, _("text ordering performed using %s sorting rules"),
@@ -4700,7 +4674,7 @@ main (int argc, char **argv)
 
   if (temp_dir_count == 0)
     {
-      char const *tmp_dir = getenv ("TMPDIR");
+      const char *tmp_dir = getenv ("TMPDIR");
       add_temp_dir (tmp_dir ? tmp_dir : DEFAULT_TMPDIR);
     }
 
@@ -4713,7 +4687,7 @@ main (int argc, char **argv)
     }
 
   /* Need to re-check that we meet the minimum requirement for memory
-     usage with the final value for NMERGE. */
+     usage with the final value for NMERGE.  */
   if (0 < sort_size)
     sort_size = MAX (sort_size, MIN_SORT_SIZE);
 
@@ -4753,7 +4727,7 @@ main (int argc, char **argv)
     }
   else
     {
-      if (!nthreads)
+      if (nthreads == 0)
         {
           unsigned long int np = num_processors (NPROC_CURRENT_OVERRIDABLE);
           nthreads = MIN (np, DEFAULT_MAX_THREADS);
@@ -4766,14 +4740,9 @@ main (int argc, char **argv)
       sort (files, nfiles, outfile, nthreads);
     }
 
-#ifdef lint
-  if (files_from)
-    readtokens0_free (&tok);
-  else
-    free (files);
-#endif
+  IF_LINT (files_from ? readtokens0_free (&tok) : free (files));
 
-  if (have_read_stdin && fclose (stdin) == EOF)
+  if (have_read_stdin && fclose (stdin) != 0)
     sort_die (_("close failed"), "-");
 
   return EXIT_SUCCESS;

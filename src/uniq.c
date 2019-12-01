@@ -14,7 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Written by Richard M. Stallman and David MacKenzie. */
+/* Written by Richard M. Stallman and David MacKenzie.  */
 
 #include <config.h>
 
@@ -42,36 +42,36 @@
   proper_name ("Richard M. Stallman"), \
   proper_name ("David MacKenzie")
 
-#define SWAP_LINES(A, B)			\
-  do						\
-    {						\
-      struct linebuffer *_tmp;			\
-      _tmp = (A);				\
-      (A) = (B);				\
-      (B) = _tmp;				\
-    }						\
+#define SWAP_LINES(A, B)      \
+  do            \
+    {           \
+      struct linebuffer *_tmp;      \
+      _tmp = (A);       \
+      (A) = (B);        \
+      (B) = _tmp;       \
+    }           \
   while (0)
 
 /* True if the LC_COLLATE locale is hard.  */
 static bool hard_LC_COLLATE;
 
-/* Number of fields to skip on each line when doing comparisons. */
+/* Number of fields to skip on each line when doing comparisons.  */
 static size_t skip_fields;
 
-/* Number of chars to skip after skipping any fields. */
+/* Number of chars to skip after skipping any fields.  */
 static size_t skip_chars;
 
-/* Number of chars to compare. */
+/* Number of chars to compare.  */
 static size_t check_chars;
 
 enum countmode
 {
-  count_occurrences,		/* -c Print count before output lines. */
-  count_none			/* Default.  Do not print counts. */
+  count_occurrences,    /* -c Print count before output lines.  */
+  count_none      /* Default.  Do not print counts.  */
 };
 
 /* Whether and how to precede the output lines with a count of the number of
-   times they occurred in the input. */
+   times they occurred in the input.  */
 static enum countmode countmode;
 
 /* Which lines to output: unique lines, the first of a group of
@@ -96,7 +96,7 @@ enum delimit_method
   DM_SEPARATE
 };
 
-static char const *const delimit_method_string[] =
+static const char *const delimit_method_string[] =
 {
   "none", "prepend", "separate", NULL
 };
@@ -111,7 +111,7 @@ static enum delimit_method delimit_groups;
 
 enum grouping_method
 {
-  /* No grouping, when "--group" isn't used */
+  /* No grouping, when "--group" is not used */
   GM_NONE,
 
   /* Delimiter preceges all groups.  --group=prepend */
@@ -127,7 +127,7 @@ enum grouping_method
   GM_BOTH
 };
 
-static char const *const grouping_method_string[] =
+static const char *const grouping_method_string[] =
 {
   "prepend", "append", "separate", "both", NULL
 };
@@ -144,7 +144,7 @@ enum
   GROUP_OPTION = CHAR_MAX + 1
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"count", no_argument, NULL, 'c'},
   {"repeated", no_argument, NULL, 'd'},
@@ -156,8 +156,6 @@ static struct option const longopts[] =
   {"skip-chars", required_argument, NULL, 's'},
   {"check-chars", required_argument, NULL, 'w'},
   {"zero-terminated", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -238,7 +236,7 @@ strict_posix2 (void)
    invalid.  Silently convert too-large values to SIZE_MAX.  */
 
 static size_t
-size_opt (char const *opt, char const *msgid)
+size_opt (const char *opt, const char *msgid)
 {
   uintmax_t size;
 
@@ -256,13 +254,13 @@ size_opt (char const *opt, char const *msgid)
 }
 
 /* Given a linebuffer LINE,
-   return a pointer to the beginning of the line's field to be compared. */
+   return a pointer to the beginning of the line's field to be compared.  */
 
 static char * _GL_ATTRIBUTE_PURE
 find_field (struct linebuffer const *line)
 {
   size_t count;
-  char const *lp = line->buffer;
+  const char *lp = line->buffer;
   size_t size = line->length - 1;
   size_t i = 0;
 
@@ -282,7 +280,7 @@ find_field (struct linebuffer const *line)
 /* Return false if two strings OLD and NEW match, true if not.
    OLD and NEW point not to the beginnings of the lines
    but rather to the beginnings of the fields to compare.
-   OLDLEN and NEWLEN are their lengths. */
+   OLDLEN and NEWLEN are their lengths.  */
 
 static bool
 different (char *old, char *new, size_t oldlen, size_t newlen)
@@ -307,13 +305,13 @@ different (char *old, char *new, size_t oldlen, size_t newlen)
    provided that the switches say it should be output.
    MATCH is true if the line matches the previous line.
    If requested, print the number of times it occurred, as well;
-   LINECOUNT + 1 is the number of times that the line occurred. */
+   LINECOUNT + 1 is the number of times that the line occurred.  */
 
 static void
 writeline (struct linebuffer const *line,
            bool match, uintmax_t linecount)
 {
-  if (! (linecount == 0 ? output_unique
+  if (!(linecount == 0 ? output_unique
          : !match ? output_first_repeated
          : output_later_repeated))
     return;
@@ -325,7 +323,7 @@ writeline (struct linebuffer const *line,
 }
 
 /* Process input file INFILE with output to OUTFILE.
-   If either is "-", use the standard I/O stream for it instead. */
+   If either is "-", use the standard I/O stream for it instead.  */
 
 static void
 check_file (const char *infile, const char *outfile, char delimiter)
@@ -333,9 +331,9 @@ check_file (const char *infile, const char *outfile, char delimiter)
   struct linebuffer lb1, lb2;
   struct linebuffer *thisline, *prevline;
 
-  if (! (STREQ (infile, "-") || freopen (infile, "r", stdin)))
+  if (!(STREQ (infile, "-") || freopen (infile, "r", stdin)))
     die (EXIT_FAILURE, errno, "%s", quotef (infile));
-  if (! (STREQ (outfile, "-") || freopen (outfile, "w", stdout)))
+  if (!(STREQ (outfile, "-") || freopen (outfile, "w", stdout)))
     die (EXIT_FAILURE, errno, "%s", quotef (outfile));
 
   fadvise (stdin, FADVISE_SEQUENTIAL);
@@ -491,8 +489,8 @@ main (int argc, char **argv)
   bool posixly_correct = (getenv ("POSIXLY_CORRECT") != NULL);
   enum Skip_field_option_type skip_field_option_type = SFO_NONE;
   unsigned int nfiles = 0;
-  char const *file[2];
-  char delimiter = '\n';	/* change with --zero-terminated, -z */
+  const char *file[2];
+  char delimiter = '\n';  /* change with --zero-terminated, -z */
   bool output_option_used = false;   /* if true, one of -u/-d/-D/-c was used */
 
   file[0] = file[1] = "-";
@@ -513,17 +511,18 @@ main (int argc, char **argv)
   countmode = count_none;
   delimit_groups = DM_NONE;
 
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
   while (true)
     {
       /* Parse an operand with leading "+" as a file after "--" was
          seen; or if pedantic and a file was seen; or if not
          obsolete.  */
-
-      if (optc == -1
+      if (optc == EOF
           || (posixly_correct && nfiles != 0)
           || ((optc = getopt_long (argc, argv,
-                                   "-0123456789Dcdf:is:uw:z", longopts, NULL))
-              == -1))
+                                   "-0123456789Dcdf:is:uw:z", long_options, NULL)) == EOF))
         {
           if (argc <= optind)
             break;
@@ -534,114 +533,100 @@ main (int argc, char **argv)
             }
           file[nfiles++] = argv[optind++];
         }
-      else switch (optc)
-        {
-        case 1:
+      else
+        switch (optc)
           {
-            uintmax_t size;
-            if (optarg[0] == '+'
-                && ! strict_posix2 ()
-                && xstrtoumax (optarg, NULL, 10, &size, "") == LONGINT_OK
-                && size <= SIZE_MAX)
-              skip_chars = size;
-            else if (nfiles == 2)
-              {
-                error (0, 0, _("extra operand %s"), quote (optarg));
-                usage (EXIT_FAILURE);
-              }
+          case 1:
+            {
+              uintmax_t size;
+              if (optarg[0] == '+'
+                  && !strict_posix2 ()
+                  && xstrtoumax (optarg, NULL, 10, &size, "") == LONGINT_OK
+                  && size <= SIZE_MAX)
+                skip_chars = size;
+              else if (nfiles == 2)
+                {
+                  error (0, 0, _("extra operand %s"), quote (optarg));
+                  usage (EXIT_FAILURE);
+                }
+              else
+                file[nfiles++] = optarg;
+            }
+            break;
+
+          case '0':
+          case '1':
+          case '2':
+          case '3':
+          case '4':
+          case '5':
+          case '6':
+          case '7':
+          case '8':
+          case '9':
+            {
+              if (skip_field_option_type == SFO_NEW)
+                skip_fields = 0;
+
+              if (!DECIMAL_DIGIT_ACCUMULATE (skip_fields, optc - '0', size_t))
+                skip_fields = SIZE_MAX;
+
+              skip_field_option_type = SFO_OBSOLETE;
+            }
+            break;
+          case 'c':
+            countmode = count_occurrences;
+            output_option_used = true;
+            break;
+          case 'd':
+            output_unique = false;
+            output_option_used = true;
+            break;
+          case 'D':
+            output_unique = false;
+            output_later_repeated = true;
+            if (optarg == NULL)
+              delimit_groups = DM_NONE;
             else
-              file[nfiles++] = optarg;
+              delimit_groups = XARGMATCH ("--all-repeated", optarg,
+                                          delimit_method_string,
+                                          delimit_method_map);
+            output_option_used = true;
+            break;
+          case GROUP_OPTION:
+            if (optarg == NULL)
+              grouping = GM_SEPARATE;
+            else
+              grouping = XARGMATCH ("--group", optarg,
+                                    grouping_method_string,
+                                    grouping_method_map);
+            break;
+          case 'f':
+            skip_field_option_type = SFO_NEW;
+            skip_fields = size_opt (optarg,
+                                    N_("invalid number of fields to skip"));
+            break;
+          case 'i':
+            ignore_case = true;
+            break;
+          case 's':
+            skip_chars = size_opt (optarg,
+                                   N_("invalid number of bytes to skip"));
+            break;
+          case 'u':
+            output_first_repeated = false;
+            output_option_used = true;
+            break;
+          case 'w':
+            check_chars = size_opt (optarg,
+                                    N_("invalid number of bytes to compare"));
+            break;
+          case 'z':
+            delimiter = '\0';
+            break;
+          default:
+            usage (EXIT_FAILURE);
           }
-          break;
-
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-          {
-            if (skip_field_option_type == SFO_NEW)
-              skip_fields = 0;
-
-            if (!DECIMAL_DIGIT_ACCUMULATE (skip_fields, optc - '0', size_t))
-              skip_fields = SIZE_MAX;
-
-            skip_field_option_type = SFO_OBSOLETE;
-          }
-          break;
-
-        case 'c':
-          countmode = count_occurrences;
-          output_option_used = true;
-          break;
-
-        case 'd':
-          output_unique = false;
-          output_option_used = true;
-          break;
-
-        case 'D':
-          output_unique = false;
-          output_later_repeated = true;
-          if (optarg == NULL)
-            delimit_groups = DM_NONE;
-          else
-            delimit_groups = XARGMATCH ("--all-repeated", optarg,
-                                        delimit_method_string,
-                                        delimit_method_map);
-          output_option_used = true;
-          break;
-
-        case GROUP_OPTION:
-          if (optarg == NULL)
-            grouping = GM_SEPARATE;
-          else
-            grouping = XARGMATCH ("--group", optarg,
-                                  grouping_method_string,
-                                  grouping_method_map);
-          break;
-
-        case 'f':
-          skip_field_option_type = SFO_NEW;
-          skip_fields = size_opt (optarg,
-                                  N_("invalid number of fields to skip"));
-          break;
-
-        case 'i':
-          ignore_case = true;
-          break;
-
-        case 's':
-          skip_chars = size_opt (optarg,
-                                 N_("invalid number of bytes to skip"));
-          break;
-
-        case 'u':
-          output_first_repeated = false;
-          output_option_used = true;
-          break;
-
-        case 'w':
-          check_chars = size_opt (optarg,
-                                  N_("invalid number of bytes to compare"));
-          break;
-
-        case 'z':
-          delimiter = '\0';
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
     }
 
   /* Note we could allow --group with -D at least, and that would

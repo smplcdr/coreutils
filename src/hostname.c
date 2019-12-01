@@ -39,11 +39,11 @@
 static int
 sethostname (char *name, size_t namelen)
 {
-  /* Using sysinfo() is the SVR4 mechanism to set a hostname. */
+  /* Using sysinfo() is the SVR4 mechanism to set a hostname.  */
   return (sysinfo (SI_SET_HOSTNAME, name, namelen) < 0 ? -1 : 0);
 }
 
-# define HAVE_SETHOSTNAME 1  /* Now we have it... */
+# define HAVE_SETHOSTNAME 1  /* Now we have it...  */
 #endif
 
 void
@@ -82,13 +82,13 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   if (argc == optind + 1)
     {
 #ifdef HAVE_SETHOSTNAME
       /* Set hostname to operand.  */
-      char const *name = argv[optind];
+      const char *name = argv[optind];
       if (sethostname (name, strlen (name)) != 0)
         die (EXIT_FAILURE, errno, _("cannot set name to %s"),
              quote (name));

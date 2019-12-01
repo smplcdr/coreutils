@@ -24,13 +24,13 @@
 #include "xstrndup.h"
 #include "set-fields.h"
 
-/* Array of `struct field_range_pair' holding all the finite ranges. */
+/* Array of `struct field_range_pair' holding all the finite ranges.  */
 struct field_range_pair *frp;
 
-/* Number of finite ranges specified by the user. */
+/* Number of finite ranges specified by the user.  */
 size_t n_frp;
 
-/* Number of `struct field_range_pair's allocated. */
+/* Number of `struct field_range_pair's allocated.  */
 static size_t n_frp_allocated;
 
 #define FATAL_ERROR(Message)                                            \
@@ -145,9 +145,9 @@ set_fields (const char *fieldstr, unsigned int options)
 
   bool in_digits = false;
 
-  /* Collect and store in RP the range end points. */
+  /* Collect and store in RP the range end points.  */
 
-  /* Special case: '--field=-' means all fields, emulate '--field=1-' . */
+  /* Special case: '--field=-' means all fields, emulate '--field=1-' .  */
   if ((options & SETFLD_ALLOW_DASH) && STREQ (fieldstr,"-"))
     {
       value = 1;
@@ -161,7 +161,7 @@ set_fields (const char *fieldstr, unsigned int options)
       if (*fieldstr == '-')
         {
           in_digits = false;
-          /* Starting a range. */
+          /* Starting a range.  */
           if (dash_found)
             FATAL_ERROR ( (options & SETFLD_ERRMSG_USE_POS)
                           ?_("invalid byte or character range")
@@ -182,7 +182,7 @@ set_fields (const char *fieldstr, unsigned int options)
                || isblank (to_uchar (*fieldstr)) || *fieldstr == '\0')
         {
           in_digits = false;
-          /* Ending the string, or this field/byte sublist. */
+          /* Ending the string, or this field/byte sublist.  */
           if (dash_found)
             {
               dash_found = false;
@@ -197,15 +197,15 @@ set_fields (const char *fieldstr, unsigned int options)
                 }
 
               /* A range.  Possibilities: -n, m-n, n-.
-                 In any case, 'initial' contains the start of the range. */
+                 In any case, 'initial' contains the start of the range.  */
               if (!rhs_specified)
                 {
-                  /* 'n-'.  From 'initial' to end of line. */
+                  /* 'n-'.  From 'initial' to end of line.  */
                   add_range_pair (initial, UINTMAX_MAX);
                 }
               else
                 {
-                  /* 'm-n' or '-n' (1-n). */
+                  /* 'm-n' or '-n' (1-n).  */
                   if (value < initial)
                     FATAL_ERROR (_("invalid decreasing range"));
 
@@ -215,7 +215,7 @@ set_fields (const char *fieldstr, unsigned int options)
             }
           else
             {
-              /* A simple field number, not a range. */
+              /* A simple field number, not a range.  */
               if (value == 0)
                 FATAL_ERROR ( (options & SETFLD_ERRMSG_USE_POS)
                               ?_("byte/character positions are numbered from 1")
@@ -236,7 +236,7 @@ set_fields (const char *fieldstr, unsigned int options)
         {
           /* Record beginning of digit string, in case we have to
              complain about it.  */
-          static char const *num_start;
+          static const char *num_start;
           if (!in_digits || !num_start)
             num_start = fieldstr;
           in_digits = true;
@@ -282,7 +282,7 @@ set_fields (const char *fieldstr, unsigned int options)
 
   qsort (frp, n_frp, sizeof (frp[0]), compare_ranges);
 
-  /* Merge range pairs (e.g. `2-5,3-4' becomes `2-5'). */
+  /* Merge range pairs (e.g. `2-5,3-4' becomes `2-5').  */
   for (size_t i = 0; i < n_frp; ++i)
     {
       for (size_t j = i + 1; j < n_frp; ++j)

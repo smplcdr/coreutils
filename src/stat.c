@@ -22,7 +22,7 @@
    ../m4/stat-prog.m4.  */
 #if ((STAT_STATVFS || STAT_STATVFS64)                                       \
      && (HAVE_STRUCT_STATVFS_F_BASETYPE || HAVE_STRUCT_STATVFS_F_FSTYPENAME \
-         || (! HAVE_STRUCT_STATFS_F_FSTYPENAME && HAVE_STRUCT_STATVFS_F_TYPE)))
+         || (!HAVE_STRUCT_STATFS_F_FSTYPENAME && HAVE_STRUCT_STATVFS_F_TYPE)))
 # define USE_STATVFS 1
 #else
 # define USE_STATVFS 0
@@ -40,9 +40,9 @@
 # include <sys/vfs.h>
 #elif HAVE_SYS_MOUNT_H && HAVE_SYS_PARAM_H
 /* NOTE: freebsd5.0 needs sys/param.h and sys/mount.h for statfs.
-   It does have statvfs.h, but shouldn't use it, since it doesn't
+   It does have statvfs.h, but should not use it, since it does not
    HAVE_STRUCT_STATVFS_F_BASETYPE.  So find a clean way to fix it.  */
-/* NetBSD 1.5.2 needs these, for the declaration of struct statfs. */
+/* NetBSD 1.5.2 needs these, for the declaration of struct statfs.  */
 # include <sys/param.h>
 # include <sys/mount.h>
 # if HAVE_NFS_NFS_CLNT_H && HAVE_NFS_VFS_H
@@ -108,7 +108,7 @@
    for f_files, f_ffree and f_favail, and lacks f_type, f_basetype and
    f_fstypename.  Use 'struct fs_info' instead.  */
 static int ATTRIBUTE_WARN_UNUSED_RESULT
-statfs (char const *filename, struct fs_info *buf)
+statfs (const char *filename, struct fs_info *buf)
 {
   dev_t device = dev_for_path (filename);
   if (device < 0)
@@ -175,7 +175,7 @@ statfs (char const *filename, struct fs_info *buf)
 #define hextobin(c) ((c) >= 'a' && (c) <= 'f' ? (c) - 'a' + 10 : \
                      (c) >= 'A' && (c) <= 'F' ? (c) - 'A' + 10 : (c) - '0')
 
-static char const digits[] = "0123456789";
+static const char digits[] = "0123456789";
 
 /* Flags that are portable for use in printf, for at least one
    conversion specifier; make_format removes unportable flags as
@@ -183,13 +183,13 @@ static char const digits[] = "0123456789";
    listed here; it is removed by make_format because it has undefined
    behavior elsewhere and because it is incompatible with
    out_epoch_sec.  */
-static char const printf_flags[] = "'-+ #0I";
+static const char printf_flags[] = "'-+ #0I";
 
 /* Formats for the --terse option.  */
-static char const fmt_terse_fs[] = "%n %i %l %t %s %S %b %f %a %c %d\n";
-static char const fmt_terse_regular[] = "%n %s %b %f %u %g %D %i %h %t %T"
+static const char fmt_terse_fs[] = "%n %i %l %t %s %S %b %f %a %c %d\n";
+static const char fmt_terse_regular[] = "%n %s %b %f %u %g %D %i %h %t %T"
                                         " %X %Y %Z %W %o\n";
-static char const fmt_terse_selinux[] = "%n %s %b %f %u %g %D %i %h %t %T"
+static const char fmt_terse_selinux[] = "%n %s %b %f %u %g %D %i %h %t %T"
                                         " %X %Y %Z %W %o %C\n";
 
 #define PROGRAM_NAME "stat"
@@ -208,7 +208,7 @@ enum cached_mode
   cached_always
 };
 
-static char const *const cached_args[] =
+static const char *const cached_args[] =
 {
   "default", "never", "always", NULL
 };
@@ -218,7 +218,7 @@ static enum cached_mode const cached_modes[] =
   cached_default, cached_never, cached_always
 };
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"dereference", no_argument, NULL, 'L'},
   {"file-system", no_argument, NULL, 'f'},
@@ -226,8 +226,6 @@ static struct option const long_options[] =
   {"printf", required_argument, NULL, PRINTF_OPTION},
   {"terse", no_argument, NULL, 't'},
   {"cached", required_argument, NULL, 0},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -240,15 +238,15 @@ static bool interpret_backslash_escapes;
 
 /* The trailing delimiter string:
    "" for --printf=FMT, "\n" for --format=FMT (-c).  */
-static char const *trailing_delim = "";
+static const char *trailing_delim = "";
 
 /* The representation of the decimal point in the current locale.  */
-static char const *decimal_point;
+static const char *decimal_point;
 static size_t decimal_point_len;
 
 static bool
 print_stat (char *pformat, size_t prefix_len, unsigned int m,
-            int fd, char const *filename, void const *data);
+            int fd, const char *filename, void const *data);
 
 /* Return the type of the specified file system.
    Some systems have statfvs.f_basetype[FSTYPSZ] (AIX, HP-UX, and Solaris).
@@ -256,7 +254,7 @@ print_stat (char *pformat, size_t prefix_len, unsigned int m,
    Others have statfs.f_fstypename[MFSNAMELEN] (NetBSD 1.5.2).
    Still others have neither and have to get by with f_type (GNU/Linux).
    But f_type may only exist in statfs (Cygwin).  */
-static char const * ATTRIBUTE_WARN_UNUSED_RESULT
+static const char * ATTRIBUTE_WARN_UNUSED_RESULT
 human_fstype (STRUCT_STATVFS const *statfsbuf)
 {
 #ifdef STATXFS_FILE_SYSTEM_TYPE_MEMBER_NAME
@@ -301,7 +299,7 @@ human_fstype (STRUCT_STATVFS const *statfsbuf)
     case S_MAGIC_AUFS: /* 0x61756673 remote */
       /* FIXME: change syntax or add an optional attribute like "inotify:no".
          The above is labeled as "remote" so that tail always uses polling,
-         but this isn't really a remote file system type.  */
+         but this is not really a remote file system type.  */
       return "aufs";
     case S_MAGIC_AUTOFS: /* 0x0187 local */
       return "autofs";
@@ -457,7 +455,7 @@ human_fstype (STRUCT_STATVFS const *statfsbuf)
     case S_MAGIC_PIPEFS: /* 0x50495045 remote */
       /* FIXME: change syntax or add an optional attribute like "inotify:no".
          pipefs and prlfs are labeled as "remote" so that tail always polls,
-         but these aren't really remote file system types.  */
+         but these are not really remote file system types.  */
       return "pipefs";
     case S_MAGIC_PRL_FS: /* 0x7C7C6673 remote */
       return "prl_fs";
@@ -650,12 +648,12 @@ human_time (struct timespec t)
    ALLOWED_FLAGS; remove other printf flags from the prefix, then
    append SUFFIX.  */
 static void
-make_format (char *pformat, size_t prefix_len, char const *allowed_flags,
-             char const *suffix)
+make_format (char *pformat, size_t prefix_len, const char *allowed_flags,
+             const char *suffix)
 {
   char *dst = pformat + 1;
-  char const *src;
-  char const *srclim = pformat + prefix_len;
+  const char *src;
+  const char *srclim = pformat + prefix_len;
   for (src = dst; src < srclim && strchr (printf_flags, *src); src++)
     if (strchr (allowed_flags, *src))
       *dst++ = *src;
@@ -665,7 +663,7 @@ make_format (char *pformat, size_t prefix_len, char const *allowed_flags,
 }
 
 static void
-out_string (char *pformat, size_t prefix_len, char const *arg)
+out_string (char *pformat, size_t prefix_len, const char *arg)
 {
   make_format (pformat, prefix_len, "-", "s");
   printf (pformat, arg);
@@ -755,7 +753,7 @@ out_epoch_sec (char *pformat, size_t prefix_len,
                   if (1 < w)
                     {
                       char *dst = pformat;
-                      for (char const *src = dst; src < p; src++)
+                      for (const char *src = dst; src < p; src++)
                         {
                           if (*src == '-')
                             frac_left_adjust = true;
@@ -811,7 +809,7 @@ out_epoch_sec (char *pformat, size_t prefix_len,
 /* Print the context information of FILENAME, and return true iff the
    context could not be obtained.  */
 static bool ATTRIBUTE_WARN_UNUSED_RESULT
-out_file_context (char *pformat, size_t prefix_len, char const *filename)
+out_file_context (char *pformat, size_t prefix_len, const char *filename)
 {
   char *scontext;
   bool fail = false;
@@ -835,7 +833,7 @@ out_file_context (char *pformat, size_t prefix_len, char const *filename)
 /* Print statfs info.  Return zero upon success, nonzero upon failure.  */
 static bool ATTRIBUTE_WARN_UNUSED_RESULT
 print_statfs (char *pformat, size_t prefix_len, unsigned int m,
-              int fd, char const *filename,
+              int fd, const char *filename,
               void const *data)
 {
   STRUCT_STATVFS const *statfsbuf = data;
@@ -900,7 +898,7 @@ print_statfs (char *pformat, size_t prefix_len, unsigned int m,
     case 'S':
       {
         uintmax_t frsize = STATFS_FRSIZE (statfsbuf);
-        if (! frsize)
+        if (!frsize)
           frsize = statfsbuf->f_bsize;
         out_uint (pformat, prefix_len, frsize);
       }
@@ -921,10 +919,10 @@ print_statfs (char *pformat, size_t prefix_len, unsigned int m,
 /* Return any bind mounted source for a path.
    The caller should not free the returned buffer.
    Return NULL if no bind mount found.  */
-static char const * ATTRIBUTE_WARN_UNUSED_RESULT
-find_bind_mount (char const * name)
+static const char * ATTRIBUTE_WARN_UNUSED_RESULT
+find_bind_mount (const char * name)
 {
-  char const * bind_mount = NULL;
+  const char * bind_mount = NULL;
 
   static struct mount_entry *mount_list;
   static bool tried_mount_list = false;
@@ -961,11 +959,11 @@ find_bind_mount (char const * name)
 
 /* Print mount point.  Return zero upon success, nonzero upon failure.  */
 static bool ATTRIBUTE_WARN_UNUSED_RESULT
-out_mount_point (char const *filename, char *pformat, size_t prefix_len,
+out_mount_point (const char *filename, char *pformat, size_t prefix_len,
                  const struct stat *statp)
 {
 
-  char const *np = "?", *bp = NULL;
+  const char *np = "?", *bp = NULL;
   char *mp = NULL;
   bool fail = true;
 
@@ -990,9 +988,9 @@ out_mount_point (char const *filename, char *pformat, size_t prefix_len,
 
   /* If there is no direct bind mount, then navigate
      back up the tree looking for a device change.
-     Note we don't detect if any of the directory components
+     Note we do not detect if any of the directory components
      are bind mounted to the same device, but that's OK
-     since we've not directly queried them.  */
+     since we have not directly queried them.  */
   if ((mp = find_mount_point (filename, statp)))
     {
       /* This dir might be bind mounted to another device,
@@ -1024,7 +1022,7 @@ neg_to_zero (struct timespec ts)
 static void
 getenv_quoting_style (void)
 {
-  char const *q_style = getenv ("QUOTING_STYLE");
+  const char *q_style = getenv ("QUOTING_STYLE");
   if (q_style)
     {
       int i = ARGMATCH (q_style, quoting_style_args, quoting_style_vals);
@@ -1051,28 +1049,28 @@ print_esc_char (char c)
 {
   switch (c)
     {
-    case 'a':			/* Alert. */
+    case 'a':     /* Alert.  */
       c ='\a';
       break;
-    case 'b':			/* Backspace. */
+    case 'b':     /* Backspace.  */
       c ='\b';
       break;
-    case 'e':			/* Escape. */
+    case 'e':     /* Escape.  */
       c ='\x1B';
       break;
-    case 'f':			/* Form feed. */
+    case 'f':     /* Form feed.  */
       c ='\f';
       break;
-    case 'n':			/* New line. */
+    case 'n':     /* New line.  */
       c ='\n';
       break;
-    case 'r':			/* Carriage return. */
+    case 'r':     /* Carriage return.  */
       c ='\r';
       break;
-    case 't':			/* Horizontal tab. */
+    case 't':     /* Horizontal tab.  */
       c ='\t';
       break;
-    case 'v':			/* Vertical tab. */
+    case 'v':     /* Vertical tab.  */
       c ='\v';
       break;
     case '"':
@@ -1086,10 +1084,10 @@ print_esc_char (char c)
 }
 
 static size_t _GL_ATTRIBUTE_PURE
-format_code_offset (char const* directive)
+format_code_offset (const char* directive)
 {
   size_t len = strspn (directive + 1, printf_flags);
-  char const *fmt_char = directive + len + 1;
+  const char *fmt_char = directive + len + 1;
   fmt_char += strspn (fmt_char, digits);
   if (*fmt_char == '.')
     fmt_char += 1 + strspn (fmt_char + 1, digits);
@@ -1100,9 +1098,9 @@ format_code_offset (char const* directive)
    calling PRINT_FUNC for each %-directive encountered.
    Return zero upon success, nonzero upon failure.  */
 static bool ATTRIBUTE_WARN_UNUSED_RESULT
-print_it (char const *format, int fd, char const *filename,
+print_it (const char *format, int fd, const char *filename,
           bool (*print_func) (char *, size_t, unsigned int,
-                              int, char const *, void const *),
+                              int, const char *, void const *),
           void const *data)
 {
   bool fail = false;
@@ -1118,7 +1116,7 @@ print_it (char const *format, int fd, char const *filename,
     };
   size_t n_alloc = strlen (format) + MAX_ADDITIONAL_BYTES + 1;
   char *dest = xmalloc (n_alloc);
-  char const *b;
+  const char *b;
   for (b = format; *b; b++)
     {
       switch (*b)
@@ -1126,7 +1124,7 @@ print_it (char const *format, int fd, char const *filename,
         case '%':
           {
             size_t len = format_code_offset (b);
-            char const *fmt_char = b + len;
+            const char *fmt_char = b + len;
             memcpy (dest, b, len);
             b += len;
 
@@ -1163,7 +1161,7 @@ print_it (char const *format, int fd, char const *filename,
           if (isodigit (*b))
             {
               int esc_value = octtobin (*b);
-              int esc_length = 1;	/* number of octal digits */
+              int esc_length = 1; /* number of octal digits */
               for (++b; esc_length < 3 && isodigit (*b);
                    ++esc_length, ++b)
                 {
@@ -1174,7 +1172,7 @@ print_it (char const *format, int fd, char const *filename,
             }
           else if (*b == 'x' && isxdigit (to_uchar (b[1])))
             {
-              int esc_value = hextobin (b[1]);	/* Value of \xhh escape. */
+              int esc_value = hextobin (b[1]);  /* Value of \xhh escape.  */
               /* A hexadecimal \xhh escape sequence must have
                  1 or 2 hex. digits.  */
               ++b;
@@ -1212,7 +1210,7 @@ print_it (char const *format, int fd, char const *filename,
 
 /* Stat the file system and print what we find.  */
 static bool ATTRIBUTE_WARN_UNUSED_RESULT
-do_statfs (char const *filename, char const *format)
+do_statfs (const char *filename, const char *format)
 {
   STRUCT_STATVFS statfsbuf;
 
@@ -1299,10 +1297,10 @@ fmt_to_mask (char fmt)
 }
 
 static unsigned int _GL_ATTRIBUTE_PURE
-format_to_mask (char const *format)
+format_to_mask (const char *format)
 {
   unsigned int mask = 0;
-  char const *b;
+  const char *b;
 
   for (b = format; *b; b++)
     {
@@ -1319,7 +1317,7 @@ format_to_mask (char const *format)
 
 /* statx the file and print what we find */
 static bool ATTRIBUTE_WARN_UNUSED_RESULT
-do_stat (char const *filename, char const *format, char const *format2)
+do_stat (const char *filename, const char *format, const char *format2)
 {
   int fd = STREQ (filename, "-") ? 0 : AT_FDCWD;
   int flags = 0;
@@ -1369,7 +1367,7 @@ do_stat (char const *filename, char const *format, char const *format2)
 #else /* USE_STATX */
 
 static struct timespec
-get_birthtime (int fd, char const *filename, struct stat const *st)
+get_birthtime (int fd, const char *filename, struct stat const *st)
 {
   struct timespec ts = get_stat_birthtime (st);
 
@@ -1403,8 +1401,8 @@ get_birthtime (int fd, char const *filename, struct stat const *st)
 
 /* stat the file and print what we find */
 static bool ATTRIBUTE_WARN_UNUSED_RESULT
-do_stat (char const *filename, char const *format,
-         char const *format2)
+do_stat (const char *filename, const char *format,
+         const char *format2)
 {
   int fd = STREQ (filename, "-") ? 0 : -1;
   struct stat statbuf;
@@ -1420,7 +1418,7 @@ do_stat (char const *filename, char const *format,
           return false;
         }
     }
-  /* We can't use the shorter
+  /* We cannot use the shorter
      (follow_links?stat:lstat) (filename, &statbug)
      since stat might be a function-like macro.  */
   else if ((follow_links
@@ -1443,7 +1441,7 @@ do_stat (char const *filename, char const *format,
 /* Print stat info.  Return zero upon success, nonzero upon failure.  */
 static bool
 print_stat (char *pformat, size_t prefix_len, unsigned int m,
-            int fd, char const *filename, void const *data)
+            int fd, const char *filename, void const *data)
 {
   struct print_args *parg = (struct print_args *) data;
   struct stat *statbuf = parg->st;
@@ -1797,7 +1795,7 @@ Valid format sequences for file systems:\n\
 int
 main (int argc, char *argv[])
 {
-  int c;
+  int optc;
   bool fs = false;
   bool terse = false;
   char *format = NULL;
@@ -1810,65 +1808,56 @@ main (int argc, char *argv[])
   bindtextdomain (PACKAGE, LOCALEDIR);
   textdomain (PACKAGE);
 
-  struct lconv const *locale = localeconv ();
+  const struct lconv *locale = localeconv ();
   decimal_point = (locale->decimal_point[0] ? locale->decimal_point : ".");
   decimal_point_len = strlen (decimal_point);
 
   atexit (close_stdout);
 
-  while ((c = getopt_long (argc, argv, "c:fLt", long_options, NULL)) != -1)
-    {
-      switch (c)
-        {
-        case PRINTF_OPTION:
-          format = optarg;
-          interpret_backslash_escapes = true;
-          trailing_delim = "";
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'c':
-          format = optarg;
-          interpret_backslash_escapes = false;
-          trailing_delim = "\n";
-          break;
-
-        case 'L':
-          follow_links = true;
-          break;
-
-        case 'f':
-          fs = true;
-          break;
-
-        case 't':
-          terse = true;
-          break;
-
-        case 0:
-          switch (XARGMATCH ("--cached", optarg, cached_args, cached_modes))
-            {
-              case cached_never:
-                force_sync = true;
-                dont_sync = false;
-                break;
-              case cached_always:
-                force_sync = false;
-                dont_sync = true;
-                break;
-              case cached_default:
-                force_sync = false;
-                dont_sync = false;
-            }
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "c:fLt", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case PRINTF_OPTION:
+        format = optarg;
+        interpret_backslash_escapes = true;
+        trailing_delim = "";
+        break;
+      case 'c':
+        format = optarg;
+        interpret_backslash_escapes = false;
+        trailing_delim = "\n";
+        break;
+      case 'L':
+        follow_links = true;
+        break;
+      case 'f':
+        fs = true;
+        break;
+      case 't':
+        terse = true;
+        break;
+      case 0:
+        switch (XARGMATCH ("--cached", optarg, cached_args, cached_modes))
+          {
+          case cached_never:
+            force_sync = true;
+            dont_sync = false;
+            break;
+          case cached_always:
+            force_sync = false;
+            dont_sync = true;
+            break;
+          case cached_default:
+            force_sync = false;
+            dont_sync = false;
+          }
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (argc == optind)
     {
@@ -1876,7 +1865,7 @@ main (int argc, char *argv[])
       usage (EXIT_FAILURE);
     }
 
-  if (format)
+  if (format != NULL)
     {
       if (strstr (format, "%N"))
         getenv_quoting_style ();
@@ -1884,8 +1873,8 @@ main (int argc, char *argv[])
     }
   else
     {
-      format = default_format (fs, terse, /* device= */ false);
-      format2 = default_format (fs, terse, /* device= */ true);
+      format = default_format (fs, terse, /* device = */ false);
+      format2 = default_format (fs, terse, /* device = */ true);
     }
 
   for (int i = optind; i < argc; i++)

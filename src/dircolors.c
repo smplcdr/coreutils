@@ -47,12 +47,12 @@ enum Shell_syntax
 };
 
 #define APPEND_CHAR(C) obstack_1grow (&lsc_obstack, C)
-#define APPEND_TWO_CHAR_STRING(S)					\
-  do									\
-    {									\
-      APPEND_CHAR (S[0]);						\
-      APPEND_CHAR (S[1]);						\
-    }									\
+#define APPEND_TWO_CHAR_STRING(S)         \
+  do                  \
+    {                 \
+      APPEND_CHAR (S[0]);           \
+      APPEND_CHAR (S[1]);           \
+    }                 \
   while (0)
 
 /* Accumulate in this obstack the value for the LS_COLORS environment
@@ -77,15 +77,13 @@ static const char *const ls_codes[] =
 };
 verify (ARRAY_CARDINALITY (slack_codes) == ARRAY_CARDINALITY (ls_codes));
 
-static struct option const long_options[] =
+static const struct option long_options[] =
   {
     {"bourne-shell", no_argument, NULL, 'b'},
     {"sh", no_argument, NULL, 'b'},
     {"csh", no_argument, NULL, 'c'},
     {"c-shell", no_argument, NULL, 'c'},
     {"print-database", no_argument, NULL, 'p'},
-    {GETOPT_HELP_OPTION_DECL},
-    {GETOPT_VERSION_OPTION_DECL},
     {NULL, 0, NULL, 0}
   };
 
@@ -140,11 +138,11 @@ guess_shell_syntax (void)
 }
 
 static void
-parse_line (char const *line, char **keyword, char **arg)
+parse_line (const char *line, char **keyword, char **arg)
 {
-  char const *p;
-  char const *keyword_start;
-  char const *arg_start;
+  const char *p;
+  const char *keyword_start;
+  const char *arg_start;
 
   *keyword = NULL;
   *arg = NULL;
@@ -239,11 +237,11 @@ static bool
 dc_parse_stream (FILE *fp, const char *filename)
 {
   size_t line_number = 0;
-  char const *next_G_line = G_line;
+  const char *next_G_line = G_line;
   char *input_line = NULL;
   size_t input_line_size = 0;
-  char const *line;
-  char const *term;
+  const char *line;
+  const char *term;
   bool ok = true;
 
   /* State for the parser.  */
@@ -254,7 +252,7 @@ dc_parse_stream (FILE *fp, const char *filename)
   if (term == NULL || *term == '\0')
     term = "none";
 
-  while (1)
+  while (true)
     {
       char *keywd, *arg;
       bool unrecognized;
@@ -375,7 +373,7 @@ dc_parse_file (const char *filename)
 {
   bool ok;
 
-  if (! STREQ (filename, "-") && freopen (filename, "r", stdin) == NULL)
+  if (!STREQ (filename, "-") && freopen (filename, "r", stdin) == NULL)
     {
       error (0, errno, "%s", quotef (filename));
       return false;
@@ -408,25 +406,21 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
   while ((optc = getopt_long (argc, argv, "bcp", long_options, NULL)) != -1)
     switch (optc)
       {
-      case 'b':	/* Bourne shell syntax.  */
+      case 'b': /* Bourne shell syntax.  */
         syntax = SHELL_SYNTAX_BOURNE;
         break;
-
-      case 'c':	/* C shell syntax.  */
+      case 'c': /* C shell syntax.  */
         syntax = SHELL_SYNTAX_C;
         break;
-
       case 'p':
         print_database = true;
         break;
-
-      case_GETOPT_HELP_CHAR;
-
-      case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
       default:
         usage (EXIT_FAILURE);
       }
@@ -434,7 +428,7 @@ main (int argc, char **argv)
   argc -= optind;
   argv += optind;
 
-  /* It doesn't make sense to use --print with either of
+  /* It does not make sense to use --print with either of
      --bourne or --c-shell.  */
   if (print_database && syntax != SHELL_SYNTAX_UNKNOWN)
     {
@@ -456,7 +450,7 @@ main (int argc, char **argv)
 
   if (print_database)
     {
-      char const *p = G_line;
+      const char *p = G_line;
       while (p - G_line < sizeof G_line)
         {
           puts (p);
@@ -465,15 +459,13 @@ main (int argc, char **argv)
     }
   else
     {
-      /* If shell syntax was not explicitly specified, try to guess it. */
+      /* If shell syntax was not explicitly specified, try to guess it.  */
       if (syntax == SHELL_SYNTAX_UNKNOWN)
         {
           syntax = guess_shell_syntax ();
           if (syntax == SHELL_SYNTAX_UNKNOWN)
-            {
-              die (EXIT_FAILURE, 0,
-         _("no SHELL environment variable, and no shell type option given"));
-            }
+            die (EXIT_FAILURE, 0,
+                 _("no SHELL environment variable, and no shell type option given"));
         }
 
       obstack_init (&lsc_obstack);

@@ -17,13 +17,14 @@
 /* David MacKenzie <djm@gnu.ai.mit.edu> */
 
 #include <config.h>
+
 #include <stdio.h>
 #include <getopt.h>
 #include <sys/types.h>
 
 #include "system.h"
 
-#if ! HAVE_NICE
+#if !HAVE_NICE
 /* Include this after "system.h" so we're sure to have definitions
    (from time.h or sys/time.h) required for e.g. the ru_utime member.  */
 # include <sys/resource.h>
@@ -31,6 +32,7 @@
 
 #include "die.h"
 #include "error.h"
+#include "long-options.h"
 #include "quote.h"
 #include "xstrtol.h"
 
@@ -55,12 +57,10 @@
 # define NZERO 20
 #endif
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"adjustment", required_argument, NULL, 'n'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 void
@@ -75,8 +75,7 @@ usage (int status)
 Run COMMAND with an adjusted niceness, which affects process scheduling.\n\
 With no COMMAND, print the current niceness.  Niceness values range from\n\
 %d (most favorable to the process) to %d (least favorable to the process).\n\
-"),
-              - NZERO, NZERO - 1);
+"), -NZERO, NZERO - 1);
 
       emit_mandatory_arg_note ();
 
@@ -102,9 +101,9 @@ main (int argc, char **argv)
 {
   int current_niceness;
   int adjustment = 10;
-  char const *adjustment_given = NULL;
+  const char *adjustment_given = NULL;
   bool ok;
-  int i;
+  int i = 1;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -115,14 +114,14 @@ main (int argc, char **argv)
   initialize_exit_failure (EXIT_CANCELED);
   atexit (close_stdout);
 
-  for (i = 1; i < argc; /* empty */)
+  while (i < argc)
     {
-      char const *s = argv[i];
+      const char *s = argv[i];
 
       if (s[0] == '-' && ISDIGIT (s[1 + (s[1] == '-' || s[1] == '+')]))
         {
           adjustment_given = s + 1;
-          ++i;
+          i++;
         }
       else
         {
@@ -136,7 +135,10 @@ main (int argc, char **argv)
           /* Initialize getopt_long's internal state.  */
           optind = 0;
 
-          c = getopt_long (fake_argc, fake_argv, "+n:", longopts, NULL);
+          parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                              (const char *) NULL);
+
+          c = getopt_long (fake_argc, fake_argv, "+n:", long_options, NULL);
           i += optind - 1;
 
           switch (c)
@@ -144,25 +146,17 @@ main (int argc, char **argv)
             case 'n':
               adjustment_given = optarg;
               break;
-
-            case -1:
-              break;
-
-            case_GETOPT_HELP_CHAR;
-
-            case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
             default:
               usage (EXIT_CANCELED);
               break;
             }
 
-          if (c == -1)
+          if (c < 0)
             break;
         }
     }
 
-  if (adjustment_given)
+  if (adjustment_given != NULL)
     {
       /* If the requested adjustment is outside the valid range,
          silently bring it to just within range; this mimics what
@@ -193,16 +187,17 @@ main (int argc, char **argv)
 
   errno = 0;
 #if HAVE_NICE
-  ok = (nice (adjustment) != -1 || errno == 0);
+  ok = (nice (adjustment) >= 0 || errno == 0);
 #else
   current_niceness = GET_NICENESS ();
-  if (current_niceness == -1 && errno != 0)
+  if (current_niceness < 0 && errno != 0)
     die (EXIT_CANCELED, errno, _("cannot get niceness"));
   ok = (setpriority (PRIO_PROCESS, 0, current_niceness + adjustment) == 0);
 #endif
   if (!ok)
     {
-      error (perm_related_errno (errno) ? 0
+      error (perm_related_errno (errno)
+             ? 0
              : EXIT_CANCELED, errno, _("cannot set niceness"));
       /* error() flushes stderr, but does not check for write failure.
          Normally, we would catch this via our atexit() hook of

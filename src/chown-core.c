@@ -40,13 +40,13 @@ enum RCH_status
     /* we called fchown and close, and both succeeded */
     RC_ok = 2,
 
-    /* required_uid and/or required_gid are specified, but don't match */
+    /* required_uid and/or required_gid are specified, but do not match */
     RC_excluded,
 
     /* SAME_INODE check failed */
     RC_inode_changed,
 
-    /* open/fchown isn't needed, isn't safe, or doesn't work due to
+    /* open/fchown is not needed, is not safe, or does not work due to
        permissions problems; fall back on chown */
     RC_do_ordinary_chown,
 
@@ -104,7 +104,7 @@ uid_to_name (uid_t uid)
 /* Allocate a string representing USER and GROUP.  */
 
 static char *
-user_group_str (char const *user, char const *group)
+user_group_str (const char *user, const char *group)
 {
   char *spec = NULL;
 
@@ -130,12 +130,12 @@ user_group_str (char const *user, char const *group)
 
 /* Tell the user how/if the user and group of FILE have been changed.
    If USER is NULL, give the group-oriented messages.
-   CHANGED describes what (if anything) has happened. */
+   CHANGED describes what (if anything) has happened.  */
 
 static void
 describe_change (const char *file, enum Change_status changed,
-                 char const *old_user, char const *old_group,
-                 char const *user, char const *group)
+                 const char *old_user, const char *old_group,
+                 const char *user, const char *group)
 {
   const char *fmt;
   char *old_spec;
@@ -194,7 +194,7 @@ describe_change (const char *file, enum Change_status changed,
    only if REQUIRED_UID and REQUIRED_GID match the owner and group IDs
    of FILE.  ORIG_ST must be the result of 'stat'ing FILE.
 
-   The 'safely' part above means that we can't simply use chown(2),
+   The 'safely' part above means that we cannot simply use chown(2),
    since FILE might be replaced with some other file between the time
    of the preceding stat/lstat and this chown call.  So here we open
    FILE and do everything else via the resulting file descriptor.
@@ -202,14 +202,14 @@ describe_change (const char *file, enum Change_status changed,
    the preceding stat call, and only then, if appropriate (given the
    required_uid and required_gid constraints) do we call fchown.
 
-   Return RC_do_ordinary_chown if we can't open FILE, or if FILE is a
+   Return RC_do_ordinary_chown if we cannot open FILE, or if FILE is a
    special file that might have undesirable side effects when opening.
    In this case the caller can use the less-safe ordinary chown.
 
    Return one of the RCH_status values.  */
 
 static enum RCH_status
-restricted_chown (int cwd_fd, char const *file,
+restricted_chown (int cwd_fd, const char *file,
                   struct stat const *orig_st,
                   uid_t uid, gid_t gid,
                   uid_t required_uid, gid_t required_gid)
@@ -222,7 +222,7 @@ restricted_chown (int cwd_fd, char const *file,
   if (required_uid == (uid_t) -1 && required_gid == (gid_t) -1)
     return RC_do_ordinary_chown;
 
-  if (! S_ISREG (orig_st->st_mode))
+  if (!S_ISREG (orig_st->st_mode))
     {
       if (S_ISDIR (orig_st->st_mode))
         open_flags |= O_DIRECTORY;
@@ -231,14 +231,14 @@ restricted_chown (int cwd_fd, char const *file,
     }
 
   fd = openat (cwd_fd, file, O_RDONLY | open_flags);
-  if (! (0 <= fd
+  if (!(0 <= fd
          || (errno == EACCES && S_ISREG (orig_st->st_mode)
              && 0 <= (fd = openat (cwd_fd, file, O_WRONLY | open_flags)))))
     return (errno == EACCES ? RC_do_ordinary_chown : RC_error);
 
   if (fstat (fd, &st) != 0)
     status = RC_error;
-  else if (! SAME_INODE (*orig_st, st))
+  else if (!SAME_INODE (*orig_st, st))
     status = RC_inode_changed;
   else if ((required_uid == (uid_t) -1 || required_uid == st.st_uid)
            && (required_gid == (gid_t) -1 || required_gid == st.st_gid))
@@ -273,8 +273,8 @@ change_file_owner (FTS *fts, FTSENT *ent,
                    uid_t required_uid, gid_t required_gid,
                    struct Chown_option const *chopt)
 {
-  char const *file_full_name = ent->fts_path;
-  char const *file = ent->fts_accpath;
+  const char *file_full_name = ent->fts_path;
+  const char *file = ent->fts_accpath;
   struct stat const *file_stats;
   struct stat stat_buf;
   bool ok = true;
@@ -302,7 +302,7 @@ change_file_owner (FTS *fts, FTSENT *ent,
       break;
 
     case FTS_DP:
-      if (! chopt->recurse)
+      if (!chopt->recurse)
         return true;
       break;
 
@@ -312,7 +312,7 @@ change_file_owner (FTS *fts, FTSENT *ent,
          With programs like chmod, chown, and chgrp, that modify
          permissions, it is possible that the file in question is
          accessible when control reaches this point.  So, if this is
-         the first time we've seen the FTS_NS for this file, tell
+         the first time we have seen the FTS_NS for this file, tell
          fts_read to stat it "again".  */
       if (ent->fts_level == 0 && ent->fts_number == 0)
         {
@@ -320,20 +320,20 @@ change_file_owner (FTS *fts, FTSENT *ent,
           fts_set (fts, ent, FTS_AGAIN);
           return true;
         }
-      if (! chopt->force_silent)
+      if (!chopt->force_silent)
         error (0, ent->fts_errno, _("cannot access %s"),
                quoteaf (file_full_name));
       ok = false;
       break;
 
     case FTS_ERR:
-      if (! chopt->force_silent)
+      if (!chopt->force_silent)
         error (0, ent->fts_errno, "%s", quotef (file_full_name));
       ok = false;
       break;
 
     case FTS_DNR:
-      if (! chopt->force_silent)
+      if (!chopt->force_silent)
         error (0, ent->fts_errno, _("cannot read directory %s"),
                quoteaf (file_full_name));
       ok = false;
@@ -374,7 +374,7 @@ change_file_owner (FTS *fts, FTSENT *ent,
         {
           if (fstatat (fts->fts_cwd_fd, file, &stat_buf, 0) != 0)
             {
-              if (! chopt->force_silent)
+              if (!chopt->force_silent)
                 error (0, errno, _("cannot dereference %s"),
                        quoteaf (file_full_name));
               ok = false;
@@ -407,7 +407,7 @@ change_file_owner (FTS *fts, FTSENT *ent,
 
           /* Ignore any error due to lack of support; POSIX requires
              this behavior for top-level symbolic links with -h, and
-             implies that it's required for all symbolic links.  */
+             implies that it is required for all symbolic links.  */
           if (!ok && errno == EOPNOTSUPP)
             {
               ok = true;
@@ -524,7 +524,7 @@ chown_files (char **files, int bit_flags,
 
   FTS *fts = xfts_open (files, bit_flags | stat_flags, NULL);
 
-  while (1)
+  while (true)
     {
       FTSENT *ent;
 
@@ -534,7 +534,7 @@ chown_files (char **files, int bit_flags,
           if (errno != 0)
             {
               /* FIXME: try to give a better message  */
-              if (! chopt->force_silent)
+              if (!chopt->force_silent)
                 error (0, errno, _("fts_read failed"));
               ok = false;
             }

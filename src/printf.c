@@ -51,10 +51,12 @@
    David MacKenzie <djm@gnu.ai.mit.edu> */
 
 #include <config.h>
+
 #include <stdio.h>
 #include <sys/types.h>
 
 #include "system.h"
+
 #include "cl-strtod.h"
 #include "die.h"
 #include "error.h"
@@ -80,8 +82,8 @@ static bool posixly_correct;
 
 /* This message appears in N_() here rather than just in _() below because
    the sole use would have been in a #define.  */
-static char const *const cfcc_msg =
- N_("warning: %s: character(s) following character constant have been ignored");
+static const char *const cfcc_msg =
+  N_("warning: %s: character(s) following character constant have been ignored");
 
 void
 usage (int status)
@@ -93,8 +95,7 @@ usage (int status)
       printf (_("\
 Usage: %s FORMAT [ARGUMENT]...\n\
   or:  %s OPTION\n\
-"),
-              program_name, program_name);
+"), program_name, program_name);
       fputs (_("\
 Print ARGUMENT(s) according to FORMAT, or execute according to OPTION:\n\
 \n\
@@ -138,18 +139,19 @@ ARGUMENTs converted to proper type first.  Variable widths are handled.\n\
       printf (USAGE_BUILTIN_WARNING, PROGRAM_NAME);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
 static void
 verify_numeric (const char *s, const char *end)
 {
-  if (errno)
+  if (errno != 0)
     {
       error (0, errno, "%s", quote (s));
       exit_status = EXIT_FAILURE;
     }
-  else if (*end)
+  else if (*end != '\0')
     {
       if (s == end)
         error (0, 0, _("%s: expected a numeric value"), quote (s));
@@ -159,69 +161,68 @@ verify_numeric (const char *s, const char *end)
     }
 }
 
-#define STRTOX(TYPE, FUNC_NAME, LIB_FUNC_EXPR)				 \
-static TYPE								 \
-FUNC_NAME (char const *s)						 \
-{									 \
-  char *end;								 \
-  TYPE val;								 \
+#define STRTOX(TYPE, FUNC_NAME, LIB_FUNC_EXPR)                           \
+  static TYPE                                                            \
+  FUNC_NAME (const char *s)                                              \
+  {                                                                      \
+    char *end;                                                           \
+    TYPE val;                                                            \
                                                                          \
-  if ((*s == '\"' || *s == '\'') && *(s + 1))				 \
-    {									 \
-      unsigned char ch = *++s;						 \
-      val = ch;								 \
-      /* If POSIXLY_CORRECT is not set, then give a warning that there	 \
-         are characters following the character constant and that GNU	 \
-         printf is ignoring those characters.  If POSIXLY_CORRECT *is*	 \
-         set, then don't give the warning.  */				 \
-      if (*++s != 0 && !posixly_correct)				 \
-        error (0, 0, _(cfcc_msg), s);					 \
-    }									 \
-  else									 \
-    {									 \
-      errno = 0;							 \
-      val = (LIB_FUNC_EXPR);						 \
-      verify_numeric (s, end);						 \
-    }									 \
-  return val;								 \
-}									 \
+    if ((*s == '\"' || *s == '\'') && *(s + 1))                          \
+      {                                                                  \
+        unsigned char ch = *++s;                                         \
+        val = ch;                                                        \
+        /* If POSIXLY_CORRECT is not set, then give a warning that there \
+           are characters following the character constant and that GNU  \
+           printf is ignoring those characters.  If POSIXLY_CORRECT *is* \
+           set, then do not give the warning.  */                        \
+        if (*++s != 0 && !posixly_correct)                               \
+          error (0, 0, _(cfcc_msg), s);                                  \
+      }                                                                  \
+    else                                                                 \
+      {                                                                  \
+        errno = 0;                                                       \
+        val = (LIB_FUNC_EXPR);                                           \
+        verify_numeric (s, end);                                         \
+      }                                                                  \
+    return val;                                                          \
+  }                                                                      \
 
 STRTOX (intmax_t,    vstrtoimax, strtoimax (s, &end, 0))
 STRTOX (uintmax_t,   vstrtoumax, strtoumax (s, &end, 0))
 STRTOX (long double, vstrtold,   cl_strtold (s, &end))
 
 /* Output a single-character \ escape.  */
-
 static void
 print_esc_char (char c)
 {
   switch (c)
     {
-    case 'a':			/* Alert. */
+    case 'a': /* Alert.  */
       putchar ('\a');
       break;
-    case 'b':			/* Backspace. */
+    case 'b': /* Backspace.  */
       putchar ('\b');
       break;
-    case 'c':			/* Cancel the rest of the output. */
+    case 'c': /* Cancel the rest of the output.  */
       exit (EXIT_SUCCESS);
       break;
-    case 'e':			/* Escape. */
+    case 'e': /* Escape.  */
       putchar ('\x1B');
       break;
-    case 'f':			/* Form feed. */
+    case 'f': /* Form feed.  */
       putchar ('\f');
       break;
-    case 'n':			/* New line. */
+    case 'n': /* New line.  */
       putchar ('\n');
       break;
-    case 'r':			/* Carriage return. */
+    case 'r': /* Carriage return.  */
       putchar ('\r');
       break;
-    case 't':			/* Horizontal tab. */
+    case 't': /* Horizontal tab.  */
       putchar ('\t');
       break;
-    case 'v':			/* Vertical tab. */
+    case 'v': /* Vertical tab.  */
       putchar ('\v');
       break;
     default:
@@ -235,20 +236,19 @@ print_esc_char (char c)
    besides the backslash.
    If OCTAL_0 is nonzero, octal escapes are of the form \0ooo, where o
    is an octal digit; otherwise they are of the form \ooo.  */
-
 static int
 print_esc (const char *escstart, bool octal_0)
 {
   const char *p = escstart + 1;
-  int esc_value = 0;		/* Value of \nnn escape. */
-  int esc_length;		/* Length of \nnn escape. */
+  int esc_value = 0; /* Value of \nnn escape.  */
+  int esc_length;    /* Length of \nnn escape.  */
 
   if (*p == 'x')
     {
       /* A hexadecimal \xhh escape sequence must have 1 or 2 hex. digits.  */
-      for (esc_length = 0, ++p;
+      for (esc_length = 0, p++;
            esc_length < 2 && isxdigit (to_uchar (*p));
-           ++esc_length, ++p)
+           esc_length++, p++)
         esc_value = esc_value * 16 + hextobin (*p);
       if (esc_length == 0)
         die (EXIT_FAILURE, 0, _("missing hexadecimal number in escape"));
@@ -259,13 +259,13 @@ print_esc (const char *escstart, bool octal_0)
       /* Parse \0ooo (if octal_0 && *p == '0') or \ooo (otherwise).
          Allow \ooo if octal_0 && *p != '0'; this is an undocumented
          extension to POSIX that is compatible with Bash 2.05b.  */
-      for (esc_length = 0, p += octal_0 && *p == '0';
+      for (esc_length = 0, p += (octal_0 && *p == '0');
            esc_length < 3 && isodigit (*p);
-           ++esc_length, ++p)
+           esc_length++, p++)
         esc_value = esc_value * 8 + octtobin (*p);
       putchar (esc_value);
     }
-  else if (*p && strchr ("\"\\abcefnrtv", *p))
+  else if (*p != '\0' && strchr ("\"\\abcefnrtv", *p))
     print_esc_char (*p++);
   else if (*p == 'u' || *p == 'U')
     {
@@ -273,11 +273,11 @@ print_esc (const char *escstart, bool octal_0)
       unsigned int uni_value;
 
       uni_value = 0;
-      for (esc_length = (esc_char == 'u' ? 4 : 8), ++p;
+      for (esc_length = (esc_char == 'u' ? 4 : 8), p++;
            esc_length > 0;
-           --esc_length, ++p)
+           esc_length--, p++)
         {
-          if (! isxdigit (to_uchar (*p)))
+          if (!isxdigit (to_uchar (*p)))
             die (EXIT_FAILURE, 0, _("missing hexadecimal number in escape"));
           uni_value = uni_value * 16 + hextobin (*p);
         }
@@ -298,7 +298,7 @@ print_esc (const char *escstart, bool octal_0)
   else
     {
       putchar ('\\');
-      if (*p)
+      if (*p != '\0')
         {
           putchar (*p);
           p++;
@@ -307,12 +307,11 @@ print_esc (const char *escstart, bool octal_0)
   return p - escstart - 1;
 }
 
-/* Print string STR, evaluating \ escapes. */
-
+/* Print string STR, evaluating \ escapes.  */
 static void
 print_esc_string (const char *str)
 {
-  for (; *str; str++)
+  for (; *str != '\0'; str++)
     if (*str == '\\')
       str += print_esc (str, true);
     else
@@ -326,21 +325,20 @@ print_esc_string (const char *str)
    field width and precision for '*' values, if HAVE_FIELD_WIDTH and
    HAVE_PRECISION are true, respectively.  ARGUMENT is the argument to
    be formatted.  */
-
 static void
 print_direc (const char *start, size_t length, char conversion,
              bool have_field_width, int field_width,
              bool have_precision, int precision,
-             char const *argument)
+             const char *argument)
 {
-  char *p;		/* Null-terminated copy of % directive. */
+  char *p; /* Null-terminated copy of % directive.  */
 
   /* Create a null-terminated copy of the % directive, with an
      intmax_t-wide length modifier substituted for any existing
      integer length modifier.  */
   {
     char *q;
-    char const *length_modifier;
+    const char *length_modifier;
     size_t length_modifier_len;
 
     switch (conversion)
@@ -349,15 +347,13 @@ print_direc (const char *start, size_t length, char conversion,
         length_modifier = PRIdMAX;
         length_modifier_len = sizeof PRIdMAX - 2;
         break;
-
       case 'a': case 'e': case 'f': case 'g':
       case 'A': case 'E': case 'F': case 'G':
         length_modifier = "L";
         length_modifier_len = 1;
         break;
-
       default:
-        length_modifier = start;  /* Any valid pointer will do.  */
+        length_modifier = start; /* Any valid pointer will do.  */
         length_modifier_len = 0;
         break;
       }
@@ -391,7 +387,6 @@ print_direc (const char *start, size_t length, char conversion,
           }
       }
       break;
-
     case 'o':
     case 'u':
     case 'x':
@@ -414,7 +409,6 @@ print_direc (const char *start, size_t length, char conversion,
           }
       }
       break;
-
     case 'a':
     case 'A':
     case 'e':
@@ -441,14 +435,12 @@ print_direc (const char *start, size_t length, char conversion,
           }
       }
       break;
-
     case 'c':
       if (!have_field_width)
         xprintf (p, *argument);
       else
         xprintf (p, field_width, *argument);
       break;
-
     case 's':
       if (!have_field_width)
         {
@@ -473,21 +465,20 @@ print_direc (const char *start, size_t length, char conversion,
 /* Print the text in FORMAT, using ARGV (with ARGC elements) for
    arguments to any '%' directives.
    Return the number of elements of ARGV used.  */
-
 static int
 print_formatted (const char *format, int argc, char **argv)
 {
-  int save_argc = argc;		/* Preserve original value.  */
-  const char *f;		/* Pointer into 'format'.  */
-  const char *direc_start;	/* Start of % directive.  */
-  size_t direc_length;		/* Length of % directive.  */
-  bool have_field_width;	/* True if FIELD_WIDTH is valid.  */
-  int field_width = 0;		/* Arg to first '*'.  */
-  bool have_precision;		/* True if PRECISION is valid.  */
-  int precision = 0;		/* Arg to second '*'.  */
-  char ok[UCHAR_MAX + 1];	/* ok['x'] is true if %x is allowed.  */
+  int save_argc = argc;    /* Preserve original value.  */
+  const char *f;           /* Pointer into 'format'.  */
+  const char *direc_start; /* Start of % directive.  */
+  size_t direc_length;     /* Length of % directive.  */
+  bool have_field_width;   /* True if FIELD_WIDTH is valid.  */
+  int field_width = 0;     /* Arg to first '*'.  */
+  bool have_precision;     /* True if PRECISION is valid.  */
+  int precision = 0;       /* Arg to second '*'.  */
+  char ok[UCHAR_MAX + 1];  /* ok['x'] is true if %x is allowed.  */
 
-  for (f = format; *f; ++f)
+  for (f = format; *f != '\0'; f++)
     {
       switch (*f)
         {
@@ -507,8 +498,8 @@ print_formatted (const char *format, int argc, char **argv)
               if (argc > 0)
                 {
                   print_esc_string (*argv);
-                  ++argv;
-                  --argc;
+                  argv++;
+                  argc--;
                 }
               break;
             }
@@ -519,13 +510,13 @@ print_formatted (const char *format, int argc, char **argv)
                 {
                   fputs (quotearg_style (shell_escape_quoting_style, *argv),
                          stdout);
-                  ++argv;
-                  --argc;
+                  argv++;
+                  argc--;
                 }
               break;
             }
 
-          memset (ok, 0, sizeof ok);
+          memset (ok, '\0', sizeof ok);
           ok['a'] = ok['A'] = ok['c'] = ok['d'] = ok['e'] = ok['E'] =
             ok['f'] = ok['F'] = ok['g'] = ok['G'] = ok['i'] = ok['o'] =
             ok['s'] = ok['u'] = ok['x'] = ok['X'] = 1;
@@ -533,14 +524,16 @@ print_formatted (const char *format, int argc, char **argv)
           for (;; f++, direc_length++)
             switch (*f)
               {
-#if (__GLIBC__ == 2 && 2 <= __GLIBC_MINOR__) || 3 <= __GLIBC__
+#if (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 2) || __GLIBC__ >= 3
               case 'I':
 #endif
               case '\'':
                 ok['a'] = ok['A'] = ok['c'] = ok['e'] = ok['E'] =
                   ok['o'] = ok['s'] = ok['x'] = ok['X'] = 0;
                 break;
-              case '-': case '+': case ' ':
+              case '-':
+              case '+':
+              case ' ':
                 break;
               case '#':
                 ok['c'] = ok['d'] = ok['i'] = ok['s'] = ok['u'] = 0;
@@ -551,12 +544,12 @@ print_formatted (const char *format, int argc, char **argv)
               default:
                 goto no_more_flag_characters;
               }
-        no_more_flag_characters:
 
+        no_more_flag_characters:
           if (*f == '*')
             {
-              ++f;
-              ++direc_length;
+              f++;
+              direc_length++;
               if (argc > 0)
                 {
                   intmax_t width = vstrtoimax (*argv);
@@ -565,8 +558,8 @@ print_formatted (const char *format, int argc, char **argv)
                   else
                     die (EXIT_FAILURE, 0, _("invalid field width: %s"),
                          quote (*argv));
-                  ++argv;
-                  --argc;
+                  argv++;
+                  argc--;
                 }
               else
                 field_width = 0;
@@ -575,18 +568,18 @@ print_formatted (const char *format, int argc, char **argv)
           else
             while (ISDIGIT (*f))
               {
-                ++f;
-                ++direc_length;
+                f++;
+                direc_length++;
               }
           if (*f == '.')
             {
-              ++f;
-              ++direc_length;
+              f++;
+              direc_length++;
               ok['c'] = 0;
               if (*f == '*')
                 {
-                  ++f;
-                  ++direc_length;
+                  f++;
+                  direc_length++;
                   if (argc > 0)
                     {
                       intmax_t prec = vstrtoimax (*argv);
@@ -602,8 +595,8 @@ print_formatted (const char *format, int argc, char **argv)
                              quote (*argv));
                       else
                         precision = prec;
-                      ++argv;
-                      --argc;
+                      argv++;
+                      argc--;
                     }
                   else
                     precision = 0;
@@ -612,18 +605,18 @@ print_formatted (const char *format, int argc, char **argv)
               else
                 while (ISDIGIT (*f))
                   {
-                    ++f;
-                    ++direc_length;
+                    f++;
+                    direc_length++;
                   }
             }
 
           while (*f == 'l' || *f == 'L' || *f == 'h'
                  || *f == 'j' || *f == 't' || *f == 'z')
-            ++f;
+            f++;
 
           {
             unsigned char conversion = *f;
-            if (! ok[conversion])
+            if (!ok[conversion])
               die (EXIT_FAILURE, 0,
                    _("%.*s: invalid conversion specification"),
                    (int) (f + 1 - direc_start), direc_start);
@@ -634,11 +627,9 @@ print_formatted (const char *format, int argc, char **argv)
                        have_precision, precision,
                        (argc <= 0 ? "" : (argc--, *argv++)));
           break;
-
         case '\\':
           f += print_esc (f, false);
           break;
-
         default:
           putchar (*f);
         }
@@ -682,10 +673,10 @@ main (int argc, char **argv)
 
   /* The above handles --help and --version.
      Since there is no other invocation of getopt, handle '--' here.  */
-  if (1 < argc && STREQ (argv[1], "--"))
+  if (argc > 1 && STREQ (argv[1], "--"))
     {
-      --argc;
-      ++argv;
+      argc--;
+      argv++;
     }
 
   if (argc <= 1)

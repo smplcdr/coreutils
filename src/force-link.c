@@ -24,6 +24,7 @@
    a window where B does not exist.  */
 
 #include <config.h>
+
 #include "system.h"
 
 #include "force-link.h"
@@ -33,25 +34,22 @@
 /* A basename pattern suitable for a temporary file.  It should work
    even on file systems like FAT that support only short names.
    "Cu" is short for "Coreutils" or for "Changeable unstable",
-   take your pick....  */
-
-static char const simple_pattern[] = "CuXXXXXX";
-enum { x_suffix_len = sizeof "XXXXXX" - 1 };
+   take your pick... */
+static const char simple_pattern[] = "CuXXXXXX";
+enum { x_suffix_len = sizeof ("XXXXXX") - 1 };
 
 /* A size for smallish buffers containing file names.  Longer file
    names can use malloc.  */
-
 enum { smallsize = 256 };
 
 /* Return a template for a file in the same directory as DSTNAME.
    Use BUF if the template fits, otherwise use malloc and return NULL
    (setting errno) if unsuccessful.  */
-
 static char *
-samedir_template (char const *dstname, char buf[smallsize])
+samedir_template (const char *dstname, char buf[smallsize])
 {
   ptrdiff_t dstdirlen = last_component (dstname) - dstname;
-  size_t dsttmpsize = dstdirlen + sizeof simple_pattern;
+  size_t dsttmpsize = dstdirlen + sizeof (simple_pattern);
   char *dsttmp;
   if (dsttmpsize <= smallsize)
     dsttmp = buf;
@@ -71,7 +69,7 @@ samedir_template (char const *dstname, char buf[smallsize])
 struct link_arg
 {
   int srcdir;
-  char const *srcname;
+  const char *srcname;
   int dstdir;
   int flags;
 };
@@ -92,19 +90,19 @@ try_link (char *dest, void *arg)
    0 if successful and DSTNAME did not already exist, and
    a positive errno value on failure.  */
 extern int
-force_linkat (int srcdir, char const *srcname,
-              int dstdir, char const *dstname, int flags, bool force,
+force_linkat (int srcdir, const char *srcname,
+              int dstdir, const char *dstname,
+              int flags, bool force,
               int linkat_errno)
 {
   if (linkat_errno < 0)
-    linkat_errno = (linkat (srcdir, srcname, dstdir, dstname, flags) == 0
-                    ? 0 : errno);
+    linkat_errno = (linkat (srcdir, srcname, dstdir, dstname, flags) == 0 ? 0 : errno);
   if (!force || linkat_errno != EEXIST)
     return linkat_errno;
 
   char buf[smallsize];
   char *dsttmp = samedir_template (dstname, buf);
-  if (! dsttmp)
+  if (!dsttmp)
     return errno;
   struct link_arg arg = { srcdir, srcname, dstdir, flags };
   int err;
@@ -130,7 +128,7 @@ force_linkat (int srcdir, char const *srcname,
 
 struct symlink_arg
 {
-  char const *srcname;
+  const char *srcname;
   int dstdir;
 };
 
@@ -149,7 +147,7 @@ try_symlink (char *dest, void *arg)
    0 if successful and DSTNAME did not already exist, and
    a positive errno value on failure.  */
 extern int
-force_symlinkat (char const *srcname, int dstdir, char const *dstname,
+force_symlinkat (const char *srcname, int dstdir, const char *dstname,
                  bool force, int symlinkat_errno)
 {
   if (symlinkat_errno < 0)
@@ -173,7 +171,7 @@ force_symlinkat (char const *srcname, int dstdir, char const *dstname,
     }
   else
     {
-      /* Don't worry about renameat being a no-op, since DSTTMP is
+      /* Do not worry about renameat being a no-op, since DSTTMP is
          newly created.  */
       err = -1;
     }

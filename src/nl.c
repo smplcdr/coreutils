@@ -45,35 +45,35 @@
    value, and a string separator.  */
 
 /* Right justified, no leading zeroes.  */
-static char const FORMAT_RIGHT_NOLZ[] = "%*" PRIdMAX "%s";
+static const char FORMAT_RIGHT_NOLZ[] = "%*" PRIdMAX "%s";
 
 /* Right justified, leading zeroes.  */
-static char const FORMAT_RIGHT_LZ[] = "%0*" PRIdMAX "%s";
+static const char FORMAT_RIGHT_LZ[] = "%0*" PRIdMAX "%s";
 
 /* Left justified, no leading zeroes.  */
-static char const FORMAT_LEFT[] = "%-*" PRIdMAX "%s";
+static const char FORMAT_LEFT[] = "%-*" PRIdMAX "%s";
 
 /* Default section delimiter characters.  */
-static char const DEFAULT_SECTION_DELIMITERS[] = "\\:";
+static const char DEFAULT_SECTION_DELIMITERS[] = "\\:";
 
 /* Types of input lines: either one of the section delimiters,
-   or text to output. */
+   or text to output.  */
 enum section
 {
   Header, Body, Footer, Text
 };
 
 /* Format of body lines (-b).  */
-static char const *body_type = "t";
+static const char *body_type = "t";
 
 /* Format of header lines (-h).  */
-static char const *header_type = "n";
+static const char *header_type = "n";
 
 /* Format of footer lines (-f).  */
-static char const *footer_type = "n";
+static const char *footer_type = "n";
 
 /* Format currently being used (body, header, or footer).  */
-static char const *current_type;
+static const char *current_type;
 
 /* Regex for body lines to number (-bp).  */
 static struct re_pattern_buffer body_regex;
@@ -93,10 +93,10 @@ static char footer_fastmap[UCHAR_MAX + 1];
 static struct re_pattern_buffer *current_regex = NULL;
 
 /* Separator string to print after line number (-s).  */
-static char const *separator_str = "\t";
+static const char *separator_str = "\t";
 
 /* Input section delimiter string (-d).  */
-static char const *section_del = DEFAULT_SECTION_DELIMITERS;
+static const char *section_del = DEFAULT_SECTION_DELIMITERS;
 
 /* Header delimiter string.  */
 static char *header_del = NULL;
@@ -138,7 +138,7 @@ static intmax_t blank_join = 1;
 static int lineno_width = 6;
 
 /* Line number format (-n).  */
-static char const *lineno_format = FORMAT_RIGHT_NOLZ;
+static const char *lineno_format = FORMAT_RIGHT_NOLZ;
 
 /* Current print line number.  */
 static intmax_t line_no;
@@ -146,7 +146,7 @@ static intmax_t line_no;
 /* True if we have ever read standard input.  */
 static bool have_read_stdin;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"header-numbering", required_argument, NULL, 'h'},
   {"body-numbering", required_argument, NULL, 'b'},
@@ -159,12 +159,10 @@ static struct option const longopts[] =
   {"number-width", required_argument, NULL, 'w'},
   {"number-format", required_argument, NULL, 'n'},
   {"section-delimiter", required_argument, NULL, 'd'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
-/* Print a usage message and quit. */
+/* Print a usage message and quit.  */
 
 void
 usage (int status)
@@ -238,10 +236,10 @@ FORMAT is one of:\n\
    according to 'optarg'.  */
 
 static bool
-build_type_arg (char const **typep,
+build_type_arg (const char **typep,
                 struct re_pattern_buffer *regexp, char *fastmap)
 {
-  char const *errmsg;
+  const char *errmsg;
   bool rval = true;
 
   switch (*optarg)
@@ -270,7 +268,7 @@ build_type_arg (char const **typep,
   return rval;
 }
 
-/* Print the line number and separator; increment the line number. */
+/* Print the line number and separator; increment the line number.  */
 
 static void
 print_lineno (void)
@@ -281,7 +279,7 @@ print_lineno (void)
     die (EXIT_FAILURE, 0, _("line number overflow"));
 }
 
-/* Switch to a header section. */
+/* Switch to a header section.  */
 
 static void
 proc_header (void)
@@ -293,7 +291,7 @@ proc_header (void)
   putchar ('\n');
 }
 
-/* Switch to a body section. */
+/* Switch to a body section.  */
 
 static void
 proc_body (void)
@@ -305,7 +303,7 @@ proc_body (void)
   putchar ('\n');
 }
 
-/* Switch to a footer section. */
+/* Switch to a footer section.  */
 
 static void
 proc_footer (void)
@@ -317,12 +315,12 @@ proc_footer (void)
   putchar ('\n');
 }
 
-/* Process a regular text line in 'line_buf'. */
+/* Process a regular text line in 'line_buf'.  */
 
 static void
 proc_text (void)
 {
-  static intmax_t blank_lines = 0;	/* Consecutive blank lines so far. */
+  static intmax_t blank_lines = 0;  /* Consecutive blank lines so far.  */
 
   switch (*current_type)
     {
@@ -368,7 +366,7 @@ proc_text (void)
   fwrite (line_buf.buffer, sizeof (char), line_buf.length, stdout);
 }
 
-/* Return the type of line in 'line_buf'. */
+/* Return the type of line in 'line_buf'.  */
 
 static enum section
 check_section (void)
@@ -389,7 +387,7 @@ check_section (void)
   return Text;
 }
 
-/* Read and process the file pointed to by FP. */
+/* Read and process the file pointed to by FP.  */
 
 static void
 process_file (FILE *fp)
@@ -418,7 +416,7 @@ process_file (FILE *fp)
    Return true if successful.  */
 
 static bool
-nl_file (char const *file)
+nl_file (const char *file)
 {
   FILE *stream;
 
@@ -447,7 +445,7 @@ nl_file (char const *file)
       return false;
     }
   if (STREQ (file, "-"))
-    clearerr (stream);		/* Also clear EOF. */
+    clearerr (stream);    /* Also clear EOF.  */
   else if (fclose (stream) == EOF)
     {
       error (0, errno, "%s", quotef (file));
@@ -459,7 +457,7 @@ nl_file (char const *file)
 int
 main (int argc, char **argv)
 {
-  int c;
+  int optc;
   size_t len;
   bool ok = true;
 
@@ -473,13 +471,15 @@ main (int argc, char **argv)
 
   have_read_stdin = false;
 
-  while ((c = getopt_long (argc, argv, "h:b:f:v:i:pl:s:w:n:d:", longopts,
-                           NULL)) != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "h:b:f:v:i:pl:s:w:n:d:", long_options, NULL)) != -1)
     {
-      switch (c)
+      switch (optc)
         {
         case 'h':
-          if (! build_type_arg (&header_type, &header_regex, header_fastmap))
+          if (!build_type_arg (&header_type, &header_regex, header_fastmap))
             {
               error (0, 0, _("invalid header numbering style: %s"),
                      quote (optarg));
@@ -487,7 +487,7 @@ main (int argc, char **argv)
             }
           break;
         case 'b':
-          if (! build_type_arg (&body_type, &body_regex, body_fastmap))
+          if (!build_type_arg (&body_type, &body_regex, body_fastmap))
             {
               error (0, 0, _("invalid body numbering style: %s"),
                      quote (optarg));
@@ -495,7 +495,7 @@ main (int argc, char **argv)
             }
           break;
         case 'f':
-          if (! build_type_arg (&footer_type, &footer_regex, footer_fastmap))
+          if (!build_type_arg (&footer_type, &footer_regex, footer_fastmap))
             {
               error (0, 0, _("invalid footer numbering style: %s"),
                      quote (optarg));
@@ -542,8 +542,6 @@ main (int argc, char **argv)
         case 'd':
           section_del = optarg;
           break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
         default:
           ok = false;
           break;
@@ -571,7 +569,7 @@ main (int argc, char **argv)
   /* Initialize the input buffer.  */
   initbuffer (&line_buf);
 
-  /* Initialize the printf format for unnumbered lines. */
+  /* Initialize the printf format for unnumbered lines.  */
   len = strlen (separator_str);
   print_no_line_fmt = xmalloc (lineno_width + len + 1);
   memset (print_no_line_fmt, ' ', lineno_width + len);
@@ -581,7 +579,7 @@ main (int argc, char **argv)
   current_type = body_type;
   current_regex = &body_regex;
 
-  /* Main processing. */
+  /* Main processing.  */
 
   if (optind == argc)
     ok = nl_file ("-");

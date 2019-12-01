@@ -30,6 +30,7 @@
 #include "error.h"
 #include "parse-datetime.h"
 #include "posixtm.h"
+#include "long-options.h"
 #include "quote.h"
 #include "stat-time.h"
 #include "fprintftime.h"
@@ -47,10 +48,10 @@ enum Time_spec
   TIME_SPEC_DATE,
   /* Display date, hours, minutes, and seconds.  */
   TIME_SPEC_SECONDS,
-  /* Similar, but display nanoseconds. */
+  /* Similar, but display nanoseconds.  */
   TIME_SPEC_NS,
 
-  /* Put these last, since they aren't valid for --rfc-3339.  */
+  /* Put these last, since they are not valid for --rfc-3339.  */
 
   /* Display date and hour.  */
   TIME_SPEC_HOURS,
@@ -58,14 +59,14 @@ enum Time_spec
   TIME_SPEC_MINUTES
 };
 
-static char const *const time_spec_string[] =
+static const char *const time_spec_string[] =
 {
-  /* Put "hours" and "minutes" first, since they aren't valid for
+  /* Put "hours" and "minutes" first, since they are not valid for
      --rfc-3339.  */
   "hours", "minutes",
   "date", "seconds", "ns", NULL
 };
-static enum Time_spec const time_spec[] =
+static const enum Time_spec time_spec[] =
 {
   TIME_SPEC_HOURS, TIME_SPEC_MINUTES,
   TIME_SPEC_DATE, TIME_SPEC_SECONDS, TIME_SPEC_NS
@@ -73,7 +74,7 @@ static enum Time_spec const time_spec[] =
 ARGMATCH_VERIFY (time_spec_string, time_spec);
 
 /* A format suitable for Internet RFCs 5322, 2822, and 822.  */
-static char const rfc_email_format[] = "%a, %d %b %Y %H:%M:%S %z";
+static const char rfc_email_format[] = "%a, %d %b %Y %H:%M:%S %z";
 
 /* For long options that have no equivalent short option, use a
    non-character as a pseudo short option, starting with CHAR_MAX + 1.  */
@@ -83,9 +84,9 @@ enum
   DEBUG_DATE_PARSING
 };
 
-static char const short_options[] = "d:f:I::r:Rs:u";
+static const char short_options[] = "d:f:I::r:Rs:u";
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"date", required_argument, NULL, 'd'},
   {"debug", no_argument, NULL, DEBUG_DATE_PARSING},
@@ -100,9 +101,7 @@ static struct option const long_options[] =
   {"uct", no_argument, NULL, 'u'},
   {"utc", no_argument, NULL, 'u'},
   {"universal", no_argument, NULL, 'u'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 /* flags for parse_datetime2 */
@@ -130,8 +129,7 @@ usage (int status)
       printf (_("\
 Usage: %s [OPTION]... [+FORMAT]\n\
   or:  %s [-u|--utc|--universal] [MMDDhhmm[[CC]YY][.ss]]\n\
-"),
-              program_name, program_name);
+"), program_name, program_name);
       fputs (_("\
 Display the current time in the given FORMAT, or set the system date.\n\
 "), stdout);
@@ -278,6 +276,7 @@ Show the local time for 9AM next Friday on the west coast of the US\n\
 "), stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -285,10 +284,9 @@ Show the local time for 9AM next Friday on the west coast of the US\n\
    resulting time and date.  If the file cannot be opened, tell why
    then exit.  Issue a diagnostic for any lines that cannot be parsed.
    Return true if successful.  */
-
 static bool
 batch_convert (const char *input_filename, const char *format,
-               timezone_t tz, char const *tzstring)
+               timezone_t tz, const char *tzstring)
 {
   bool ok;
   FILE *in_stream;
@@ -305,15 +303,13 @@ batch_convert (const char *input_filename, const char *format,
     {
       in_stream = fopen (input_filename, "r");
       if (in_stream == NULL)
-        {
-          die (EXIT_FAILURE, errno, "%s", quotef (input_filename));
-        }
+        die (EXIT_FAILURE, errno, "%s", quotef (input_filename));
     }
 
   line = NULL;
   buflen = 0;
   ok = true;
-  while (1)
+  while (true)
     {
       ssize_t line_length = getline (&line, &buflen, in_stream);
       if (line_length < 0)
@@ -322,7 +318,7 @@ batch_convert (const char *input_filename, const char *format,
           break;
         }
 
-      if (! parse_datetime2 (&when, line, NULL,
+      if (!parse_datetime2 (&when, line, NULL,
                              parse_datetime_flags, tz, tzstring))
         {
           if (line[line_length - 1] == '\n')
@@ -331,9 +327,7 @@ batch_convert (const char *input_filename, const char *format,
           ok = false;
         }
       else
-        {
-          ok &= show_date (format, when, tz);
-        }
+        ok &= show_date (format, when, tz);
     }
 
   if (fclose (in_stream) == EOF)
@@ -352,7 +346,7 @@ main (int argc, char **argv)
   const char *set_datestr = NULL;
   struct timespec when;
   bool set_date = false;
-  char const *format = NULL;
+  const char *format = NULL;
   char *batch_file = NULL;
   char *reference = NULL;
   struct stat refstats;
@@ -367,10 +361,12 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL))
-         != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL)) != -1)
     {
-      char const *new_format = NULL;
+      const char *new_format = NULL;
 
       switch (optc)
         {
@@ -385,7 +381,7 @@ main (int argc, char **argv)
           break;
         case RFC_3339_OPTION:
           {
-            static char const rfc_3339_format[][32] =
+            static const char rfc_3339_format[][32] =
               {
                 "%Y-%m-%d",
                 "%Y-%m-%d %H:%M:%S%:z",
@@ -399,7 +395,7 @@ main (int argc, char **argv)
           }
         case 'I':
           {
-            static char const iso_8601_format[][32] =
+            static const char iso_8601_format[][32] =
               {
                 "%Y-%m-%d",
                 "%Y-%m-%dT%H:%M:%S%:z",
@@ -432,8 +428,6 @@ main (int argc, char **argv)
             xalloc_die ();
           TZSET;
           break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
         default:
           usage (EXIT_FAILURE);
         }
@@ -492,7 +486,7 @@ main (int argc, char **argv)
   if (!format)
     {
       format = DATE_FMT_LANGINFO ();
-      if (! *format)
+      if (!*format)
         {
           /* Do not wrap the following literal format string with _(...).
              For example, suppose LC_ALL is unset, LC_TIME=POSIX,
@@ -505,7 +499,7 @@ main (int argc, char **argv)
         }
     }
 
-  char const *tzstring = getenv ("TZ");
+  const char *tzstring = getenv ("TZ");
   timezone_t tz = tzalloc (tzstring);
 
   if (batch_file != NULL)
@@ -554,7 +548,7 @@ main (int argc, char **argv)
             }
         }
 
-      if (! valid_date)
+      if (!valid_date)
         die (EXIT_FAILURE, 0, _("invalid date %s"), quote (datestr));
 
       if (set_date)

@@ -15,10 +15,10 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-#ifndef REMOVE_H
-# define REMOVE_H
+#ifndef _REMOVE_H
+#define _REMOVE_H 1
 
-# include "dev-ino.h"
+#include "dev-ino.h"
 
 enum rm_interactive
 {
@@ -77,7 +77,7 @@ struct rm_options
 
 enum RM_status
 {
-  /* These must be listed in order of increasing seriousness. */
+  /* These must be listed in order of increasing seriousness.  */
   RM_OK = 2,
   RM_USER_DECLINED,
   RM_ERROR,
@@ -87,15 +87,14 @@ enum RM_status
 # define VALID_STATUS(S) \
   ((S) == RM_OK || (S) == RM_USER_DECLINED || (S) == RM_ERROR)
 
-# define UPDATE_STATUS(S, New_value)				\
-  do								\
-    {								\
-      if ((New_value) == RM_ERROR				\
-          || ((New_value) == RM_USER_DECLINED && (S) == RM_OK))	\
-        (S) = (New_value);					\
-    }								\
+# define UPDATE_STATUS(S, New_value) \
+  do \
+    { \
+      if ((New_value) == RM_ERROR || ((New_value) == RM_USER_DECLINED && (S) == RM_OK)) \
+        (S) = (New_value); \
+    } \
   while (0)
 
-extern enum RM_status rm (char *const *file, struct rm_options const *x);
+extern enum RM_status rm (char *const *file, const struct rm_options *x);
 
-#endif
+#endif /* _REMOVE_H */

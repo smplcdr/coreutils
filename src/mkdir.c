@@ -28,6 +28,7 @@
 #include "mkdir-p.h"
 #include "modechange.h"
 #include "prog-fprintf.h"
+#include "long-options.h"
 #include "quote.h"
 #include "savewd.h"
 #include "selinux.h"
@@ -38,14 +39,12 @@
 
 #define AUTHORS proper_name ("David MacKenzie")
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
-  {GETOPT_SELINUX_CONTEXT_OPTION_DECL},
+  {SELINUX_CONTEXT_OPTION_DECL},
   {"mode", required_argument, NULL, 'm'},
   {"parents", no_argument, NULL, 'p'},
   {"verbose", no_argument, NULL, 'v'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -78,6 +77,7 @@ Create the DIRECTORY(ies), if they do not already exist.\n\
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -86,7 +86,7 @@ struct mkdir_options
 {
   /* Function to make an ancestor, or NULL if ancestors should not be
      made.  */
-  int (*make_ancestor_function) (char const *, char const *, void *);
+  int (*make_ancestor_function) (const char *, const char *, void *);
 
   /* Umask value in effect.  */
   mode_t umask_value;
@@ -101,12 +101,12 @@ struct mkdir_options
   bool set_security_context;
 
   /* If not null, format to use when reporting newly made directories.  */
-  char const *created_directory_format;
+  const char *created_directory_format;
 };
 
 /* Report that directory DIR was made, if OPTIONS requests this.  */
 static void
-announce_mkdir (char const *dir, void *options)
+announce_mkdir (const char *dir, void *options)
 {
   struct mkdir_options const *o = options;
   if (o->created_directory_format)
@@ -119,7 +119,7 @@ announce_mkdir (char const *dir, void *options)
    readable, 1 if successful but the resulting directory is not
    readable, -1 (setting errno) otherwise.  */
 static int
-make_ancestor (char const *dir, char const *component, void *options)
+make_ancestor (const char *dir, const char *component, void *options)
 {
   struct mkdir_options const *o = options;
 
@@ -156,7 +156,7 @@ process_dir (char *dir, struct savewd *wd, void *options)
   /* If possible set context before DIR created.  */
   if (o->set_security_context)
     {
-      if (! o->make_ancestor_function && defaultcon (dir, S_IFDIR) < 0
+      if (!o->make_ancestor_function && defaultcon (dir, S_IFDIR) < 0
           && ! ignorable_ctx_err (errno))
         error (0, errno, _("failed to set default creation context for %s"),
                quoteaf (dir));
@@ -169,14 +169,14 @@ process_dir (char *dir, struct savewd *wd, void *options)
              : EXIT_FAILURE);
 
   /* FIXME: Due to the current structure of make_dir_parents()
-     we don't have the facility to call defaultcon() before the
+     we do not have the facility to call defaultcon() before the
      final component of DIR is created.  So for now, create the
      final component with the context from previous component
-     and here we set the context for the final component. */
+     and here we set the context for the final component.  */
   if (ret == EXIT_SUCCESS && o->set_security_context
       && o->make_ancestor_function)
     {
-      if (! restorecon (last_component (dir), false, false)
+      if (!restorecon (last_component (dir), false, false)
           && ! ignorable_ctx_err (errno))
         error (0, errno, _("failed to restore context for %s"),
                quoteaf (dir));
@@ -190,7 +190,7 @@ main (int argc, char **argv)
 {
   const char *specified_mode = NULL;
   int optc;
-  char const *scontext = NULL;
+  const char *scontext = NULL;
   struct mkdir_options options;
 
   options.make_ancestor_function = NULL;
@@ -207,7 +207,10 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "pm:vZ", longopts, NULL)) != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "pm:vZ", long_options, NULL)) != -1)
     {
       switch (optc)
         {
@@ -222,10 +225,8 @@ main (int argc, char **argv)
           break;
         case 'Z':
           if (is_smack_enabled ())
-            {
-              /* We don't yet support -Z to restore context with SMACK.  */
-              scontext = optarg;
-            }
+            /* We do not yet support -Z to restore context with SMACK.  */
+            scontext = optarg;
           else if (is_selinux_enabled () > 0)
             {
               if (optarg)
@@ -233,15 +234,10 @@ main (int argc, char **argv)
               else
                 options.set_security_context = true;
             }
-          else if (optarg)
-            {
-              error (0, 0,
-                     _("warning: ignoring --context; "
-                       "it requires an SELinux/SMACK-enabled kernel"));
-            }
+          else if (optarg != NULL)
+            error (0, 0, _("warning: ignoring --context; "
+                           "it requires an SELinux/SMACK-enabled kernel"));
           break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
         default:
           usage (EXIT_FAILURE);
         }
@@ -256,7 +252,7 @@ main (int argc, char **argv)
   /* FIXME: This assumes mkdir() is done in the same process.
      If that's not always the case we would need to call this
      like we do when options.set_security_context == true.  */
-  if (scontext)
+  if (scontext != NULL)
     {
       int ret = 0;
       if (is_smack_enabled ())
@@ -280,7 +276,7 @@ main (int argc, char **argv)
       if (specified_mode)
         {
           struct mode_change *change = mode_compile (specified_mode);
-          if (!change)
+          if (change == NULL)
             die (EXIT_FAILURE, 0, _("invalid mode %s"),
                  quote (specified_mode));
           options.mode = mode_adjust (S_IRWXUGO, true, umask_value, change,

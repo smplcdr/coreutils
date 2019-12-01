@@ -28,7 +28,7 @@
 #include "quote.h"
 #include "xstrtod.h"
 
-/* Roll our own isfinite/isnan rather than using <math.h>, so that we don't
+/* Roll our own isfinite/isnan rather than using <math.h>, so that we do not
    have to worry about linking -lm just for isfinite.  */
 #ifndef isfinite
 # define isfinite(x) ((x) * 0 == 0)
@@ -54,20 +54,18 @@ static bool locale_ok;
 static bool equal_width;
 
 /* The string used to separate two numbers.  */
-static char const *separator;
+static const char *separator;
 
 /* The string output after all numbers have been output.
    Usually "\n" or "\0".  */
-static char const terminator[] = "\n";
+static const char terminator[] = "\n";
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
-  { "equal-width", no_argument, NULL, 'w'},
-  { "format", required_argument, NULL, 'f'},
-  { "separator", required_argument, NULL, 's'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  { NULL, 0, NULL, 0}
+  {"equal-width", no_argument, NULL, 'w'},
+  {"format", required_argument, NULL, 'f'},
+  {"separator", required_argument, NULL, 's'},
+  {NULL, 0, NULL, 0}
 };
 
 void
@@ -129,7 +127,7 @@ struct operand
   size_t width;
 
   /* Number of digits after the decimal point, or INT_MAX if the
-     number can't easily be expressed as a fixed-point number.  */
+     number cannot easily be expressed as a fixed-point number.  */
   int precision;
 };
 typedef struct operand operand;
@@ -150,7 +148,7 @@ scan_arg (const char *arg)
 {
   operand ret;
 
-  if (! xstrtold (arg, NULL, &ret.value, cl_strtold))
+  if (!xstrtold (arg, NULL, &ret.value, cl_strtold))
     {
       error (0, 0, _("invalid floating point argument: %s"), quote (arg));
       usage (EXIT_FAILURE);
@@ -163,7 +161,7 @@ scan_arg (const char *arg)
       usage (EXIT_FAILURE);
     }
 
-  /* We don't output spaces or '+' so don't include in width */
+  /* We do not output spaces or '+' so do not include in width */
   while (isspace (to_uchar (*arg)) || *arg == '+')
     arg++;
 
@@ -172,12 +170,12 @@ scan_arg (const char *arg)
   ret.precision = INT_MAX;
 
   /* Use no precision (and possibly fast generation) for integers.  */
-  char const *decimal_point = strchr (arg, '.');
-  if (! decimal_point && ! strchr (arg, 'p') /* not a hex float */)
+  const char *decimal_point = strchr (arg, '.');
+  if (!decimal_point && ! strchr (arg, 'p') /* not a hex float */)
     ret.precision = 0;
 
   /* auto set width and precision for decimal inputs.  */
-  if (! arg[strcspn (arg, "xX")] && isfinite (ret.value))
+  if (!arg[strcspn (arg, "xX")] && isfinite (ret.value))
     {
       size_t fraction_len = 0;
       ret.width = strlen (arg);
@@ -192,15 +190,15 @@ scan_arg (const char *arg)
                         : (decimal_point == arg                /* .#  -> 0.# */
                            || ! ISDIGIT (decimal_point[-1]))); /* -.# -> 0.# */
         }
-      char const *e = strchr (arg, 'e');
-      if (! e)
+      const char *e = strchr (arg, 'e');
+      if (!e)
         e = strchr (arg, 'E');
       if (e)
         {
           long exponent = strtol (e + 1, NULL, 10);
           ret.precision += exponent < 0 ? -exponent
                                         : - MIN (ret.precision, exponent);
-          /* Don't account for e.... in the width since this is not output.  */
+          /* Do not account for e.... in the width since this is not output.  */
           ret.width -= strlen (arg) - (e - arg);
           /* Adjust the width as per the exponent.  */
           if (exponent < 0)
@@ -232,8 +230,8 @@ scan_arg (const char *arg)
    store into *LAYOUT a description of the output layout; otherwise,
    report an error and exit.  */
 
-static char const *
-long_double_format (char const *fmt, struct layout *layout)
+static const char *
+long_double_format (const char *fmt, struct layout *layout)
 {
   size_t i;
   size_t prefix_len = 0;
@@ -263,7 +261,7 @@ long_double_format (char const *fmt, struct layout *layout)
   i += has_L;
   if (fmt[i] == '\0')
     die (EXIT_FAILURE, 0, _("format %s ends in %%"), quote (fmt));
-  if (! strchr ("efgaEFGA", fmt[i]))
+  if (!strchr ("efgaEFGA", fmt[i]))
     die (EXIT_FAILURE, 0,
          _("format %s has unknown %%%c directive"), quote (fmt), fmt[i]);
 
@@ -299,12 +297,12 @@ io_error (void)
    given or default stepping and format.  */
 
 static void
-print_numbers (char const *fmt, struct layout layout,
+print_numbers (const char *fmt, struct layout layout,
                long double first, long double step, long double last)
 {
   bool out_of_range = (step < 0 ? first < last : last < first);
 
-  if (! out_of_range)
+  if (!out_of_range)
     {
       long double x = first;
       long double i;
@@ -354,7 +352,7 @@ print_numbers (char const *fmt, struct layout layout,
                 }
 
               free (x_str);
-              if (! print_extra_number)
+              if (!print_extra_number)
                 break;
             }
 
@@ -368,7 +366,7 @@ print_numbers (char const *fmt, struct layout layout,
 }
 
 /* Return the default format given FIRST, STEP, and LAST.  */
-static char const *
+static const char *
 get_default_format (operand first, operand step, operand last)
 {
   static char format_buf[sizeof "%0.Lf" + 2 * INT_STRLEN_BOUND (int)];
@@ -384,7 +382,7 @@ get_default_format (operand first, operand step, operand last)
           /* adjust last_width to use precision from first/step */
           size_t last_width = last.width + (prec - last.precision);
           if (last.precision && prec == 0)
-            last_width--;  /* don't include space for '.' */
+            last_width--;  /* do not include space for '.' */
           if (last.precision == 0 && prec)
             last_width++;  /* include space for '.' */
           if (first.precision == 0 && prec)
@@ -430,7 +428,7 @@ incr (char **s0, size_t *s_len)
 /* Compare A and B (each a NUL-terminated digit string), with lengths
    given by A_LEN and B_LEN.  Return +1 if A < B, -1 if B < A, else 0.  */
 static int
-cmp (char const *a, size_t a_len, char const *b, size_t b_len)
+cmp (const char *a, size_t a_len, const char *b, size_t b_len)
 {
   if (a_len < b_len)
     return -1;
@@ -441,10 +439,10 @@ cmp (char const *a, size_t a_len, char const *b, size_t b_len)
 
 /* Trim leading 0's from S, but if S is all 0's, leave one.
    Return a pointer to the trimmed string.  */
-static char const * _GL_ATTRIBUTE_PURE
-trim_leading_zeros (char const *s)
+static const char * _GL_ATTRIBUTE_PURE
+trim_leading_zeros (const char *s)
 {
-  char const *p = s;
+  const char *p = s;
   while (*s == '0')
     ++s;
 
@@ -458,7 +456,7 @@ trim_leading_zeros (char const *s)
    followed by a newline.  If B < A, return false and print nothing.
    Otherwise, return true.  */
 static bool
-seq_fast (char const *a, char const *b, uintmax_t step)
+seq_fast (const char *a, const char *b, uintmax_t step)
 {
   bool inf = STREQ (b, "inf");
 
@@ -482,7 +480,7 @@ seq_fast (char const *a, char const *b, uintmax_t step)
   char *p = memcpy (p0 + inc_size - p_len, a, p_len + 1);
   char *q;
   char *q0;
-  if (! inf)
+  if (!inf)
     {
       q0 = xmalloc (inc_size + 1);
       q = memcpy (q0 + inc_size - q_len, b, q_len + 1);
@@ -498,7 +496,7 @@ seq_fast (char const *a, char const *b, uintmax_t step)
          when printing the first 10^9 integers.  */
       size_t buf_size = MAX (BUFSIZ, (inc_size + 1) * 2);
       char *buf = xmalloc (buf_size);
-      char const *buf_end = buf + buf_size;
+      const char *buf_end = buf + buf_size;
 
       char *bufp = buf;
 
@@ -511,7 +509,7 @@ seq_fast (char const *a, char const *b, uintmax_t step)
           for (uintmax_t n_incr = step; n_incr; n_incr--)
             incr (&p, &p_len);
 
-          if (! inf && 0 < cmp (p, p_len, q, q_len))
+          if (!inf && 0 < cmp (p, p_len, q, q_len))
             break;
 
           *bufp++ = *separator;
@@ -559,7 +557,7 @@ seq_fast (char const *a, char const *b, uintmax_t step)
 
 /* Return true if S consists of at least one digit and no non-digits.  */
 static bool _GL_ATTRIBUTE_PURE
-all_digits_p (char const *s)
+all_digits_p (const char *s)
 {
   size_t n = strlen (s);
   return ISDIGIT (s[0]) && n == strspn (s, "0123456789");
@@ -575,7 +573,7 @@ main (int argc, char **argv)
   struct layout layout = { 0, 0 };
 
   /* The printf(3) format used for output.  */
-  char const *format_str = NULL;
+  const char *format_str = NULL;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -588,20 +586,20 @@ main (int argc, char **argv)
   equal_width = false;
   separator = "\n";
 
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
   /* We have to handle negative numbers in the command line but this
      conflicts with the command line arguments.  So explicitly check first
      whether the next argument looks like a negative number.  */
   while (optind < argc)
     {
-      if (argv[optind][0] == '-'
-          && ((optc = argv[optind][1]) == '.' || ISDIGIT (optc)))
-        {
-          /* means negative number */
-          break;
-        }
+      if (argv[optind][0] == '-' && ((optc = argv[optind][1]) == '.' || ISDIGIT (optc)))
+        /* Means negative number.  */
+        break;
 
       optc = getopt_long (argc, argv, "+f:s:w", long_options, NULL);
-      if (optc == -1)
+      if (optc == EOF)
         break;
 
       switch (optc)
@@ -609,38 +607,31 @@ main (int argc, char **argv)
         case 'f':
           format_str = optarg;
           break;
-
         case 's':
           separator = optarg;
           break;
-
         case 'w':
           equal_width = true;
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_FAILURE);
         }
     }
 
-  unsigned int n_args = argc - optind;
+  int n_args = argc - optind;
   if (n_args < 1)
     {
       error (0, 0, _("missing operand"));
       usage (EXIT_FAILURE);
     }
 
-  if (3 < n_args)
+  if (n_args > 3)
     {
       error (0, 0, _("extra operand %s"), quote (argv[optind + 3]));
       usage (EXIT_FAILURE);
     }
 
-  if (format_str)
+  if (format_str != NULL)
     format_str = long_double_format (format_str, &layout);
 
   if (format_str != NULL && equal_width)
@@ -670,8 +661,8 @@ main (int argc, char **argv)
                          && all_digits_p (argv[optind + 2])))
       && !equal_width && !format_str && strlen (separator) == 1)
     {
-      char const *s1 = n_args == 1 ? "1" : argv[optind];
-      char const *s2 = argv[optind + (n_args - 1)];
+      const char *s1 = n_args == 1 ? "1" : argv[optind];
+      const char *s2 = argv[optind + (n_args - 1)];
       if (seq_fast (s1, s2, step.value))
         return EXIT_SUCCESS;
 
@@ -710,7 +701,7 @@ main (int argc, char **argv)
       char *s2;
       if (asprintf (&s1, "%0.Lf", first.value) < 0)
         xalloc_die ();
-      if (! isfinite (last.value))
+      if (!isfinite (last.value))
         s2 = xstrdup ("inf"); /* Ensure "inf" is used.  */
       else if (asprintf (&s2, "%0.Lf", last.value) < 0)
         xalloc_die ();

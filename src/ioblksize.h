@@ -16,9 +16,11 @@
 
 /* Include this file _after_ system headers if possible.  */
 
-/* sys/stat.h will already have been included by system.h. */
-#include "stat-size.h"
+#ifndef _IOBLKSIZE_H
+#define _IOBLKSIZE_H 1
 
+/* sys/stat.h will already have been included by system.h.  */
+#include "stat-size.h"
 
 /* As of May 2014, 128KiB is determined to be the minimium
    blksize to best minimize system call overhead.
@@ -66,13 +68,15 @@
    device=$(df --output=source --local "$file" | tail -n1)
    echo $(( $(blockdev --getra $device) * 512 ))
 
-   However there isn't a portable way to get the above.
+   However there is not a portable way to get the above.
    In the future we could use the above method if available
    and default to io_blksize() if not.
  */
-enum { IO_BUFSIZE = 128*1024 };
+enum { IO_BUFSIZE = 128 * 1024 };
 static inline size_t
 io_blksize (struct stat sb)
 {
   return MAX (IO_BUFSIZE, ST_BLKSIZE (sb));
 }
+
+#endif /* _IOBLKSIZE_H */

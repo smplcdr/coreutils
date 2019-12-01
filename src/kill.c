@@ -51,19 +51,17 @@
 # endif
 #endif
 
-static char const short_options[] =
+static const char short_options[] =
   "0::1::2::3::4::5::6::7::8::9::"
   "A::B::C::D::E::F::G::H::I::J::K::M::"
   "N::O::P::Q::R::S::T::U::V::W::X::Y::Z::"
   "Lln:s:t";
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"list", no_argument, NULL, 'l'},
   {"signal", required_argument, NULL, 's'},
   {"table", no_argument, NULL, 't'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -111,9 +109,9 @@ PID is an integer; if negative it identifies a process group.\n\
 
 static void
 print_table_row (int num_width, int signum,
-                 int name_width, char const *signame)
+                 int name_width, const char *signame)
 {
-  char const *description = strsignal (signum);
+  const char *description = strsignal (signum);
   printf ("%*d %-*s %s\n", num_width, signum, name_width, signame,
           description ? description : "?");
 }
@@ -188,20 +186,20 @@ list_signals (bool table, char *const *argv)
 
 /* Send signal SIGNUM to all the processes or process groups specified
    by ARGV.  Return a suitable exit status.  */
-
 static int
 send_signals (int signum, char *const *argv)
 {
   int status = EXIT_SUCCESS;
-  char const *arg = *argv;
+  const char *arg = *argv;
 
   do
     {
+      errno = 0;
       char *endp;
-      intmax_t n = (errno = 0, strtoimax (arg, &endp, 10));
+      intmax_t n = strtoimax (arg, &endp, 10);
       pid_t pid = n;
 
-      if (errno == ERANGE || pid != n || arg == endp || *endp)
+      if (errno == ERANGE || pid != n || arg == endp || *endp != '\0')
         {
           error (0, 0, _("%s: invalid process id"), quote (arg));
           status = EXIT_FAILURE;
@@ -212,7 +210,7 @@ send_signals (int signum, char *const *argv)
           status = EXIT_FAILURE;
         }
     }
-  while ((arg = *++argv));
+  while ((arg = *++argv) != NULL);
 
   return status;
 }
@@ -234,8 +232,10 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL))
-         != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL)) != -1)
     switch (optc)
       {
       case '0': case '1': case '2': case '3': case '4':
@@ -253,7 +253,7 @@ main (int argc, char **argv)
       case 'P': case 'Q': case 'R': case 'S': case 'T':
       case 'U': case 'V': case 'W': case 'X': case 'Y':
       case 'Z':
-        if (! optarg)
+        if (optarg == NULL)
           optarg = argv[optind - 1] + strlen (argv[optind - 1]);
         if (optarg != argv[optind - 1] + 2)
           {
@@ -264,7 +264,7 @@ main (int argc, char **argv)
         FALLTHROUGH;
       case 'n': /* -n is not documented, but is for Bash compatibility.  */
       case 's':
-        if (0 <= signum)
+        if (signum >= 0)
           {
             error (0, 0, _("%s: multiple signals specified"), quote (optarg));
             usage (EXIT_FAILURE);
@@ -273,7 +273,6 @@ main (int argc, char **argv)
         if (signum < 0)
           usage (EXIT_FAILURE);
         break;
-
       case 'L': /* -L is not documented, but is for procps compatibility.  */
       case 't':
         table = true;
@@ -286,14 +285,11 @@ main (int argc, char **argv)
           }
         list = true;
         break;
-
-      case_GETOPT_HELP_CHAR;
-      case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
       default:
         usage (EXIT_FAILURE);
       }
- no_more_options:
 
+no_more_options:
   if (signum < 0)
     signum = SIGTERM;
   else if (list)
@@ -302,7 +298,7 @@ main (int argc, char **argv)
       usage (EXIT_FAILURE);
     }
 
-  if ( ! list && argc <= optind)
+  if (!list && argc <= optind)
     {
       error (0, 0, _("no process ID specified"));
       usage (EXIT_FAILURE);

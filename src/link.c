@@ -17,14 +17,15 @@
 /* Written by Michael Stone */
 
 /* Implementation overview:
-
    Simply call the system 'link' function */
 
 #include <config.h>
+
 #include <stdio.h>
 #include <sys/types.h>
 
 #include "system.h"
+
 #include "die.h"
 #include "error.h"
 #include "long-options.h"
@@ -33,7 +34,8 @@
 /* The official name of this program (e.g., no 'g' prefix).  */
 #define PROGRAM_NAME "link"
 
-#define AUTHORS proper_name ("Michael Stone")
+#define AUTHORS \
+  proper_name ("Michael Stone")
 
 void
 usage (int status)
@@ -46,12 +48,12 @@ usage (int status)
 Usage: %s FILE1 FILE2\n\
   or:  %s OPTION\n"), program_name, program_name);
       fputs (_("Call the link function to create a link named FILE2\
- to an existing FILE1.\n\n"),
-             stdout);
+ to an existing FILE1.\n\n"), stdout);
       fputs (HELP_OPTION_DESCRIPTION, stdout);
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -68,7 +70,7 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   if (argc < optind + 2)
     {

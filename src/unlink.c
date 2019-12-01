@@ -17,7 +17,6 @@
 /* Written by Michael Stone */
 
 /* Implementation overview:
-
    Simply call the system 'unlink' function */
 
 #include <config.h>
@@ -33,7 +32,8 @@
 /* The official name of this program (e.g., no 'g' prefix).  */
 #define PROGRAM_NAME "unlink"
 
-#define AUTHORS proper_name ("Michael Stone")
+#define AUTHORS \
+  proper_name ("Michael Stone")
 
 void
 usage (int status)
@@ -51,6 +51,7 @@ Usage: %s FILE\n\
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -67,7 +68,7 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   if (argc < optind + 1)
     {

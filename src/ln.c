@@ -14,14 +14,16 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Written by Mike Parker and David MacKenzie. */
+/* Written by Mike Parker and David MacKenzie.  */
 
 #include <config.h>
+
+#include <getopt.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include <getopt.h>
 
 #include "system.h"
+
 #include "backupfile.h"
 #include "die.h"
 #include "error.h"
@@ -31,6 +33,7 @@
 #include "force-link.h"
 #include "hash.h"
 #include "hash-triple.h"
+#include "long-options.h"
 #include "priv-set.h"
 #include "relpath.h"
 #include "same.h"
@@ -38,7 +41,7 @@
 #include "yesno.h"
 #include "canonicalize.h"
 
-#ifdef O_PATH
+#if defined(O_PATH)
 enum { O_PATHSEARCH = O_PATH };
 #else
 enum { O_PATHSEARCH = O_SEARCH };
@@ -69,7 +72,7 @@ static bool interactive;
 /* If true, remove existing files unconditionally.  */
 static bool remove_existing_files;
 
-/* If true, list each file as it is moved. */
+/* If true, list each file as it is moved.  */
 static bool verbose;
 
 /* If true, allow the superuser to *attempt* to make hard links
@@ -96,7 +99,7 @@ static Hash_table *dest_set;
 /* Initial size of the dest_set hash table.  */
 enum { DEST_INFO_INITIAL_CAPACITY = 61 };
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"backup", optional_argument, NULL, 'b'},
   {"directory", no_argument, NULL, 'F'},
@@ -111,14 +114,11 @@ static struct option const long_options[] =
   {"relative", no_argument, NULL, 'r'},
   {"symbolic", no_argument, NULL, 's'},
   {"verbose", no_argument, NULL, 'v'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
 /* Return an errno value for a system call that returned STATUS.
    This is zero if STATUS is zero, and is errno otherwise.  */
-
 static int
 errnoize (int status)
 {
@@ -127,11 +127,10 @@ errnoize (int status)
 
 /* Return FROM represented as relative to the dir of TARGET.
    The result is malloced.  */
-
 static char *
 convert_abs_rel (const char *from, const char *target)
 {
-  /* Get dirname to generate paths relative to.  We don't resolve
+  /* Get dirname to generate paths relative to.  We do not resolve
      the full TARGET as the last component could be an existing symlink.  */
   char *targetdir = dir_name (target);
 
@@ -163,16 +162,15 @@ convert_abs_rel (const char *from, const char *target)
    positive errno value on failure, and -1 if an atomic link cannot be
    done.  This handles the common case where the destination does not
    already exist and -r is not specified.  */
-
 static int
-atomic_link (char const *source, int destdir_fd, char const *dest_base)
+atomic_link (const char *source, int destdir_fd, const char *dest_base)
 {
   return (symbolic_link
-          ? (relative ? -1
-             : errnoize (symlinkat (source, destdir_fd, dest_base)))
-          : beware_hard_dir_link ? -1
-          : errnoize (linkat (AT_FDCWD, source, destdir_fd, dest_base,
-                              logical ? AT_SYMLINK_FOLLOW : 0)));
+          ? (relative ? -1 : errnoize (symlinkat (source, destdir_fd, dest_base)))
+          : beware_hard_dir_link
+            ? -1
+            : errnoize (linkat (AT_FDCWD, source, destdir_fd, dest_base,
+                                logical ? AT_SYMLINK_FOLLOW : 0)));
 }
 
 /* Link SOURCE to a directory entry under DESTDIR_FD named DEST_BASE.
@@ -181,10 +179,9 @@ atomic_link (char const *source, int destdir_fd, char const *dest_base)
    positive if attempting the link failed with errno == LINK_ERRNO,
    -1 if no attempt has been made to create the link.
    Return true if successful.  */
-
 static bool
-do_link (char const *source, int destdir_fd, char const *dest_base,
-         char const *dest, int link_errno)
+do_link (const char *source, int destdir_fd, const char *dest_base,
+         const char *dest, int link_errno)
 {
   struct stat source_stats;
   int source_status = 1;
@@ -218,13 +215,11 @@ do_link (char const *source, int destdir_fd, char const *dest_base,
       if (relative)
         source = rel_source = convert_abs_rel (source, dest);
 
-      bool force = (remove_existing_files || interactive
-                    || backup_type != no_backups);
+      bool force = (remove_existing_files || interactive || backup_type != no_backups);
       if (force)
         {
           struct stat dest_stats;
-          if (fstatat (destdir_fd, dest_base, &dest_stats, AT_SYMLINK_NOFOLLOW)
-              != 0)
+          if (fstatat (destdir_fd, dest_base, &dest_stats, AT_SYMLINK_NOFOLLOW) != 0)
             {
               if (errno != ENOENT)
                 {
@@ -242,8 +237,7 @@ do_link (char const *source, int destdir_fd, char const *dest_base,
             {
               /* The current target was created as a hard link to another
                  source file.  */
-              error (0, 0,
-                     _("will not overwrite just-created %s with %s"),
+              error (0, 0, _("will not overwrite just-created %s with %s"),
                      quoteaf_n (0, dest), quoteaf_n (1, source));
               return false;
             }
@@ -294,14 +288,13 @@ do_link (char const *source, int destdir_fd, char const *dest_base,
                                                            dest_base,
                                                            backup_type);
                       if (renameat (destdir_fd, dest_base,
-                                    destdir_fd, backup_base)
-                          != 0)
+                                    destdir_fd, backup_base) != 0)
                         {
                           int rename_errno = errno;
                           free (backup_base);
                           backup_base = NULL;
                           if (rename_errno != ENOENT)
-                           {
+                            {
                               error (0, rename_errno, _("cannot backup %s"),
                                      quoteaf (dest));
                               return false;
@@ -329,13 +322,12 @@ do_link (char const *source, int destdir_fd, char const *dest_base,
          that refer to the same file), rename succeeds and DEST remains.
          If we didn't remove DEST in that case, the subsequent symlink or
          link call would fail.  */
-      link_errno
-        = (symbolic_link
-           ? force_symlinkat (source, destdir_fd, dest_base,
-                              force, link_errno)
-           : force_linkat (AT_FDCWD, source, destdir_fd, dest_base,
-                           logical ? AT_SYMLINK_FOLLOW : 0,
-                           force, link_errno));
+      link_errno = (symbolic_link
+                    ? force_symlinkat (source, destdir_fd, dest_base,
+                                       force, link_errno)
+                    : force_linkat (AT_FDCWD, source, destdir_fd, dest_base,
+                                    logical ? AT_SYMLINK_FOLLOW : 0,
+                                    force, link_errno));
       /* Until now, link_errno < 0 meant the link has not been tried.
          From here on, link_errno < 0 means the link worked but
          required removing the destination first.  */
@@ -345,19 +337,19 @@ do_link (char const *source, int destdir_fd, char const *dest_base,
     {
       /* Right after creating a hard link, do this: (note dest name and
          source_stats, which are also the just-linked-destinations stats) */
-      if (! symbolic_link)
+      if (!symbolic_link)
         record_file (dest_set, dest, &source_stats);
 
       if (verbose)
         {
-          char const *quoted_backup = "";
-          char const *backup_sep = "";
+          const char *quoted_backup = "";
+          const char *backup_sep = "";
           if (backup_base)
             {
               char *backup = backup_base;
               void *alloc = NULL;
               ptrdiff_t destdirlen = dest_base - dest;
-              if (0 < destdirlen)
+              if (destdirlen > 0)
                 {
                   alloc = xmalloc (destdirlen + strlen (backup_base) + 1);
                   backup = memcpy (alloc, dest, destdirlen);
@@ -382,7 +374,7 @@ do_link (char const *source, int destdir_fd, char const *dest_base,
               : (link_errno == EMLINK
                  ? _("failed to create hard link to %.0s%s")
                  : (link_errno == EDQUOT || link_errno == EEXIST
-                    || link_errno == ENOSPC || link_errno == EROFS)
+                 || link_errno == ENOSPC || link_errno == EROFS)
                  ? _("failed to create hard link %s")
                  : _("failed to create hard link %s => %s"))),
              quoteaf_n (0, dest), quoteaf_n (1, source));
@@ -417,7 +409,7 @@ Usage: %s [OPTION]... [-T] TARGET LINK_NAME\n\
 In the 1st form, create a link to TARGET with the name LINK_NAME.\n\
 In the 2nd form, create a link to TARGET in the current directory.\n\
 In the 3rd and 4th forms, create links to each TARGET in DIRECTORY.\n\
-Create hard links by default, symbolic links with --symbolic.\n\
+Create hard links by default, symbolic links with --symbolic.\n         \
 By default, each destination (name of new link) should not already exist.\n\
 When creating hard links, each TARGET must exist.  Symbolic links\n\
 can hold arbitrary text; if later resolved, a relative link is\n\
@@ -469,9 +461,9 @@ main (int argc, char **argv)
   int c;
   bool ok;
   bool make_backups = false;
-  char const *backup_suffix = NULL;
+  const char *backup_suffix = NULL;
   char *version_control_string = NULL;
-  char const *target_directory = NULL;
+  const char *target_directory = NULL;
   int destdir_fd;
   bool no_target_directory = false;
   int n_files;
@@ -486,78 +478,74 @@ main (int argc, char **argv)
 
   atexit (close_stdin);
 
-  symbolic_link = remove_existing_files = interactive = verbose
-    = hard_dir_link = false;
+  symbolic_link = remove_existing_files = interactive = verbose = hard_dir_link = false;
 
-  while ((c = getopt_long (argc, argv, "bdfinrst:vFLPS:T", long_options, NULL))
-         != -1)
-    {
-      switch (c)
-        {
-        case 'b':
-          make_backups = true;
-          if (optarg)
-            version_control_string = optarg;
-          break;
-        case 'd':
-        case 'F':
-          hard_dir_link = true;
-          break;
-        case 'f':
-          remove_existing_files = true;
-          interactive = false;
-          break;
-        case 'i':
-          remove_existing_files = false;
-          interactive = true;
-          break;
-        case 'L':
-          logical = true;
-          break;
-        case 'n':
-          dereference_dest_dir_symlinks = false;
-          break;
-        case 'P':
-          logical = false;
-          break;
-        case 'r':
-          relative = true;
-          break;
-        case 's':
-          symbolic_link = true;
-          break;
-        case 't':
-          if (target_directory)
-            die (EXIT_FAILURE, 0, _("multiple target directories specified"));
-          else
-            {
-              struct stat st;
-              if (stat (optarg, &st) != 0)
-                die (EXIT_FAILURE, errno, _("failed to access %s"),
-                     quoteaf (optarg));
-              if (! S_ISDIR (st.st_mode))
-                die (EXIT_FAILURE, 0, _("target %s is not a directory"),
-                     quoteaf (optarg));
-            }
-          target_directory = optarg;
-          break;
-        case 'T':
-          no_target_directory = true;
-          break;
-        case 'v':
-          verbose = true;
-          break;
-        case 'S':
-          make_backups = true;
-          backup_suffix = optarg;
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-          break;
-        }
-    }
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((c = getopt_long (argc, argv, "bdfinrst:vFLPS:T", long_options, NULL)) != -1)
+    switch (c)
+      {
+      case 'b':
+        make_backups = true;
+        if (optarg)
+          version_control_string = optarg;
+        break;
+      case 'd':
+      case 'F':
+        hard_dir_link = true;
+        break;
+      case 'f':
+        remove_existing_files = true;
+        interactive = false;
+        break;
+      case 'i':
+        remove_existing_files = false;
+        interactive = true;
+        break;
+      case 'L':
+        logical = true;
+        break;
+      case 'n':
+        dereference_dest_dir_symlinks = false;
+        break;
+      case 'P':
+        logical = false;
+        break;
+      case 'r':
+        relative = true;
+        break;
+      case 's':
+        symbolic_link = true;
+        break;
+      case 't':
+        if (target_directory)
+          die (EXIT_FAILURE, 0, _("multiple target directories specified"));
+        else
+          {
+            struct stat st;
+            if (stat (optarg, &st) != 0)
+              die (EXIT_FAILURE, errno, _("failed to access %s"),
+                   quoteaf (optarg));
+            if (!S_ISDIR (st.st_mode))
+              die (EXIT_FAILURE, 0, _("target %s is not a directory"),
+                   quoteaf (optarg));
+          }
+        target_directory = optarg;
+        break;
+      case 'T':
+        no_target_directory = true;
+        break;
+      case 'v':
+        verbose = true;
+        break;
+      case 'S':
+        make_backups = true;
+        backup_suffix = optarg;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   n_files = argc - optind;
   file = argv + optind;
@@ -606,16 +594,15 @@ main (int argc, char **argv)
       if (link_errno < 0 || link_errno == EEXIST || link_errno == ENOTDIR
           || link_errno == EINVAL)
         {
-          char const *d
-            = target_directory ? target_directory : file[n_files - 1];
-          int flags = (O_PATHSEARCH | O_DIRECTORY
-                       | (dereference_dest_dir_symlinks ? 0 : O_NOFOLLOW));
+          const char *d = target_directory ? target_directory : file[n_files - 1];
+          int flags = (O_PATHSEARCH | O_DIRECTORY | (dereference_dest_dir_symlinks ? 0 : O_NOFOLLOW));
           destdir_fd = openat_safer (AT_FDCWD, d, flags);
           int err = errno;
           if (!O_DIRECTORY && 0 <= destdir_fd)
             {
               struct stat st;
-              err = (fstat (destdir_fd, &st) != 0 ? errno
+              err = (fstat (destdir_fd, &st) != 0
+                     ? errno
                      : S_ISDIR (st.st_mode) ? 0 : ENOTDIR);
               if (err != 0)
                 {
@@ -623,12 +610,12 @@ main (int argc, char **argv)
                   destdir_fd = -1;
                 }
             }
-          if (0 <= destdir_fd)
+          if (destdir_fd >= 0)
             {
               n_files -= !target_directory;
               target_directory = d;
             }
-          else if (! (n_files == 2 && !target_directory))
+          else if (!(n_files == 2 && !target_directory))
             die (EXIT_FAILURE, err, _("target %s"), quoteaf (d));
         }
     }
@@ -638,17 +625,16 @@ main (int argc, char **argv)
                  : no_backups);
   set_simple_backup_suffix (backup_suffix);
 
-
   if (target_directory)
     {
       /* Create the data structure we'll use to record which hard links we
          create.  Used to ensure that ln detects an obscure corner case that
          might result in user data loss.  Create it only if needed.  */
-      if (2 <= n_files
+      if (n_files >= 2
           && remove_existing_files
-          /* Don't bother trying to protect symlinks, since ln clobbering
+          /* Do not bother trying to protect symlinks, since ln clobbering
              a just-created symlink won't ever lead to real data loss.  */
-          && ! symbolic_link
+          && !symbolic_link
           /* No destination hard link can be clobbered when making
              numbered backups.  */
           && backup_type != numbered_backups)

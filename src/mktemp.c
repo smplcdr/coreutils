@@ -17,8 +17,9 @@
 /* Written by Jim Meyering and Eric Blake.  */
 
 #include <config.h>
-#include <sys/types.h>
+
 #include <getopt.h>
+#include <sys/types.h>
 
 #include "system.h"
 
@@ -45,16 +46,14 @@ enum
   SUFFIX_OPTION = CHAR_MAX + 1,
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"directory", no_argument, NULL, 'd'},
   {"quiet", no_argument, NULL, 'q'},
   {"dry-run", no_argument, NULL, 'u'},
   {"suffix", required_argument, NULL, SUFFIX_OPTION},
   {"tmpdir", optional_argument, NULL, 'p'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 void
@@ -106,9 +105,9 @@ Files are created u+rw, and directories u+rwx, minus umask restrictions.\n\
 static size_t
 count_consecutive_X_s (const char *s, size_t len)
 {
-  size_t n = 0;
-  for ( ; len && s[len-1] == 'X'; len--)
-    ++n;
+  size_t n;
+  for (n = 0; len != 0 && s[len - 1] == 'X'; len--)
+    n++;
   return n;
 }
 
@@ -145,10 +144,10 @@ maybe_close_stdout (void)
 int
 main (int argc, char **argv)
 {
-  char const *dest_dir;
-  char const *dest_dir_arg = NULL;
+  const char *dest_dir;
+  const char *dest_dir_arg = NULL;
   bool suppress_file_err = false;
-  int c;
+  int optc;
   unsigned int n_args;
   char *template;
   char *suffix = NULL;
@@ -169,44 +168,45 @@ main (int argc, char **argv)
 
   atexit (maybe_close_stdout);
 
-  while ((c = getopt_long (argc, argv, "dp:qtuV", longopts, NULL)) != -1)
-    {
-      switch (c)
-        {
-        case 'd':
-          create_directory = true;
-          break;
-        case 'p':
-          dest_dir_arg = optarg;
-          use_dest_dir = true;
-          break;
-        case 'q':
-          suppress_file_err = true;
-          break;
-        case 't':
-          use_dest_dir = true;
-          deprecated_t_option = true;
-          break;
-        case 'u':
-          dry_run = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case SUFFIX_OPTION:
-          suffix = optarg;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case 'V': /* Undocumented alias, for compatibility with the original
-                     mktemp program.  */
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "dp:qtuV", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'd':
+        create_directory = true;
+        break;
+      case 'p':
+        dest_dir_arg = optarg;
+        use_dest_dir = true;
+        break;
+      case 'q':
+        suppress_file_err = true;
+        break;
+      case 't':
+        use_dest_dir = true;
+        deprecated_t_option = true;
+        break;
+      case 'u':
+        dry_run = true;
+        break;
+      case SUFFIX_OPTION:
+        suffix = optarg;
+        break;
+      case 'V':
+        /* Undocumented alias, for compatibility with the original
+           mktemp program.  */
+        version_etc (stdout, program_name, PACKAGE_NAME, Version, AUTHORS,
+                     (char *) NULL);
+        exit (EXIT_SUCCESS);
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   n_args = argc - optind;
-  if (2 <= n_args)
+  if (n_args >= 2)
     {
       error (0, 0, _("too many templates"));
       usage (EXIT_FAILURE);
@@ -218,14 +218,12 @@ main (int argc, char **argv)
       template = (char *) default_template;
     }
   else
-    {
-      template = argv[optind];
-    }
+    template = argv[optind];
 
-  if (suffix)
+  if (suffix != NULL)
     {
       size_t len = strlen (template);
-      if (!len || template[len - 1] != 'X')
+      if (len == 0 || template[len - 1] != 'X')
         {
           die (EXIT_FAILURE, 0,
                _("with --suffix, template %s must end in X"),
@@ -242,7 +240,7 @@ main (int argc, char **argv)
     {
       template = xstrdup (template);
       suffix = strrchr (template, 'X');
-      if (!suffix)
+      if (suffix == NULL)
         suffix = strchr (template, '\0');
       else
         suffix++;
@@ -250,7 +248,7 @@ main (int argc, char **argv)
     }
 
   /* At this point, template is malloc'd, and suffix points into template.  */
-  if (suffix_len && last_component (suffix) != suffix)
+  if (suffix_len != 0 && last_component (suffix) != suffix)
     {
       die (EXIT_FAILURE, 0,
            _("invalid suffix %s, contains directory separator"),
@@ -265,7 +263,7 @@ main (int argc, char **argv)
       if (deprecated_t_option)
         {
           char *env = getenv ("TMPDIR");
-          if (env && *env)
+          if (env != NULL && *env != '\0')
             dest_dir = env;
           else if (dest_dir_arg && *dest_dir_arg)
             dest_dir = dest_dir_arg;
@@ -341,10 +339,8 @@ main (int argc, char **argv)
         }
     }
 
-#ifdef lint
-  free (dest_name);
-  free (template);
-#endif
+  IF_LINT (free (dest_name));
+  IF_LINT (free (template));
 
   return status;
 }

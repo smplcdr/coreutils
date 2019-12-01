@@ -16,34 +16,33 @@
 
 /* Written by Daniel Walsh <dwalsh@redhat.com> */
 
-#ifndef COREUTILS_SELINUX_H
-# define COREUTILS_SELINUX_H
+#ifndef _COREUTILS_SELINUX_H
+#define _COREUTILS_SELINUX_H 1
 
 /* Return true if ERR corresponds to an unsupported request,
-   or if there is no context or it's inaccessible.  */
+   or if there is no context or it is inaccessible.  */
 static inline bool
 ignorable_ctx_err (int err)
 {
   return err == ENOTSUP || err == ENODATA;
 }
 
-# if HAVE_SELINUX_SELINUX_H
-
-extern bool
-restorecon (char const *path, bool recurse, bool preserve);
-extern int
-defaultcon (char const *path, mode_t mode);
-
-# else
-
+#if HAVE_SELINUX_SELINUX_H
+extern bool restorecon (const char *path, bool recurse, bool preserve);
+extern int defaultcon (const char *path, mode_t mode);
+#else /* !HAVE_SELINUX_SELINUX_H */
 static inline bool
-restorecon (char const *path, bool recurse, bool preserve)
-{ errno = ENOTSUP; return false; }
-
+restorecon (const char *path, bool recurse, bool preserve)
+{
+  errno = ENOTSUP;
+  return false;
+}
 static inline int
-defaultcon (char const *path, mode_t mode)
-{ errno = ENOTSUP; return -1; }
+defaultcon (const char *path, mode_t mode)
+{
+  errno = ENOTSUP;
+  return -1;
+}
+#endif /* HAVE_SELINUX_SELINUX_H */
 
-# endif
-
-#endif
+#endif /* _COREUTILS_SELINUX_H */

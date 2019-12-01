@@ -1,2 +1,7 @@
-extern int force_linkat (int, char const *, int, char const *, int, bool, int);
-extern int force_symlinkat (char const *, int, char const *, bool, int);
+#ifndef _FORCE_LINK_H
+#define _FORCE_LINK_H 1
+
+extern int force_linkat (int, const char *, int, const char *, int, bool, int);
+extern int force_symlinkat (const char *, int, const char *, bool, int);
+
+#endif /* _FORCE_LINK_H */

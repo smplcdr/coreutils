@@ -16,8 +16,8 @@
 
    Written by Jie Liu (jeff.liu@oracle.com).  */
 
-#ifndef EXTENT_SCAN_H
-# define EXTENT_SCAN_H
+#ifndef _EXTENT_SCAN_H
+#define _EXTENT_SCAN_H 1
 
 /* Structure used to store information of each extent.  */
 struct extent_info
@@ -70,4 +70,4 @@ extent_scan_free (struct extent_scan *scan)
   scan->ei_count = 0;
 }
 
-#endif /* EXTENT_SCAN_H */
+#endif /* _EXTENT_SCAN_H */

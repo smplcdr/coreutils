@@ -15,7 +15,7 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* Written by James Youngman based on id.c and groups.sh,
-   which were written by Arnold Robbins and David MacKenzie. */
+   which were written by Arnold Robbins and David MacKenzie.  */
 
 #include <config.h>
 #include <stdio.h>
@@ -35,14 +35,6 @@
 #define AUTHORS \
   proper_name ("David MacKenzie"), \
   proper_name ("James Youngman")
-
-
-static struct option const longopts[] =
-{
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
-};
 
 void
 usage (int status)
@@ -67,7 +59,6 @@ the current process (which may differ if the groups database has changed).\n"),
 int
 main (int argc, char **argv)
 {
-  int optc;
   bool ok = true;
   gid_t rgid, egid;
   uid_t ruid;
@@ -83,20 +74,12 @@ main (int argc, char **argv)
   /* Processing the arguments this way makes groups.c behave differently to
    * groups.sh if one of the arguments is "--".
    */
-  while ((optc = getopt_long (argc, argv, "", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
   if (optind == argc)
     {
-      /* No arguments.  Divulge the details of the current process. */
+      /* No arguments.  Divulge the details of the current process.  */
       uid_t NO_UID = -1;
       gid_t NO_GID = -1;
 

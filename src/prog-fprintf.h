@@ -19,7 +19,7 @@
 
 # include <stdio.h>
 
-extern void prog_fprintf (FILE *fp, char const *fmt, ...)
+extern void prog_fprintf (FILE *fp, const char *fmt, ...)
   __attribute__ ((__format__ (__printf__, 2, 3)));
 
 #endif

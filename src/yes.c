@@ -14,9 +14,10 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* David MacKenzie <djm@gnu.ai.mit.edu> */
+/* Written by David MacKenzie <djm@gnu.ai.mit.edu>.  */
 
 #include <config.h>
+
 #include <stdio.h>
 #include <sys/types.h>
 
@@ -29,7 +30,8 @@
 /* The official name of this program (e.g., no 'g' prefix).  */
 #define PROGRAM_NAME "yes"
 
-#define AUTHORS proper_name ("David MacKenzie")
+#define AUTHORS \
+  proper_name ("David MacKenzie")
 
 void
 usage (int status)
@@ -40,16 +42,17 @@ usage (int status)
     {
       printf (_("\
 Usage: %s [STRING]...\n\
-  or:  %s OPTION\n\
-"),
-              program_name, program_name);
+  or:  %s [OPTION]\n\
+"), program_name, program_name);
 
       fputs (_("\
 Repeatedly output a line with all specified STRING(s), or 'y'.\n\
 \n\
 "), stdout);
+
       fputs (HELP_OPTION_DESCRIPTION, stdout);
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
+
       emit_ancillary_info (PROGRAM_NAME);
     }
   exit (status);
@@ -68,7 +71,7 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   char **operands = argv + optind;
   char **operand_lim = argv + argc;
@@ -83,8 +86,7 @@ main (int argc, char **argv)
     {
       size_t operand_len = strlen (*operandp);
       bufalloc += operand_len + 1;
-      if (operandp + 1 < operand_lim
-          && *operandp + operand_len + 1 != operandp[1])
+      if (operandp + 1 < operand_lim && *operandp + operand_len + 1 != *(operandp + 1))
         reuse_operand_strings = false;
     }
 
@@ -102,17 +104,18 @@ main (int argc, char **argv)
   for (char **operandp = operands; operandp < operand_lim; operandp++)
     {
       size_t operand_len = strlen (*operandp);
-      if (! reuse_operand_strings)
+      if (!reuse_operand_strings)
         memcpy (buf + bufused, *operandp, operand_len);
       bufused += operand_len;
       buf[bufused++] = ' ';
     }
+
   buf[bufused - 1] = '\n';
 
   /* If a larger buffer was allocated, fill it by repeating the buffer
      contents.  */
   size_t copysize = bufused;
-  for (size_t copies = bufalloc / copysize; --copies; )
+  for (size_t copies = bufalloc / copysize - 1; copies != 0; copies--)
     {
       memcpy (buf + bufused, buf, copysize);
       bufused += copysize;
@@ -121,6 +124,9 @@ main (int argc, char **argv)
   /* Repeatedly output the buffer until there is a write error; then fail.  */
   while (full_write (STDOUT_FILENO, buf, bufused) == bufused)
     continue;
+
+  free (buf);
+
   error (0, errno, _("standard output"));
   return EXIT_FAILURE;
 }

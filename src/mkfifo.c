@@ -25,6 +25,7 @@
 #include "system.h"
 #include "die.h"
 #include "error.h"
+#include "long-options.h"
 #include "modechange.h"
 #include "quote.h"
 #include "selinux.h"
@@ -35,12 +36,10 @@
 
 #define AUTHORS proper_name ("David MacKenzie")
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
-  {GETOPT_SELINUX_CONTEXT_OPTION_DECL},
+  {SELINUX_CONTEXT_OPTION_DECL},
   {"mode", required_argument, NULL, 'm'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -77,10 +76,10 @@ int
 main (int argc, char **argv)
 {
   mode_t newmode;
-  char const *specified_mode = NULL;
+  const char *specified_mode = NULL;
   int exit_status = EXIT_SUCCESS;
   int optc;
-  char const *scontext = NULL;
+  const char *scontext = NULL;
   bool set_security_context = false;
 
   initialize_main (&argc, &argv);
@@ -91,39 +90,38 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "m:Z", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'm':
-          specified_mode = optarg;
-          break;
-        case 'Z':
-          if (is_smack_enabled ())
-            {
-              /* We don't yet support -Z to restore context with SMACK.  */
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "m:Z", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'm':
+        specified_mode = optarg;
+        break;
+      case 'Z':
+        if (is_smack_enabled ())
+          {
+            /* We do not yet support -Z to restore context with SMACK.  */
+            scontext = optarg;
+          }
+        else if (is_selinux_enabled () > 0)
+          {
+            if (optarg)
               scontext = optarg;
-            }
-          else if (is_selinux_enabled () > 0)
-            {
-              if (optarg)
-                scontext = optarg;
-              else
-                set_security_context = true;
-            }
-          else if (optarg)
-            {
-              error (0, 0,
-                     _("warning: ignoring --context; "
-                       "it requires an SELinux/SMACK-enabled kernel"));
-            }
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+            else
+              set_security_context = true;
+          }
+        else if (optarg)
+          {
+            error (0, 0,
+                   _("warning: ignoring --context; "
+                     "it requires an SELinux/SMACK-enabled kernel"));
+          }
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (optind == argc)
     {

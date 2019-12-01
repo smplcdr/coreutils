@@ -15,6 +15,8 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
+
+#include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -38,12 +40,10 @@ struct file_name
   char *start;
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"logical", no_argument, NULL, 'L'},
   {"physical", no_argument, NULL, 'P'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -98,7 +98,7 @@ file_name_init (void)
 
 /* Prepend the name S of length S_LEN, to the growing file_name, P.  */
 static void
-file_name_prepend (struct file_name *p, char const *s, size_t s_len)
+file_name_prepend (struct file_name *p, const char *s, size_t s_len)
 {
   size_t n_free = p->start - p->buf;
   if (n_free < 1 + s_len)
@@ -126,6 +126,8 @@ file_name_prepend (struct file_name *p, char const *s, size_t s_len)
 static char *
 nth_parent (size_t n)
 {
+  assert (n > 0);
+
   char *buf = xnmalloc (3, n);
   char *p = buf;
 
@@ -148,7 +150,6 @@ nth_parent (size_t n)
    The first time this function is called (from the initial directory),
    PARENT_HEIGHT is 1.  This is solely for diagnostics.
    Exit nonzero upon error.  */
-
 static void
 find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
                 size_t parent_height)
@@ -165,20 +166,20 @@ find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
          quote (nth_parent (parent_height)));
 
   fd = dirfd (dirp);
-  if ((0 <= fd ? fchdir (fd) : chdir ("..")) < 0)
+  if ((fd >= 0 ? fchdir (fd) : chdir ("..")) < 0)
     die (EXIT_FAILURE, errno, _("failed to chdir to %s"),
          quote (nth_parent (parent_height)));
 
-  if ((0 <= fd ? fstat (fd, &parent_sb) : stat (".", &parent_sb)) < 0)
+  if ((fd >= 0 ? fstat (fd, &parent_sb) : stat (".", &parent_sb)) < 0)
     die (EXIT_FAILURE, errno, _("failed to stat %s"),
          quote (nth_parent (parent_height)));
 
   /* If parent and child directory are on different devices, then we
-     can't rely on d_ino for useful i-node numbers; use lstat instead.  */
+     cannot rely on d_ino for useful i-node numbers; use lstat instead.  */
   use_lstat = (parent_sb.st_dev != dot_sb->st_dev);
 
   found = false;
-  while (1)
+  while (true)
     {
       struct dirent const *dp;
       struct stat ent_sb;
@@ -187,13 +188,12 @@ find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
       errno = 0;
       if ((dp = readdir_ignoring_dot_and_dotdot (dirp)) == NULL)
         {
-          if (errno)
+          if (errno != 0)
             {
               /* Save/restore errno across closedir call.  */
               int e = errno;
               closedir (dirp);
               errno = e;
-
               /* Arrange to give a diagnostic after exiting this loop.  */
               dirp = NULL;
             }
@@ -205,19 +205,17 @@ find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
       if (ino == NOT_AN_INODE_NUMBER || use_lstat)
         {
           if (lstat (dp->d_name, &ent_sb) < 0)
-            {
-              /* Skip any entry we can't stat.  */
-              continue;
-            }
+            /* Skip any entry we cannot stat.  */
+            continue;
           ino = ent_sb.st_ino;
         }
 
       if (ino != dot_sb->st_ino)
         continue;
 
-      /* If we're not crossing a device boundary, then a simple i-node
+      /* If we are not crossing a device boundary, then a simple i-node
          match is enough.  */
-      if ( ! use_lstat || ent_sb.st_dev == dot_sb->st_dev)
+      if (!use_lstat || ent_sb.st_dev == dot_sb->st_dev)
         {
           file_name_prepend (file_name, dp->d_name, _D_EXACT_NAMLEN (dp));
           found = true;
@@ -226,14 +224,12 @@ find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
     }
 
   if (dirp == NULL || closedir (dirp) != 0)
-    {
-      /* Note that this diagnostic serves for both readdir
-         and closedir failures.  */
-      die (EXIT_FAILURE, errno, _("reading directory %s"),
-           quote (nth_parent (parent_height)));
-    }
+    /* Note that this diagnostic serves for both readdir
+       and closedir failures.  */
+    die (EXIT_FAILURE, errno, _("reading directory %s"),
+         quote (nth_parent (parent_height)));
 
-  if ( ! found)
+  if (!found)
     die (EXIT_FAILURE, 0,
          _("couldn't find directory entry in %s with matching i-node"),
          quote (nth_parent (parent_height)));
@@ -255,7 +251,7 @@ find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
    I would have liked a function that did not exit, and that could be
    used as a getcwd replacement.  Unfortunately, considering all of
    the information the caller would require in order to produce good
-   diagnostics, it doesn't seem worth the added complexity.
+   diagnostics, it does not seem worth the added complexity.
    In any case, any getcwd replacement must *not* exceed the PATH_MAX
    limitation.  Otherwise, functions like 'chdir' would fail with
    ENAMETOOLONG.
@@ -263,7 +259,6 @@ find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
    FIXME-maybe: if find_dir_entry fails due to permissions, try getcwd,
    in case the unreadable directory is close enough to the root that
    getcwd works from there.  */
-
 static void
 robust_getcwd (struct file_name *file_name)
 {
@@ -279,20 +274,14 @@ robust_getcwd (struct file_name *file_name)
   if (stat (".", &dot_sb) < 0)
     die (EXIT_FAILURE, errno, _("failed to stat %s"), quoteaf ("."));
 
-  while (1)
-    {
-      /* If we've reached the root, we're done.  */
-      if (SAME_INODE (dot_sb, *root_dev_ino))
-        break;
-
-      find_dir_entry (&dot_sb, file_name, height++);
-    }
+  /* If we have reached the root, we are done.  */
+  while (!SAME_INODE (dot_sb, *root_dev_ino))
+    find_dir_entry (&dot_sb, file_name, height++);
 
   /* See if a leading slash is needed; file_name_prepend adds one.  */
   if (file_name->start[0] == '\0')
     file_name_prepend (file_name, "", 0);
 }
-
 
 /* Return PWD from the environment if it is acceptable for 'pwd -L'
    output, otherwise NULL.  */
@@ -305,13 +294,13 @@ logical_getcwd (void)
   char *p;
 
   /* Textual validation first.  */
-  if (!wd || wd[0] != '/')
+  if (wd == NULL || *wd != '/')
     return NULL;
   p = wd;
   while ((p = strstr (p, "/.")))
     {
-      if (!p[2] || p[2] == '/'
-          || (p[2] == '.' && (!p[3] || p[3] == '/')))
+      if (p[2] == '\0' || p[2] == '/'
+          || (p[2] == '.' && (p[3] == '\0' || p[3] == '/')))
         return NULL;
       p++;
     }
@@ -322,10 +311,10 @@ logical_getcwd (void)
   return NULL;
 }
 
-
 int
 main (int argc, char **argv)
 {
+  int optc;
   char *wd;
   /* POSIX requires a default of -L, but most scripts expect -P.
      Currently shells default to -L, while stand-alone
@@ -340,28 +329,21 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while (1)
-    {
-      int c = getopt_long (argc, argv, "LP", longopts, NULL);
-      if (c == -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "LP", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'L':
+        logical = true;
         break;
-      switch (c)
-        {
-        case 'L':
-          logical = true;
-          break;
-        case 'P':
-          logical = false;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+      case 'P':
+        logical = false;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (optind < argc)
     error (0, 0, _("ignoring non-option arguments"));
@@ -369,7 +351,7 @@ main (int argc, char **argv)
   if (logical)
     {
       wd = logical_getcwd ();
-      if (wd)
+      if (wd != NULL)
         {
           puts (wd);
           return EXIT_SUCCESS;

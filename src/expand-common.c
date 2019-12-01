@@ -129,13 +129,13 @@ set_increment_size (uintmax_t tabval)
 /* Add the comma or blank separated list of tab stops STOPS
    to the list of tab stops.  */
 extern void
-parse_tab_stops (char const *stops)
+parse_tab_stops (const char *stops)
 {
   bool have_tabval = false;
   uintmax_t tabval = 0;
   bool extend_tabval = false;
   bool increment_tabval = false;
-  char const *num_start = NULL;
+  const char *num_start = NULL;
   bool ok = true;
 
   for (; *stops; stops++)
@@ -146,7 +146,7 @@ parse_tab_stops (char const *stops)
             {
               if (extend_tabval)
                 {
-                  if (! set_extend_size (tabval))
+                  if (!set_extend_size (tabval))
                     {
                       ok = false;
                       break;
@@ -154,7 +154,7 @@ parse_tab_stops (char const *stops)
                 }
               else if (increment_tabval)
                 {
-                  if (! set_increment_size (tabval))
+                  if (!set_increment_size (tabval))
                     {
                       ok = false;
                       break;
@@ -226,7 +226,7 @@ parse_tab_stops (char const *stops)
         add_tab_stop (tabval);
     }
 
-  if (! ok)
+  if (!ok)
     exit (EXIT_FAILURE);
 }
 
@@ -286,7 +286,7 @@ get_next_tab_column (const uintmax_t column, size_t* tab_index,
     return column + (tab_size - column % tab_size);
 
   /* multiple tab-sizes - iterate them until the tab position is beyond
-     the current input column. */
+     the current input column.  */
   for ( ; *tab_index < first_free_tab ; (*tab_index)++ )
     {
         uintmax_t tab = tab_list[*tab_index];

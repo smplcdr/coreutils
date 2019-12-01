@@ -59,25 +59,27 @@
 #define PROGRAM_NAME (uname_mode == UNAME_UNAME ? "uname" : "arch")
 
 #define AUTHORS proper_name ("David MacKenzie")
-#define ARCH_AUTHORS "David MacKenzie", "Karel Zak"
+#define ARCH_AUTHORS \
+  proper_name ("David MacKenzie"),\
+  proper_name ("Karel Zak")
 
-/* Values that are bitwise or'd into 'toprint'. */
-/* Kernel name. */
+/* Values that are bitwise or'd into 'toprint'.  */
+/* Kernel name.  */
 #define PRINT_KERNEL_NAME 1
 
-/* Node name on a communications network. */
+/* Node name on a communications network.  */
 #define PRINT_NODENAME 2
 
-/* Kernel release. */
+/* Kernel release.  */
 #define PRINT_KERNEL_RELEASE 4
 
-/* Kernel version. */
+/* Kernel version.  */
 #define PRINT_KERNEL_VERSION 8
 
-/* Machine hardware name. */
+/* Machine hardware name.  */
 #define PRINT_MACHINE 16
 
-/* Processor type. */
+/* Processor type.  */
 #define PRINT_PROCESSOR 32
 
 /* Hardware platform.  */
@@ -86,11 +88,11 @@
 /* Operating system.  */
 #define PRINT_OPERATING_SYSTEM 128
 
-static struct option const uname_long_options[] =
+static const struct option long_options[] =
 {
   {"all", no_argument, NULL, 'a'},
   {"kernel-name", no_argument, NULL, 's'},
-  {"sysname", no_argument, NULL, 's'},	/* Obsolescent.  */
+  {"sysname", no_argument, NULL, 's'},  /* Obsolescent.  */
   {"nodename", no_argument, NULL, 'n'},
   {"kernel-release", no_argument, NULL, 'r'},
   {"release", no_argument, NULL, 'r'},  /* Obsolescent.  */
@@ -99,15 +101,6 @@ static struct option const uname_long_options[] =
   {"processor", no_argument, NULL, 'p'},
   {"hardware-platform", no_argument, NULL, 'i'},
   {"operating-system", no_argument, NULL, 'o'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
-};
-
-static struct option const arch_long_options[] =
-{
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -158,7 +151,7 @@ Print machine architecture.\n\
    printed.  */
 
 static void
-print_element (char const *element)
+print_element (const char *element)
 {
   static bool printed;
   if (printed)
@@ -174,77 +167,56 @@ print_element (char const *element)
 static int
 decode_switches (int argc, char **argv)
 {
-  int c;
   unsigned int toprint = 0;
 
   if (uname_mode == UNAME_ARCH)
     {
-      while ((c = getopt_long (argc, argv, "",
-                               arch_long_options, NULL)) != -1)
-        {
-          switch (c)
-            {
-            case_GETOPT_HELP_CHAR;
+      parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
+                                       Version, true, usage, ARCH_AUTHORS,
+                                       (const char *) NULL);
 
-            case_GETOPT_VERSION_CHAR (PROGRAM_NAME, ARCH_AUTHORS);
-
-            default:
-              usage (EXIT_FAILURE);
-            }
-        }
       toprint = PRINT_MACHINE;
     }
   else
     {
-      while ((c = getopt_long (argc, argv, "asnrvmpio",
-                               uname_long_options, NULL)) != -1)
-        {
-          switch (c)
-            {
-            case 'a':
-              toprint = UINT_MAX;
-              break;
+      int optc;
 
-            case 's':
-              toprint |= PRINT_KERNEL_NAME;
-              break;
+      parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                          (const char *) NULL);
 
-            case 'n':
-              toprint |= PRINT_NODENAME;
-              break;
-
-            case 'r':
-              toprint |= PRINT_KERNEL_RELEASE;
-              break;
-
-            case 'v':
-              toprint |= PRINT_KERNEL_VERSION;
-              break;
-
-            case 'm':
-              toprint |= PRINT_MACHINE;
-              break;
-
-            case 'p':
-              toprint |= PRINT_PROCESSOR;
-              break;
-
-            case 'i':
-              toprint |= PRINT_HARDWARE_PLATFORM;
-              break;
-
-            case 'o':
-              toprint |= PRINT_OPERATING_SYSTEM;
-              break;
-
-            case_GETOPT_HELP_CHAR;
-
-            case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-            default:
-              usage (EXIT_FAILURE);
-            }
-        }
+      while ((optc = getopt_long (argc, argv, "asnrvmpio", long_options, NULL)) != EOF)
+        switch (optc)
+          {
+          case 'a':
+            toprint = UINT_MAX;
+            break;
+          case 's':
+            toprint |= PRINT_KERNEL_NAME;
+            break;
+          case 'n':
+            toprint |= PRINT_NODENAME;
+            break;
+          case 'r':
+            toprint |= PRINT_KERNEL_RELEASE;
+            break;
+          case 'v':
+            toprint |= PRINT_KERNEL_VERSION;
+            break;
+          case 'm':
+            toprint |= PRINT_MACHINE;
+            break;
+          case 'p':
+            toprint |= PRINT_PROCESSOR;
+            break;
+          case 'i':
+            toprint |= PRINT_HARDWARE_PLATFORM;
+            break;
+          case 'o':
+            toprint |= PRINT_OPERATING_SYSTEM;
+            break;
+          default:
+            usage (EXIT_FAILURE);
+          }
     }
 
   if (argc != optind)
@@ -259,9 +231,9 @@ decode_switches (int argc, char **argv)
 int
 main (int argc, char **argv)
 {
-  static char const unknown[] = "unknown";
+  static const char unknown[] = "unknown";
 
-  /* Mask indicating which elements to print. */
+  /* Mask indicating which elements to print.  */
   unsigned int toprint = 0;
 
   initialize_main (&argc, &argv);
@@ -278,8 +250,7 @@ main (int argc, char **argv)
     toprint = PRINT_KERNEL_NAME;
 
   if (toprint
-       & (PRINT_KERNEL_NAME | PRINT_NODENAME | PRINT_KERNEL_RELEASE
-          | PRINT_KERNEL_VERSION | PRINT_MACHINE))
+      & (PRINT_KERNEL_NAME | PRINT_NODENAME | PRINT_KERNEL_RELEASE | PRINT_KERNEL_VERSION | PRINT_MACHINE))
     {
       struct utsname name;
 
@@ -300,11 +271,11 @@ main (int argc, char **argv)
 
   if (toprint & PRINT_PROCESSOR)
     {
-      char const *element = unknown;
+      const char *element = unknown;
 #if HAVE_SYSINFO && defined SI_ARCHITECTURE
       {
         static char processor[257];
-        if (0 <= sysinfo (SI_ARCHITECTURE, processor, sizeof processor))
+        if (sysinfo (SI_ARCHITECTURE, processor, sizeof processor) >= 0)
           element = processor;
       }
 #endif
@@ -325,12 +296,10 @@ main (int argc, char **argv)
               size_t cs = sizeof cputype;
               NXArchInfo const *ai;
               if (sysctlbyname ("hw.cputype", &cputype, &cs, NULL, 0) == 0
-                  && (ai = NXGetArchInfoFromCpuType (cputype,
-                                                     CPU_SUBTYPE_MULTIPLE))
-                  != NULL)
+                  && (ai = NXGetArchInfoFromCpuType (cputype, CPU_SUBTYPE_MULTIPLE)) != NULL)
                 element = ai->name;
 
-              /* Hack "safely" around the ppc vs. powerpc return value. */
+              /* Hack "safely" around the ppc vs. powerpc return value.  */
               if (cputype == CPU_TYPE_POWERPC
                   && STRNCMP_LIT (element, "ppc") == 0)
                 element = "powerpc";
@@ -338,18 +307,18 @@ main (int argc, char **argv)
 # endif
         }
 #endif
-      if (! (toprint == UINT_MAX && element == unknown))
+      if (!(toprint == UINT_MAX && element == unknown))
         print_element (element);
     }
 
   if (toprint & PRINT_HARDWARE_PLATFORM)
     {
-      char const *element = unknown;
+      const char *element = unknown;
 #if HAVE_SYSINFO && defined SI_PLATFORM
       {
         static char hardware_platform[257];
-        if (0 <= sysinfo (SI_PLATFORM,
-                          hardware_platform, sizeof hardware_platform))
+        if (sysinfo (SI_PLATFORM,
+                     hardware_platform, sizeof hardware_platform) >= 0)
           element = hardware_platform;
       }
 #endif
@@ -363,7 +332,7 @@ main (int argc, char **argv)
             element = hardware_platform;
         }
 #endif
-      if (! (toprint == UINT_MAX && element == unknown))
+      if (!(toprint == UINT_MAX && element == unknown))
         print_element (element);
     }
 

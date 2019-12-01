@@ -22,13 +22,13 @@
    Options:
    --tabs=tab1[,tab2[,...]]
    -t tab1[,tab2[,...]]
-   -tab1[,tab2[,...]]	If only one tab stop is given, set the tabs tab1
+   -tab1[,tab2[,...]] If only one tab stop is given, set the tabs tab1
                         columns apart instead of the default 8.  Otherwise,
                         set the tabs at columns tab1, tab2, etc. (numbered from
                         0); replace any tabs beyond the tab stops given with
                         single spaces.
    --initial
-   -i			Only convert initial tabs on each line to spaces.
+   -i     Only convert initial tabs on each line to spaces.
 
    David MacKenzie <djm@gnu.ai.mit.edu> */
 
@@ -48,14 +48,12 @@
 
 #define AUTHORS proper_name ("David MacKenzie")
 
-static char const shortopts[] = "it:0::1::2::3::4::5::6::7::8::9::";
+static const char short_options[] = "it:0::1::2::3::4::5::6::7::8::9::";
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"tabs", required_argument, NULL, 't'},
   {"initial", no_argument, NULL, 'i'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -181,7 +179,7 @@ expand (void)
 int
 main (int argc, char **argv)
 {
-  int c;
+  int optc;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -190,45 +188,40 @@ main (int argc, char **argv)
   textdomain (PACKAGE);
 
   atexit (close_stdout);
+
   convert_entire_line = true;
 
-  while ((c = getopt_long (argc, argv, shortopts, longopts, NULL)) != -1)
-    {
-      switch (c)
-        {
-        case 'i':
-          convert_entire_line = false;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 't':
-          parse_tab_stops (optarg);
-          break;
-
-        case '0': case '1': case '2': case '3': case '4':
-        case '5': case '6': case '7': case '8': case '9':
-          if (optarg)
-            parse_tab_stops (optarg - 1);
-          else
-            {
-              char tab_stop[2];
-              tab_stop[0] = c;
-              tab_stop[1] = '\0';
-              parse_tab_stops (tab_stop);
-            }
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'i':
+        convert_entire_line = false;
+        break;
+      case 't':
+        parse_tab_stops (optarg);
+        break;
+      case '0': case '1': case '2': case '3': case '4':
+      case '5': case '6': case '7': case '8': case '9':
+        if (optarg != NULL)
+          parse_tab_stops (optarg - 1);
+        else
+          {
+            char tab_stop[2];
+            tab_stop[0] = optc;
+            tab_stop[1] = '\0';
+            parse_tab_stops (tab_stop);
+          }
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   finalize_tab_stops ();
 
-  set_file_list ( (optind < argc) ? &argv[optind] : NULL);
+  set_file_list ((optind < argc) ? &argv[optind] : NULL);
 
   expand ();
 

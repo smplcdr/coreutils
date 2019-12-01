@@ -1,0 +1,34 @@
+Description:
+Compute BLAKE2b checksum.
+
+Files:
+lib/b2sum.c
+lib/b2sum.h
+lib/blake2b-ref.c
+lib/blake2.h
+lib/blake2-impl.h
+
+Depends-on:
+stddef
+stdio
+stdint
+stdlib
+string
+
+configure.ac:
+AC_DEFINE([GL_COMPILE_CRYPTO_STREAM], 1, [Compile Gnulib crypto stream ops.])
+
+Makefile.am:
+lib_SOURCES += b2sum.c blake2b-ref.c
+
+Include:
+"b2sum.h"
+"blake2.h"
+
+License:
+CC0 1.0 Universal
+OpenSSL license
+Apache 2.0
+
+Maintainer:
+all

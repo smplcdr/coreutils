@@ -1,0 +1,35 @@
+Description:
+Compute SHA3 checksum.
+
+Files:
+lib/sha3.c
+lib/sha3.h
+
+lib/macros.h
+lib/memxor.c
+lib/memxor.h
+lib/memxor-internal.h
+lib/sha3-permute.c
+lib/sha3.c
+lib/sha3.h
+
+Depends-on:
+stdbool
+stddef
+stdint
+string
+
+configure.ac:
+AC_DEFINE([GL_COMPILE_CRYPTO_STREAM], 1, [Compile Gnulib crypto stream ops.])
+
+Makefile.am:
+lib_SOURCES += sha3.c memxor.c sha3.c sha3-permute.c
+
+Include:
+"sha3.h"
+
+License:
+GPL
+
+Maintainer:
+Sergey Sushilin

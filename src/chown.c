@@ -14,7 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Written by David MacKenzie <djm@gnu.ai.mit.edu>. */
+/* Written by David MacKenzie <djm@gnu.ai.mit.edu>.  */
 
 #include <config.h>
 #include <stdio.h>
@@ -26,6 +26,7 @@
 #include "die.h"
 #include "error.h"
 #include "fts_.h"
+#include "long-options.h"
 #include "quote.h"
 #include "root-dev-ino.h"
 #include "userspec.h"
@@ -52,7 +53,7 @@ enum
   REFERENCE_FILE_OPTION
 };
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"recursive", no_argument, NULL, 'R'},
   {"changes", no_argument, NULL, 'c'},
@@ -65,9 +66,7 @@ static struct option const long_options[] =
   {"silent", no_argument, NULL, 'f'},
   {"reference", required_argument, NULL, REFERENCE_FILE_OPTION},
   {"verbose", no_argument, NULL, 'v'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 void
@@ -80,8 +79,7 @@ usage (int status)
       printf (_("\
 Usage: %s [OPTION]... [OWNER][:[GROUP]] FILE...\n\
   or:  %s [OPTION]... --reference=RFILE FILE...\n\
-"),
-              program_name, program_name);
+"), program_name, program_name);
       fputs (_("\
 Change the owner and/or group of each FILE to OWNER and/or GROUP.\n\
 With --reference, change the owner and group of each FILE to those of RFILE.\n\
@@ -146,10 +144,10 @@ Examples:\n\
   %s root /u        Change the owner of /u to \"root\".\n\
   %s root:staff /u  Likewise, but also change its group to \"staff\".\n\
   %s -hR root /u    Change the owner of /u and subfiles to \"root\".\n\
-"),
-              program_name, program_name, program_name);
+"), program_name, program_name, program_name);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -158,8 +156,8 @@ main (int argc, char **argv)
 {
   bool preserve_root = false;
 
-  uid_t uid = -1;	/* Specified uid; -1 if not to be changed. */
-  gid_t gid = -1;	/* Specified gid; -1 if not to be changed. */
+  uid_t uid = -1; /* Specified uid; -1 if not to be changed.  */
+  gid_t gid = -1; /* Specified gid; -1 if not to be changed.  */
 
   /* Change the owner (group) of a file only if it has this uid (gid).
      -1 means there's no restriction.  */
@@ -187,76 +185,61 @@ main (int argc, char **argv)
 
   chopt_init (&chopt);
 
-  while ((optc = getopt_long (argc, argv, "HLPRcfhv", long_options, NULL))
-         != -1)
-    {
-      switch (optc)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "HLPRcfhv", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'H': /* Traverse command-line symlinks-to-directories.  */
+        bit_flags = FTS_COMFOLLOW | FTS_PHYSICAL;
+        break;
+      case 'L': /* Traverse all symlinks-to-directories.  */
+        bit_flags = FTS_LOGICAL;
+        break;
+      case 'P': /* Traverse no symlinks-to-directories.  */
+        bit_flags = FTS_PHYSICAL;
+        break;
+      case 'h': /* --no-dereference: affect symlinks */
+        dereference = 0;
+        break;
+      case DEREFERENCE_OPTION: /* --dereference: affect the referent
+                                  of each symlink */
+        dereference = 1;
+        break;
+      case NO_PRESERVE_ROOT:
+        preserve_root = false;
+        break;
+      case PRESERVE_ROOT:
+        preserve_root = true;
+        break;
+      case REFERENCE_FILE_OPTION:
+        reference_file = optarg;
+        break;
+      case FROM_OPTION:
         {
-        case 'H': /* Traverse command-line symlinks-to-directories.  */
-          bit_flags = FTS_COMFOLLOW | FTS_PHYSICAL;
+          const char *e = parse_user_spec (optarg,
+                                           &required_uid, &required_gid,
+                                           NULL, NULL);
+          if (e != NULL)
+            die (EXIT_FAILURE, 0, "%s: %s", e, quote (optarg));
           break;
-
-        case 'L': /* Traverse all symlinks-to-directories.  */
-          bit_flags = FTS_LOGICAL;
-          break;
-
-        case 'P': /* Traverse no symlinks-to-directories.  */
-          bit_flags = FTS_PHYSICAL;
-          break;
-
-        case 'h': /* --no-dereference: affect symlinks */
-          dereference = 0;
-          break;
-
-        case DEREFERENCE_OPTION: /* --dereference: affect the referent
-                                    of each symlink */
-          dereference = 1;
-          break;
-
-        case NO_PRESERVE_ROOT:
-          preserve_root = false;
-          break;
-
-        case PRESERVE_ROOT:
-          preserve_root = true;
-          break;
-
-        case REFERENCE_FILE_OPTION:
-          reference_file = optarg;
-          break;
-
-        case FROM_OPTION:
-          {
-            const char *e = parse_user_spec (optarg,
-                                             &required_uid, &required_gid,
-                                             NULL, NULL);
-            if (e)
-              die (EXIT_FAILURE, 0, "%s: %s", e, quote (optarg));
-            break;
-          }
-
-        case 'R':
-          chopt.recurse = true;
-          break;
-
-        case 'c':
-          chopt.verbosity = V_changes_only;
-          break;
-
-        case 'f':
-          chopt.force_silent = true;
-          break;
-
-        case 'v':
-          chopt.verbosity = V_high;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
         }
-    }
+      case 'R':
+        chopt.recurse = true;
+        break;
+      case 'c':
+        chopt.verbosity = V_changes_only;
+        break;
+      case 'f':
+        chopt.force_silent = true;
+        break;
+      case 'v':
+        chopt.verbosity = V_high;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (chopt.recurse)
     {

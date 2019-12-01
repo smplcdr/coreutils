@@ -36,44 +36,42 @@
    Greg Lee <lee@uhunix.uhcc.hawaii.edu>.  */
 
 #include <config.h>
-#include <sys/types.h>
 
-#include <termios.h>
+#include <assert.h>
+#include <fnmatch.h>
+#include <getopt.h>
+#if HAVE_LANGINFO_CODESET
+# include <langinfo.h>
+#endif
+#include <pwd.h>
+#include <selinux/selinux.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdio.h>
 #if HAVE_STROPTS_H
 # include <stropts.h>
 #endif
 #include <sys/ioctl.h>
-
 #ifdef WINSIZE_IN_PTEM
-# include <sys/stream.h>
 # include <sys/ptem.h>
+# include <sys/stream.h>
 #endif
-
-#include <stdio.h>
-#include <assert.h>
-#include <setjmp.h>
-#include <pwd.h>
-#include <getopt.h>
-#include <signal.h>
-#include <selinux/selinux.h>
+#include <sys/types.h>
+#include <termios.h>
 #include <wchar.h>
-
-#if HAVE_LANGINFO_CODESET
-# include <langinfo.h>
-#endif
 
 /* Use SA_NOCLDSTOP as a proxy for whether the sigaction machinery is
    present.  */
 #ifndef SA_NOCLDSTOP
 # define SA_NOCLDSTOP 0
-# define sigprocmask(How, Set, Oset) /* empty */
+# define sigprocmask(how, set, oset) /* empty */
 # define sigset_t int
-# if ! HAVE_SIGINTERRUPT
+# if !HAVE_SIGINTERRUPT
 #  define siginterrupt(sig, flag) /* empty */
 # endif
 #endif
 
-/* NonStop circa 2011 lacks both SA_RESTART and siginterrupt, so don't
+/* NonStop circa 2011 lacks both SA_RESTART and siginterrupt, so do not
    restart syscalls after a signal handler fires.  This may cause
    colors to get messed up on the screen if 'ls' is interrupted, but
    that's the best we can do on such a platform.  */
@@ -82,22 +80,27 @@
 #endif
 
 #include "system.h"
-#include <fnmatch.h>
 
 #include "acl.h"
+#include "areadlink.h"
 #include "argmatch.h"
+#include "c-ctype.h"
 #include "c-strcase.h"
+#include "canonicalize.h"
 #include "dev-ino.h"
 #include "die.h"
+#include "dircolors.h"
 #include "error.h"
+#include "filemode.h"
 #include "filenamecat.h"
+#include "filevercmp.h"
 #include "hard-locale.h"
 #include "hash.h"
 #include "human.h"
-#include "filemode.h"
-#include "filevercmp.h"
 #include "idcache.h"
 #include "ls.h"
+#include "long-options.h"
+#include "mbsalign.h"
 #include "mbswidth.h"
 #include "mpsort.h"
 #include "obstack.h"
@@ -105,16 +108,11 @@
 #include "smack.h"
 #include "stat-size.h"
 #include "stat-time.h"
+#include "statx.h"
 #include "strftime.h"
 #include "xdectoint.h"
-#include "xstrtol.h"
-#include "areadlink.h"
-#include "mbsalign.h"
-#include "dircolors.h"
 #include "xgethostname.h"
-#include "c-ctype.h"
-#include "canonicalize.h"
-#include "statx.h"
+#include "xstrtol.h"
 
 /* Include <sys/capability.h> last to avoid a clash of <sys/types.h>
    include guards with some premature versions of libcap.
@@ -123,20 +121,22 @@
 # include <sys/capability.h>
 #endif
 
-#define PROGRAM_NAME (ls_mode == LS_LS ? "ls" \
+#define PROGRAM_NAME (ls_mode == LS_LS           \
+                      ? "ls"                     \
                       : (ls_mode == LS_MULTI_COL \
-                         ? "dir" : "vdir"))
+                         ? "dir"                 \
+                         : "vdir"))
 
 #define AUTHORS \
   proper_name ("Richard M. Stallman"), \
   proper_name ("David MacKenzie")
 
 #define obstack_chunk_alloc malloc
-#define obstack_chunk_free free
+#define obstack_chunk_free  free
 
 /* Return an int indicating the result of comparing two integers.
-   Subtracting doesn't always work, due to overflow.  */
-#define longdiff(a, b) ((a) < (b) ? -1 : (a) > (b))
+   Subtracting does not always work, due to overflow.  */
+#define longdiff(a, b) ((a) < (b) ? -1 : (a) > (b) ? +1 : 0)
 
 /* Unix-based readdir implementations have historically returned a dirent.d_ino
    value that is sometimes not equal to the stat-obtained st_ino value for
@@ -147,7 +147,6 @@
    encapsulates whether we can use the more efficient approach of relying
    on readdir-supplied d_ino values, or whether we must incur the cost of
    calling stat or lstat to obtain each guaranteed-valid inode number.  */
-
 #ifndef READDIR_LIES_ABOUT_MOUNTPOINT_D_INO
 # define READDIR_LIES_ABOUT_MOUNTPOINT_D_INO 1
 #endif
@@ -158,116 +157,115 @@
 # define RELIABLE_D_INO(dp) D_INO (dp)
 #endif
 
-#if ! HAVE_STRUCT_STAT_ST_AUTHOR
+#if !HAVE_STRUCT_STAT_ST_AUTHOR
 # define st_author st_uid
 #endif
 
 enum filetype
-  {
-    unknown,
-    fifo,
-    chardev,
-    directory,
-    blockdev,
-    normal,
-    symbolic_link,
-    sock,
-    whiteout,
-    arg_directory
-  };
+{
+  unknown,
+  fifo,
+  chardev,
+  directory,
+  blockdev,
+  normal,
+  symbolic_link,
+  sock,
+  whiteout,
+  arg_directory
+};
 
 /* Display letters and indicators for each filetype.
    Keep these in sync with enum filetype.  */
-static char const filetype_letter[] = "?pcdb-lswd";
+static const char filetype_letter[] = "?pcdb-lswd";
 
 /* Ensure that filetype and filetype_letter have the same
    number of elements.  */
 verify (sizeof filetype_letter - 1 == arg_directory + 1);
 
-#define FILETYPE_INDICATORS				\
-  {							\
-    C_ORPHAN, C_FIFO, C_CHR, C_DIR, C_BLK, C_FILE,	\
-    C_LINK, C_SOCK, C_FILE, C_DIR			\
+#define FILETYPE_INDICATORS                         \
+  {                                                 \
+    C_ORPHAN, C_FIFO, C_CHR, C_DIR, C_BLK,          \
+    C_FILE, C_LINK, C_SOCK, C_FILE, C_DIR           \
   }
 
 enum acl_type
-  {
-    ACL_T_NONE,
-    ACL_T_LSM_CONTEXT_ONLY,
-    ACL_T_YES
-  };
+{
+  ACL_T_NONE,
+  ACL_T_LSM_CONTEXT_ONLY,
+  ACL_T_YES
+};
 
 struct fileinfo
-  {
-    /* The file name.  */
-    char *name;
+{
+  /* The file name.  */
+  char *name;
 
-    /* For symbolic link, name of the file linked to, otherwise zero.  */
-    char *linkname;
+  /* For symbolic link, name of the file linked to, otherwise zero.  */
+  char *linkname;
 
-    /* For terminal hyperlinks. */
-    char *absolute_name;
+  /* For terminal hyperlinks.  */
+  char *absolute_name;
 
-    struct stat stat;
+  struct stat stat;
 
-    enum filetype filetype;
+  enum filetype filetype;
 
-    /* For symbolic link and long listing, st_mode of file linked to, otherwise
-       zero.  */
-    mode_t linkmode;
+  /* For symbolic link and long listing, st_mode of file linked to, otherwise
+     zero.  */
+  mode_t linkmode;
 
-    /* security context.  */
-    char *scontext;
+  /* Security context.  */
+  char *scontext;
 
-    bool stat_ok;
+  bool stat_ok;
 
-    /* For symbolic link and color printing, true if linked-to file
-       exists, otherwise false.  */
-    bool linkok;
+  /* For symbolic link and color printing, true if linked-to file
+     exists, otherwise false.  */
+  bool linkok;
 
-    /* For long listings, true if the file has an access control list,
-       or a security context.  */
-    enum acl_type acl_type;
+  /* For long listings, true if the file has an access control list,
+     or a security context.  */
+  enum acl_type acl_type;
 
-    /* For color listings, true if a regular file has capability info.  */
-    bool has_capability;
+  /* For color listings, true if a regular file has capability info.  */
+  bool has_capability;
 
-    /* Whether file name needs quoting. tri-state with -1 == unknown.  */
-    int quoted;
-  };
+  /* Whether file name needs quoting. tri-state with -1 == unknown.  */
+  int quoted;
+};
 
 #define LEN_STR_PAIR(s) sizeof (s) - 1, s
 
 /* Null is a valid character in a color indicator (think about Epson
    printers, for example) so we have to use a length/buffer string
    type.  */
-
 struct bin_str
-  {
-    size_t len;			/* Number of bytes */
-    const char *string;		/* Pointer to the same */
-  };
+{
+  size_t len;         /* Number of bytes */
+  const char *string; /* Pointer to the same */
+};
 
-#if ! HAVE_TCGETPGRP
+#if !HAVE_TCGETPGRP
 # define tcgetpgrp(Fd) 0
 #endif
 
-static size_t quote_name (char const *name,
+static size_t quote_name (const char *name,
                           struct quoting_options const *options,
                           int needs_general_quoting,
                           const struct bin_str *color,
                           bool allow_pad, struct obstack *stack,
-                          char const *absolute_name);
+                          const char *absolute_name);
 static size_t quote_name_buf (char **inbuf, size_t bufsize, char *name,
-                              struct quoting_options const *options,
+                              const struct quoting_options *options,
                               int needs_general_quoting, size_t *width,
                               bool *pad);
-static char *make_link_name (char const *name, char const *linkname);
+static char *make_link_name (const char *name, const char *linkname);
 static int decode_switches (int argc, char **argv);
-static bool file_ignored (char const *name);
-static uintmax_t gobble_file (char const *name, enum filetype type,
+static bool file_ignored (const char *name);
+static uintmax_t gobble_file (const char *name, enum filetype type,
                               ino_t inode, bool command_line_arg,
-                              char const *dirname);
+                              const char *dirname);
 static const struct bin_str * get_color_indicator (const struct fileinfo *f,
                                                    bool symlink_target);
 static bool print_color_indicator (const struct bin_str *ind);
@@ -275,14 +273,14 @@ static void put_indicator (const struct bin_str *ind);
 static void add_ignore_pattern (const char *pattern);
 static void attach (char *dest, const char *dirname, const char *name);
 static void clear_files (void);
-static void extract_dirs_from_files (char const *dirname,
+static void extract_dirs_from_files (const char *dirname,
                                      bool command_line_arg);
-static void get_link_name (char const *filename, struct fileinfo *f,
+static void get_link_name (const char *filename, struct fileinfo *f,
                            bool command_line_arg);
 static void indent (size_t from, size_t to);
 static size_t calculate_columns (bool by_columns);
 static void print_current_files (void);
-static void print_dir (char const *name, char const *realname,
+static void print_dir (const char *name, const char *realname,
                        bool command_line_arg);
 static size_t print_file_name_and_frills (const struct fileinfo *f,
                                           size_t start_col);
@@ -299,7 +297,7 @@ static void prep_non_filename_text (void);
 static bool print_type_indicator (bool stat_ok, mode_t mode,
                                   enum filetype type);
 static void print_with_separator (char sep);
-static void queue_directory (char const *name, char const *realname,
+static void queue_directory (const char *name, const char *realname,
                              bool command_line_arg);
 static void sort_files (void);
 static void parse_ls_color (void);
@@ -308,7 +306,7 @@ static void getenv_quoting_style (void);
 
 /* Initial size of hash table.
    Most hierarchies are likely to be shallower than this.  */
-#define INITIAL_TABLE_SIZE 30
+#define INITIAL_TABLE_SIZE 32
 
 /* The set of 'active' directories, from the current command-line argument
    to the level in the hierarchy at which files are being listed.
@@ -319,7 +317,7 @@ static void getenv_quoting_style (void);
    mkdir loop; cd loop; ln -s ../loop sub; ls -RL  */
 static Hash_table *active_dir_set;
 
-#define LOOP_DETECT (!!active_dir_set)
+#define LOOP_DETECT (active_dir_set != NULL)
 
 /* The table of files in the current directory:
 
@@ -355,32 +353,29 @@ static size_t sorted_file_alloc;
 
 static bool color_symlink_as_referent;
 
-static char const *hostname;
+static const char *hostname;
 
-/* mode of appropriate file for colorization */
-#define FILE_OR_LINK_MODE(File) \
-    ((color_symlink_as_referent && (File)->linkok) \
-     ? (File)->linkmode : (File)->stat.st_mode)
-
+/* Mode of appropriate file for colorization.  */
+#define FILE_OR_LINK_MODE(file) \
+  ((color_symlink_as_referent && (file)->linkok) \
+   ? (file)->linkmode : (file)->stat.st_mode)
 
 /* Record of one pending directory waiting to be listed.  */
-
 struct pending
-  {
-    char *name;
-    /* If the directory is actually the file pointed to by a symbolic link we
-       were told to list, 'realname' will contain the name of the symbolic
-       link, otherwise zero.  */
-    char *realname;
-    bool command_line_arg;
-    struct pending *next;
-  };
+{
+  char *name;
+  /* If the directory is actually the file pointed to by a symbolic link we
+     were told to list, 'realname' will contain the name of the symbolic
+     link, otherwise zero.  */
+  char *realname;
+  bool command_line_arg;
+  struct pending *next;
+};
 
 static struct pending *pending_dirs;
 
 /* Current time in seconds and nanoseconds since 1970, updated as
    needed when deciding whether a file is recent.  */
-
 static struct timespec current_time;
 
 static bool print_scontext;
@@ -388,13 +383,11 @@ static char UNKNOWN_SECURITY_CONTEXT[] = "?";
 
 /* Whether any of the files has an ACL.  This affects the width of the
    mode column.  */
-
 static bool any_has_acl;
 
 /* The number of columns to use for columns containing inode numbers,
    block sizes, link counts, owners, groups, authors, major device
    numbers, minor device numbers, and file sizes, respectively.  */
-
 static int inode_number_width;
 static int block_size_width;
 static int nlink_width;
@@ -416,15 +409,14 @@ static int file_size_width;
 
    -l (and other options that imply -l), -1, -C, -x and -m control
    this parameter.  */
-
 enum format
-  {
-    long_format,		/* -l and other options that imply -l */
-    one_per_line,		/* -1 */
-    many_per_line,		/* -C */
-    horizontal,			/* -x */
-    with_commas			/* -m */
-  };
+{
+  long_format,   /* -l and other options that imply -l */
+  one_per_line,  /* -1 */
+  many_per_line, /* -C */
+  horizontal,    /* -x */
+  with_commas    /* -m */
+};
 
 static enum format format;
 
@@ -432,52 +424,50 @@ static enum format format;
    ISO-style timestamps, though shorter than 'full-iso'.  'iso' uses shorter
    ISO-style timestamps.  'locale' uses locale-dependent timestamps.  */
 enum time_style
-  {
-    full_iso_time_style,	/* --time-style=full-iso */
-    long_iso_time_style,	/* --time-style=long-iso */
-    iso_time_style,		/* --time-style=iso */
-    locale_time_style		/* --time-style=locale */
-  };
+{
+  full_iso_time_style, /* --time-style=full-iso */
+  long_iso_time_style, /* --time-style=long-iso */
+  iso_time_style,      /* --time-style=iso */
+  locale_time_style    /* --time-style=locale */
+};
 
-static char const *const time_style_args[] =
+static const char *const time_style_args[] =
 {
   "full-iso", "long-iso", "iso", "locale", NULL
 };
-static enum time_style const time_style_types[] =
+static const enum time_style time_style_types[] =
 {
-  full_iso_time_style, long_iso_time_style, iso_time_style,
-  locale_time_style
+  full_iso_time_style, long_iso_time_style,
+  iso_time_style, locale_time_style
 };
 ARGMATCH_VERIFY (time_style_args, time_style_types);
 
 /* Type of time to print or sort by.  Controlled by -c and -u.
    The values of each item of this enum are important since they are
    used as indices in the sort functions array (see sort_files()).  */
-
 enum time_type
-  {
-    time_mtime,			/* default */
-    time_ctime,			/* -c */
-    time_atime,			/* -u */
-    time_numtypes		/* the number of elements of this enum */
-  };
+{
+  time_mtime,   /* Default.  */
+  time_ctime,   /* -c */
+  time_atime,   /* -u */
+  time_numtypes /* The number of elements of this enum.  */
+};
 
 static enum time_type time_type;
 
 /* The file characteristic to sort by.  Controlled by -t, -S, -U, -X, -v.
    The values of each item of this enum are important since they are
    used as indices in the sort functions array (see sort_files()).  */
-
 enum sort_type
-  {
-    sort_none = -1,		/* -U */
-    sort_name,			/* default */
-    sort_extension,		/* -X */
-    sort_size,			/* -S */
-    sort_version,		/* -v */
-    sort_time,			/* -t */
-    sort_numtypes		/* the number of elements of this enum */
-  };
+{
+  sort_none = -1, /* -U */
+  sort_name,      /* Default.  */
+  sort_extension, /* -X */
+  sort_size,      /* -S */
+  sort_version,   /* -v */
+  sort_time,      /* -t */
+  sort_numtypes   /* The number of elements of this enum.  */
+};
 
 static enum sort_type sort_type;
 
@@ -486,28 +476,22 @@ static enum sort_type sort_type;
    lowest first if alphabetic;
    these are the defaults.
    true means the opposite order in each case.  -r  */
-
 static bool sort_reverse;
 
 /* True means to display owner information.  -g turns this off.  */
-
 static bool print_owner = true;
 
 /* True means to display author information.  */
-
 static bool print_author;
 
 /* True means to display group information.  -G and -o turn this off.  */
-
 static bool print_group = true;
 
 /* True means print the user and group id's as numbers rather
    than as names.  -n  */
-
 static bool numeric_ids;
 
 /* True means mention the size in blocks of each file.  -s  */
-
 static bool print_block_size;
 
 /* Human-readable options for output, when printing block counts.  */
@@ -525,25 +509,24 @@ static uintmax_t file_output_block_size = 1;
    strange characters in file names.  */
 static bool dired;
 
-/* 'none' means don't mention the type of files.
+/* 'none' means do not mention the type of files.
    'slash' means mention directories only, with a '/'.
    'file_type' means mention file types.
    'classify' means mention file types and mark executables.
 
    Controlled by -F, -p, and --indicator-style.  */
-
 enum indicator_style
-  {
-    none,	/*     --indicator-style=none */
-    slash,	/* -p, --indicator-style=slash */
-    file_type,	/*     --indicator-style=file-type */
-    classify	/* -F, --indicator-style=classify */
-  };
+{
+  none,      /*     --indicator-style=none */
+  slash,     /* -p, --indicator-style=slash */
+  file_type, /*     --indicator-style=file-type */
+  classify   /* -F, --indicator-style=classify */
+};
 
 static enum indicator_style indicator_style;
 
 /* Names of indicator styles.  */
-static char const *const indicator_style_args[] =
+static const char *const indicator_style_args[] =
 {
   "none", "slash", "file-type", "classify", NULL
 };
@@ -556,83 +539,81 @@ ARGMATCH_VERIFY (indicator_style_args, indicator_style_types);
 /* True means use colors to mark types.  Also define the different
    colors as well as the stuff for the LS_COLORS environment variable.
    The LS_COLORS variable is now in a termcap-like format.  */
-
 static bool print_with_color;
 
 static bool print_hyperlink;
 
 /* Whether we used any colors in the output so far.  If so, we will
    need to restore the default color later.  If not, we will need to
-   call prep_non_filename_text before using color for the first time. */
-
+   call prep_non_filename_text before using color for the first time.  */
 static bool used_color = false;
 
 enum when_type
-  {
-    when_never,		/* 0: default or --color=never */
-    when_always,	/* 1: --color=always */
-    when_if_tty		/* 2: --color=tty */
-  };
+{
+  when_never,  /* 0: default or --color=never */
+  when_always, /* 1: --color=always */
+  when_if_tty  /* 2: --color=tty */
+};
 
 enum Dereference_symlink
-  {
-    DEREF_UNDEFINED = 1,
-    DEREF_NEVER,
-    DEREF_COMMAND_LINE_ARGUMENTS,	/* -H */
-    DEREF_COMMAND_LINE_SYMLINK_TO_DIR,	/* the default, in certain cases */
-    DEREF_ALWAYS			/* -L */
-  };
+{
+  DEREF_UNDEFINED = 1,
+  DEREF_NEVER,
+  DEREF_COMMAND_LINE_ARGUMENTS,      /* -H */
+  DEREF_COMMAND_LINE_SYMLINK_TO_DIR, /* The default, in certain cases.  */
+  DEREF_ALWAYS                       /* -L */
+};
 
 enum indicator_no
-  {
-    C_LEFT, C_RIGHT, C_END, C_RESET, C_NORM, C_FILE, C_DIR, C_LINK,
-    C_FIFO, C_SOCK,
-    C_BLK, C_CHR, C_MISSING, C_ORPHAN, C_EXEC, C_DOOR, C_SETUID, C_SETGID,
-    C_STICKY, C_OTHER_WRITABLE, C_STICKY_OTHER_WRITABLE, C_CAP, C_MULTIHARDLINK,
-    C_CLR_TO_EOL
-  };
+{
+  C_LEFT, C_RIGHT, C_END, C_RESET, C_NORM, C_FILE, C_DIR, C_LINK,
+  C_FIFO, C_SOCK,
+  C_BLK, C_CHR, C_MISSING, C_ORPHAN, C_EXEC, C_DOOR, C_SETUID, C_SETGID,
+  C_STICKY, C_OTHER_WRITABLE, C_STICKY_OTHER_WRITABLE, C_CAP, C_MULTIHARDLINK,
+  C_CLR_TO_EOL
+};
 
 static const char *const indicator_name[]=
-  {
-    "lc", "rc", "ec", "rs", "no", "fi", "di", "ln", "pi", "so",
-    "bd", "cd", "mi", "or", "ex", "do", "su", "sg", "st",
-    "ow", "tw", "ca", "mh", "cl", NULL
-  };
+{
+  "lc", "rc", "ec", "rs", "no", "fi", "di", "ln", "pi", "so",
+  "bd", "cd", "mi", "or", "ex", "do", "su", "sg", "st",
+  "ow", "tw", "ca", "mh", "cl", NULL
+};
 
 struct color_ext_type
-  {
-    struct bin_str ext;		/* The extension we're looking for */
-    struct bin_str seq;		/* The sequence to output when we do */
-    struct color_ext_type *next;	/* Next in list */
-  };
+{
+  struct bin_str ext;          /* The extension we are looking for.  */
+  struct bin_str seq;          /* The sequence to output when we do.  */
+  struct color_ext_type *next; /* Next in list.  */
+};
 
 static struct bin_str color_indicator[] =
-  {
-    { LEN_STR_PAIR ("\033[") },		/* lc: Left of color sequence */
-    { LEN_STR_PAIR ("m") },		/* rc: Right of color sequence */
-    { 0, NULL },			/* ec: End color (replaces lc+rs+rc) */
-    { LEN_STR_PAIR ("0") },		/* rs: Reset to ordinary colors */
-    { 0, NULL },			/* no: Normal */
-    { 0, NULL },			/* fi: File: default */
-    { LEN_STR_PAIR ("01;34") },		/* di: Directory: bright blue */
-    { LEN_STR_PAIR ("01;36") },		/* ln: Symlink: bright cyan */
-    { LEN_STR_PAIR ("33") },		/* pi: Pipe: yellow/brown */
-    { LEN_STR_PAIR ("01;35") },		/* so: Socket: bright magenta */
-    { LEN_STR_PAIR ("01;33") },		/* bd: Block device: bright yellow */
-    { LEN_STR_PAIR ("01;33") },		/* cd: Char device: bright yellow */
-    { 0, NULL },			/* mi: Missing file: undefined */
-    { 0, NULL },			/* or: Orphaned symlink: undefined */
-    { LEN_STR_PAIR ("01;32") },		/* ex: Executable: bright green */
-    { LEN_STR_PAIR ("01;35") },		/* do: Door: bright magenta */
-    { LEN_STR_PAIR ("37;41") },		/* su: setuid: white on red */
-    { LEN_STR_PAIR ("30;43") },		/* sg: setgid: black on yellow */
-    { LEN_STR_PAIR ("37;44") },		/* st: sticky: black on blue */
-    { LEN_STR_PAIR ("34;42") },		/* ow: other-writable: blue on green */
-    { LEN_STR_PAIR ("30;42") },		/* tw: ow w/ sticky: black on green */
-    { LEN_STR_PAIR ("30;41") },		/* ca: black on red */
-    { 0, NULL },			/* mh: disabled by default */
-    { LEN_STR_PAIR ("\033[K") },	/* cl: clear to end of line */
-  };
+{
+  { LEN_STR_PAIR ("\033[") },  /* lc: Left of color sequence.  */
+  { LEN_STR_PAIR ("m") },      /* rc: Right of color sequence.  */
+  { 0, NULL },                 /* ec: End color (replaces lc+rs+rc).  */
+  { LEN_STR_PAIR ("0") },      /* rs: Reset to ordinary colors.  */
+  { 0, NULL },                 /* no: Normal.  */
+  { 0, NULL },                 /* fi: File: default.  */
+  { LEN_STR_PAIR ("01;34") },  /* di: Directory: bright blue.  */
+  { LEN_STR_PAIR ("01;36") },  /* ln: Symlink: bright cyan.  */
+  { LEN_STR_PAIR ("33") },     /* pi: Pipe: yellow/brown.  */
+  { LEN_STR_PAIR ("01;35") },  /* so: Socket: bright magenta.  */
+  { LEN_STR_PAIR ("01;33") },  /* bd: Block device: bright yellow.  */
+  { LEN_STR_PAIR ("01;33") },  /* cd: Char device: bright yellow.  */
+  { 0, NULL },                 /* mi: Missing file: undefined.  */
+  { 0, NULL },                 /* or: Orphaned symlink: undefined.  */
+  { LEN_STR_PAIR ("01;32") },  /* ex: Executable: bright green.  */
+  { LEN_STR_PAIR ("01;35") },  /* do: Door: bright magenta.  */
+  { LEN_STR_PAIR ("37;41") },  /* su: setuid: white on red.  */
+  { LEN_STR_PAIR ("30;43") },  /* sg: setgid: black on yellow.  */
+  { LEN_STR_PAIR ("37;44") },  /* st: sticky: black on blue.  */
+  { LEN_STR_PAIR ("34;42") },  /* ow: Other-writable: blue on green.  */
+  { LEN_STR_PAIR ("30;42") },  /* tw: ow w/ sticky: black on green.  */
+  { LEN_STR_PAIR ("30;41") },  /* ca: Black on red.  */
+  { 0, NULL },                 /* mh: Disabled by default.  */
+  { LEN_STR_PAIR ("\033[K") }  /* cl: Clear to end of line.  */
+};
 
 /* FIXME: comment  */
 static struct color_ext_type *color_ext_list = NULL;
@@ -642,34 +623,27 @@ static char *color_buf;
 
 /* True means to check for orphaned symbolic link, for displaying
    colors, or to group symlink to directories with other dirs.  */
-
 static bool check_symlink_mode;
 
 /* True means mention the inode number of each file.  -i  */
-
 static bool print_inode;
 
-/* What to do with symbolic links.  Affected by -d, -F, -H, -l (and
-   other options that imply -l), and -L.  */
-
+/* What to do with symbolic links.  Affected by -d, -F, -H, -l
+   (and other options that imply -l), and -L.  */
 static enum Dereference_symlink dereference;
 
 /* True means when a directory is found, display info on its
    contents.  -R  */
-
 static bool recursive;
 
 /* True means when an argument is a directory name, display info
    on it itself.  -d  */
-
 static bool immediate_dirs;
 
-/* True means that directories are grouped before files. */
-
+/* True means that directories are grouped before files.  */
 static bool directories_first;
 
 /* Which files to ignore.  */
-
 static enum
 {
   /* Ignore files whose names start with '.', and files specified by
@@ -687,12 +661,11 @@ static enum
    file name matches any of these patterns, it is ignored.
    Controlled by -I.  Multiple -I options accumulate.
    The -B option adds '*~' and '.*~' to this list.  */
-
 struct ignore_pattern
-  {
-    const char *pattern;
-    struct ignore_pattern *next;
-  };
+{
+  const char *pattern;
+  struct ignore_pattern *next;
+};
 
 static struct ignore_pattern *ignore_patterns;
 
@@ -706,41 +679,35 @@ static struct ignore_pattern *hide_patterns;
    independent.  The algorithm is: first, obey the quoting style to get a
    string representing the file name;  then, if qmark_funny_chars is set,
    replace all nonprintable chars in that string with '?'.  It's necessary
-   to replace nonprintable chars even in quoted strings, because we don't
+   to replace nonprintable chars even in quoted strings, because we do not
    want to mess up the terminal if control chars get sent to it, and some
    quoting methods pass through control chars as-is.  */
 static bool qmark_funny_chars;
 
 /* Quoting options for file and dir name output.  */
-
 static struct quoting_options *filename_quoting_options;
 static struct quoting_options *dirname_quoting_options;
 
 /* The number of chars per hardware tab stop.  Setting this to zero
-   inhibits the use of TAB characters for separating columns.  -T */
+   inhibits the use of TAB characters for separating columns.  -T  */
 static size_t tabsize;
 
 /* True means print each directory name before listing it.  */
-
 static bool print_dir_name;
 
 /* The line length to use for breaking lines in many-per-line format.
    Can be set with -w.  */
-
 static size_t line_length;
 
 /* The local time zone rules, as per the TZ environment variable.  */
-
 static timezone_t localtz;
 
 /* If true, the file listing format requires that stat be called on
    each file.  */
-
 static bool format_needs_stat;
 
 /* Similar to 'format_needs_stat', but set if only the file type is
    needed.  */
-
 static bool format_needs_type;
 
 /* An arbitrary limit on the number of bytes in a printed timestamp.
@@ -748,71 +715,65 @@ static bool format_needs_type;
    about denial-of-service attacks on servers that run "ls" on behalf
    of remote clients.  1000 bytes should be enough for any practical
    timestamp format.  */
-
 enum { TIME_STAMP_LEN_MAXIMUM = MAX (1000, INT_STRLEN_BOUND (time_t)) };
 
 /* strftime formats for non-recent and recent files, respectively, in
    -l output.  */
-
-static char const *long_time_format[2] =
-  {
-    /* strftime format for non-recent files (older than 6 months), in
-       -l output.  This should contain the year, month and day (at
-       least), in an order that is understood by people in your
-       locale's territory.  Please try to keep the number of used
-       screen columns small, because many people work in windows with
-       only 80 columns.  But make this as wide as the other string
-       below, for recent files.  */
-    /* TRANSLATORS: ls output needs to be aligned for ease of reading,
-       so be wary of using variable width fields from the locale.
-       Note %b is handled specially by ls and aligned correctly.
-       Note also that specifying a width as in %5b is erroneous as strftime
-       will count bytes rather than characters in multibyte locales.  */
-    N_("%b %e  %Y"),
-    /* strftime format for recent files (younger than 6 months), in -l
-       output.  This should contain the month, day and time (at
-       least), in an order that is understood by people in your
-       locale's territory.  Please try to keep the number of used
-       screen columns small, because many people work in windows with
-       only 80 columns.  But make this as wide as the other string
-       above, for non-recent files.  */
-    /* TRANSLATORS: ls output needs to be aligned for ease of reading,
-       so be wary of using variable width fields from the locale.
-       Note %b is handled specially by ls and aligned correctly.
-       Note also that specifying a width as in %5b is erroneous as strftime
-       will count bytes rather than characters in multibyte locales.  */
-    N_("%b %e %H:%M")
-  };
+static const char *long_time_format[2] =
+{
+  /* strftime format for non-recent files (older than 6 months), in
+     -l output.  This should contain the year, month and day (at
+     least), in an order that is understood by people in your
+     locale's territory.  Please try to keep the number of used
+     screen columns small, because many people work in windows with
+     only 80 columns.  But make this as wide as the other string
+     below, for recent files.  */
+  /* TRANSLATORS: ls output needs to be aligned for ease of reading,
+     so be wary of using variable width fields from the locale.
+     Note %b is handled specially by ls and aligned correctly.
+     Note also that specifying a width as in %5b is erroneous as strftime
+     will count bytes rather than characters in multibyte locales.  */
+  N_("%b %e  %Y"),
+  /* strftime format for recent files (younger than 6 months), in -l
+     output.  This should contain the month, day and time (at
+     least), in an order that is understood by people in your
+     locale's territory.  Please try to keep the number of used
+     screen columns small, because many people work in windows with
+     only 80 columns.  But make this as wide as the other string
+     above, for non-recent files.  */
+  /* TRANSLATORS: ls output needs to be aligned for ease of reading,
+     so be wary of using variable width fields from the locale.
+     Note %b is handled specially by ls and aligned correctly.
+     Note also that specifying a width as in %5b is erroneous as strftime
+     will count bytes rather than characters in multibyte locales.  */
+  N_("%b %e %H:%M")
+};
 
 /* The set of signals that are caught.  */
-
 static sigset_t caught_signals;
 
 /* If nonzero, the value of the pending fatal signal.  */
-
-static sig_atomic_t volatile interrupt_signal;
+static volatile sig_atomic_t interrupt_signal;
 
 /* A count of the number of pending stop signals that have been received.  */
-
-static sig_atomic_t volatile stop_signal_count;
+static volatile sig_atomic_t stop_signal_count;
 
 /* Desired exit status.  */
-
 static int exit_status;
 
 /* Exit statuses.  */
 enum
-  {
-    /* "ls" had a minor problem.  E.g., while processing a directory,
-       ls obtained the name of an entry via readdir, yet was later
-       unable to stat that name.  This happens when listing a directory
-       in which entries are actively being removed or renamed.  */
-    LS_MINOR_PROBLEM = 1,
+{
+  /* "ls" had a minor problem.  E.g., while processing a directory,
+     ls obtained the name of an entry via readdir, yet was later
+     unable to stat that name.  This happens when listing a directory
+     in which entries are actively being removed or renamed.  */
+  LS_MINOR_PROBLEM = 1,
 
-    /* "ls" had more serious trouble (e.g., memory exhausted, invalid
-       option or failure to stat a command line argument.  */
-    LS_FAILURE = 2
-  };
+  /* "ls" had more serious trouble (e.g., memory exhausted, invalid
+     option or failure to stat a command line argument.  */
+  LS_FAILURE = 2
+};
 
 /* For long options that have no equivalent short option, use a
    non-character as a pseudo short option, starting with CHAR_MAX + 1.  */
@@ -836,16 +797,14 @@ enum
   TIME_OPTION,
   TIME_STYLE_OPTION
 };
-
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"all", no_argument, NULL, 'a'},
   {"escape", no_argument, NULL, 'b'},
   {"directory", no_argument, NULL, 'd'},
   {"dired", no_argument, NULL, 'D'},
   {"full-time", no_argument, NULL, FULL_TIME_OPTION},
-  {"group-directories-first", no_argument, NULL,
-   GROUP_DIRECTORIES_FIRST_OPTION},
+  {"group-directories-first", no_argument, NULL, GROUP_DIRECTORIES_FIRST_OPTION},
   {"human-readable", no_argument, NULL, 'h'},
   {"inode", no_argument, NULL, 'i'},
   {"kibibytes", no_argument, NULL, 'k'},
@@ -861,8 +820,7 @@ static struct option const long_options[] =
   {"file-type", no_argument, NULL, FILE_TYPE_INDICATOR_OPTION},
   {"si", no_argument, NULL, SI_OPTION},
   {"dereference-command-line", no_argument, NULL, 'H'},
-  {"dereference-command-line-symlink-to-dir", no_argument, NULL,
-   DEREFERENCE_COMMAND_LINE_SYMLINK_TO_DIR_OPTION},
+  {"dereference-command-line-symlink-to-dir", no_argument, NULL, DEREFERENCE_COMMAND_LINE_SYMLINK_TO_DIR_OPTION},
   {"hide", required_argument, NULL, HIDE_OPTION},
   {"ignore", required_argument, NULL, 'I'},
   {"indicator-style", required_argument, NULL, INDICATOR_STYLE_OPTION},
@@ -882,51 +840,52 @@ static struct option const long_options[] =
   {"block-size", required_argument, NULL, BLOCK_SIZE_OPTION},
   {"context", no_argument, 0, 'Z'},
   {"author", no_argument, NULL, AUTHOR_OPTION},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
-static char const *const format_args[] =
+static const char *const format_args[] =
 {
-  "verbose", "long", "commas", "horizontal", "across",
-  "vertical", "single-column", NULL
+  "verbose", "long", "commas", "horizontal",
+  "across", "vertical", "single-column", NULL
 };
-static enum format const format_types[] =
+static const enum format format_types[] =
 {
-  long_format, long_format, with_commas, horizontal, horizontal,
+  long_format, long_format,
+  with_commas,
+  horizontal, horizontal,
   many_per_line, one_per_line
 };
 ARGMATCH_VERIFY (format_args, format_types);
 
-static char const *const sort_args[] =
+static const char *const sort_args[] =
 {
   "none", "time", "size", "extension", "version", NULL
 };
-static enum sort_type const sort_types[] =
+static const enum sort_type sort_types[] =
 {
   sort_none, sort_time, sort_size, sort_extension, sort_version
 };
 ARGMATCH_VERIFY (sort_args, sort_types);
 
-static char const *const time_args[] =
+static const char *const time_args[] =
 {
   "atime", "access", "use", "ctime", "status", NULL
 };
-static enum time_type const time_types[] =
+static const enum time_type time_types[] =
 {
   time_atime, time_atime, time_atime, time_ctime, time_ctime
 };
 ARGMATCH_VERIFY (time_args, time_types);
 
-static char const *const when_args[] =
+static const char *const when_args[] =
 {
-  /* force and none are for compatibility with another color-ls version */
+  /* Force and none are for compatibility with another color-ls version.  */
   "always", "yes", "force",
   "never", "no", "none",
-  "auto", "tty", "if-tty", NULL
+  "auto", "tty", "if-tty",
+  NULL
 };
-static enum when_type const when_types[] =
+static const enum when_type when_types[] =
 {
   when_always, when_always, when_always,
   when_never, when_never, when_never,
@@ -950,8 +909,7 @@ static size_t max_idx;
 
 /* The minimum width of a column is 3: 1 character for the name and 2
    for the separating white space.  */
-#define MIN_COLUMN_WIDTH	3
-
+#define MIN_COLUMN_WIDTH 3
 
 /* This zero-based index is used solely with the --dired option.
    When that option is in effect, this counter is incremented for each
@@ -960,23 +918,23 @@ static size_t max_idx;
    and later output themselves.  */
 static size_t dired_pos;
 
-#define DIRED_PUTCHAR(c) do {putchar ((c)); ++dired_pos;} while (0)
+#define DIRED_PUTCHAR(c) do { putchar ((c)); dired_pos++; } while (0)
 
 /* Write S to STREAM and increment DIRED_POS by S_LEN.  */
 #define DIRED_FPUTS(s, stream, s_len) \
-    do {fputs (s, stream); dired_pos += s_len;} while (0)
+  do { fputs (s, stream); dired_pos += s_len; } while (0)
 
 /* Like DIRED_FPUTS, but for use when S is a literal string.  */
 #define DIRED_FPUTS_LITERAL(s, stream) \
-    do {fputs (s, stream); dired_pos += sizeof (s) - 1;} while (0)
+  do { fputs (s, stream); dired_pos += (sizeof (s) - 1); } while (0)
 
-#define DIRED_INDENT()							\
-    do									\
-      {									\
-        if (dired)							\
-          DIRED_FPUTS_LITERAL ("  ", stdout);				\
-      }									\
-    while (0)
+#define DIRED_INDENT()                              \
+  do                                                \
+    {                                               \
+      if (dired)                                    \
+        DIRED_FPUTS_LITERAL ("  ", stdout);         \
+    }                                               \
+  while (0)
 
 /* With --dired, store pairs of beginning and ending indices of file names.  */
 static struct obstack dired_obstack;
@@ -989,12 +947,12 @@ static struct obstack dired_obstack;
 static struct obstack subdired_obstack;
 
 /* Save the current index on the specified obstack, OBS.  */
-#define PUSH_CURRENT_DIRED_POS(obs)					\
-  do									\
-    {									\
-      if (dired)							\
-        obstack_grow (obs, &dired_pos, sizeof (dired_pos));		\
-    }									\
+#define PUSH_CURRENT_DIRED_POS(obs)                           \
+  do                                                          \
+    {                                                         \
+      if (dired)                                              \
+        obstack_grow (obs, &dired_pos, sizeof (dired_pos));   \
+    }                                                         \
   while (0)
 
 /* With -R, this stack is used to help detect directory cycles.
@@ -1008,8 +966,8 @@ dev_ino_push (dev_t dev, ino_t ino)
 {
   void *vdi;
   struct dev_ino *di;
-  int dev_ino_size = sizeof *di;
-  obstack_blank (&dev_ino_obstack, dev_ino_size);
+  unsigned int dev_ino_size = sizeof *di;
+  obstack_blank (&dev_ino_obstack, (int) dev_ino_size);
   vdi = obstack_next_free (&dev_ino_obstack);
   di = vdi;
   di--;
@@ -1024,30 +982,29 @@ dev_ino_pop (void)
 {
   void *vdi;
   struct dev_ino *di;
-  int dev_ino_size = sizeof *di;
+  unsigned int dev_ino_size = sizeof *di;
   assert (dev_ino_size <= obstack_object_size (&dev_ino_obstack));
-  obstack_blank_fast (&dev_ino_obstack, -dev_ino_size);
+  obstack_blank_fast (&dev_ino_obstack, -(int) dev_ino_size);
   vdi = obstack_next_free (&dev_ino_obstack);
   di = vdi;
   return *di;
 }
 
 /* Note the use commented out below:
-#define ASSERT_MATCHING_DEV_INO(Name, Di)	\
-  do						\
-    {						\
-      struct stat sb;				\
-      assert (Name);				\
-      assert (0 <= stat (Name, &sb));		\
-      assert (sb.st_dev == Di.st_dev);		\
-      assert (sb.st_ino == Di.st_ino);		\
-    }						\
+#define ASSERT_MATCHING_DEV_INO(name, di)        \
+  do                                             \
+    {                                            \
+      struct stat sb;                            \
+      assert (name);                             \
+      assert (stat (name, &sb) >= 0);            \
+      assert (sb.st_dev == di.st_dev);           \
+      assert (sb.st_ino == di.st_ino);           \
+    }                                            \
   while (0)
 */
 
 /* Write to standard output PREFIX, followed by the quoting style and
    a space-separated list of the integers stored in OS all on one line.  */
-
 static void
 dired_dump_obstack (const char *prefix, struct obstack *os)
 {
@@ -1059,7 +1016,7 @@ dired_dump_obstack (const char *prefix, struct obstack *os)
       size_t *pos = (size_t *) obstack_finish (os);
       fputs (prefix, stdout);
       for (size_t i = 0; i < n_pos; i++)
-        printf (" %lu", (unsigned long int) pos[i]);
+        printf (" %zu", pos[i]);
       putchar ('\n');
     }
 }
@@ -1079,7 +1036,6 @@ time_type_to_statx (void)
     default:
       abort ();
     }
-    return 0;
 }
 
 static unsigned int _GL_ATTRIBUTE_PURE
@@ -1093,13 +1049,14 @@ calc_req_mask (void)
   if (print_block_size)
     mask |= STATX_BLOCKS;
 
-  if (format == long_format) {
-    mask |= STATX_NLINK | STATX_SIZE | time_type_to_statx ();
-    if (print_owner || print_author)
-      mask |= STATX_UID;
-    if (print_group)
-      mask |= STATX_GID;
-  }
+  if (format == long_format)
+    {
+      mask |= STATX_NLINK | STATX_SIZE | time_type_to_statx ();
+      if (print_owner || print_author)
+        mask |= STATX_UID;
+      if (print_group)
+        mask |= STATX_GID;
+    }
 
   switch (sort_type)
     {
@@ -1131,13 +1088,11 @@ do_statx (int fd, const char *name, struct stat *st, int flags,
     statx_to_stat (&stx, st);
   return ret;
 }
-
 static inline int
 do_stat (const char *name, struct stat *st)
 {
   return do_statx (AT_FDCWD, name, st, 0, calc_req_mask ());
 }
-
 static inline int
 do_lstat (const char *name, struct stat *st)
 {
@@ -1149,14 +1104,12 @@ stat_for_mode (const char *name, struct stat *st)
 {
   return do_statx (AT_FDCWD, name, st, 0, STATX_MODE);
 }
-
-/* dev+ino should be static, so no need to sync with backing store */
+/* dev+ino should be static, so no need to sync with backing store.  */
 static inline int
 stat_for_ino (const char *name, struct stat *st)
 {
   return do_statx (AT_FDCWD, name, st, 0, STATX_INO);
 }
-
 static inline int
 fstat_for_ino (int fd, struct stat *st)
 {
@@ -1168,7 +1121,6 @@ do_stat (const char *name, struct stat *st)
 {
   return stat (name, st);
 }
-
 static inline int
 do_lstat (const char *name, struct stat *st)
 {
@@ -1180,13 +1132,11 @@ stat_for_mode (const char *name, struct stat *st)
 {
   return stat (name, st);
 }
-
 static inline int
 stat_for_ino (const char *name, struct stat *st)
 {
   return stat (name, st);
 }
-
 static inline int
 fstat_for_ino (int fd, struct stat *st)
 {
@@ -1197,16 +1147,17 @@ fstat_for_ino (int fd, struct stat *st)
 /* Return the address of the first plain %b spec in FMT, or NULL if
    there is no such spec.  %5b etc. do not match, so that user
    widths/flags are honored.  */
-
-static char const * _GL_ATTRIBUTE_PURE
-first_percent_b (char const *fmt)
+static const char * _GL_ATTRIBUTE_PURE
+first_percent_b (const char *fmt)
 {
-  for (; *fmt; fmt++)
+  for (; fmt[0] != '\0'; fmt++)
     if (fmt[0] == '%')
       switch (fmt[1])
         {
-        case 'b': return fmt;
-        case '%': fmt++; break;
+        case 'b':
+          return fmt;
+        case '%':
+          fmt++; break;
         }
   return NULL;
 }
@@ -1223,19 +1174,21 @@ file_escape_init (void)
    and to determine the max width of the field and to truncate names
    greater than our max allowed.
    Note even though this handles multibyte locales correctly
-   it's not restricted to them as single byte locales can have
+   it is not restricted to them as single byte locales can have
    variable width abbreviated months and also precomputing/caching
    the names was seen to increase the performance of ls significantly.  */
 
-/* max number of display cells to use.
+/* Max number of display cells to use.
    As of 2018 the abmon for Arabic has entries with width 12.
-   It doesn't make much sense to support wider than this
+   It does not make much sense to support wider than this
    and locales should aim for abmon entries of width <= 5.  */
 enum { MAX_MON_WIDTH = 12 };
+
 /* abformat[RECENT][MON] is the format to use for timestamps with
    recentness RECENT and month MON.  */
 enum { ABFORMAT_SIZE = 128 };
 static char abformat[2][12][ABFORMAT_SIZE];
+
 /* True if precomputed formats should be used.  This can be false if
    nl_langinfo fails, if a format or month abbreviation is unusually
    long, or if a month abbreviation contains '%'.  */
@@ -1243,7 +1196,6 @@ static bool use_abformat;
 
 /* Store into ABMON the abbreviated month names, suitably aligned.
    Return true if successful.  */
-
 static bool
 abmon_init (char abmon[12][ABFORMAT_SIZE])
 {
@@ -1259,14 +1211,15 @@ abmon_init (char abmon[12][ABFORMAT_SIZE])
       for (int i = 0; i < 12; i++)
         {
           size_t width = curr_max_width;
-          char const *abbr = nl_langinfo (ABMON_1 + i);
+          const char *abbr = nl_langinfo (ABMON_1 + i);
           if (strchr (abbr, '%'))
             return false;
           mbs_align_t alignment = isdigit (to_uchar (*abbr))
-                                  ? MBS_ALIGN_RIGHT : MBS_ALIGN_LEFT;
+                                  ? MBS_ALIGN_RIGHT
+                                  : MBS_ALIGN_LEFT;
           size_t req = mbsalign (abbr, abmon[i], ABFORMAT_SIZE,
                                  &width, alignment, 0);
-          if (! (req < ABFORMAT_SIZE))
+          if (req >= ABFORMAT_SIZE)
             return false;
           required_mon_width = MAX (required_mon_width, width);
         }
@@ -1278,40 +1231,39 @@ abmon_init (char abmon[12][ABFORMAT_SIZE])
 }
 
 /* Initialize ABFORMAT and USE_ABFORMAT.  */
-
 static void
 abformat_init (void)
 {
-  char const *pb[2];
+  const char *pb[2];
   for (int recent = 0; recent < 2; recent++)
     pb[recent] = first_percent_b (long_time_format[recent]);
-  if (! (pb[0] || pb[1]))
+  if (pb[0] == NULL && pb[1] == NULL)
     return;
 
   char abmon[12][ABFORMAT_SIZE];
-  if (! abmon_init (abmon))
+  if (!abmon_init (abmon))
     return;
 
   for (int recent = 0; recent < 2; recent++)
     {
-      char const *fmt = long_time_format[recent];
+      const char *fmt = long_time_format[recent];
       for (int i = 0; i < 12; i++)
         {
           char *nfmt = abformat[recent][i];
           int nbytes;
 
-          if (! pb[recent])
+          if (pb[recent] == NULL)
             nbytes = snprintf (nfmt, ABFORMAT_SIZE, "%s", fmt);
           else
             {
-              if (! (pb[recent] - fmt <= MIN (ABFORMAT_SIZE, INT_MAX)))
+              if (pb[recent] - fmt > MIN (ABFORMAT_SIZE, INT_MAX))
                 return;
               int prefix_len = pb[recent] - fmt;
               nbytes = snprintf (nfmt, ABFORMAT_SIZE, "%.*s%s%s",
                                  prefix_len, fmt, abmon[i], pb[recent] + 2);
             }
 
-          if (! (0 <= nbytes && nbytes < ABFORMAT_SIZE))
+          if (nbytes < 0 || nbytes >= ABFORMAT_SIZE)
             return;
         }
     }
@@ -1320,18 +1272,18 @@ abformat_init (void)
 }
 
 static size_t
-dev_ino_hash (void const *x, size_t table_size)
+dev_ino_hash (const void *x, size_t table_size)
 {
-  struct dev_ino const *p = x;
+  const struct dev_ino *p = x;
   return (uintmax_t) p->st_ino % table_size;
 }
 
 static bool
-dev_ino_compare (void const *x, void const *y)
+dev_ino_compare (const void *x, const void *y)
 {
-  struct dev_ino const *a = x;
-  struct dev_ino const *b = y;
-  return SAME_INODE (*a, *b) ? true : false;
+  const struct dev_ino *a = x;
+  const struct dev_ino *b = y;
+  return SAME_INODE (*a, *b);
 }
 
 static void
@@ -1343,7 +1295,6 @@ dev_ino_free (void *x)
 /* Add the device/inode pair (P->st_dev/P->st_ino) to the set of
    active directories.  Return true if there is already a matching
    entry in the table.  */
-
 static bool
 visit_dir (dev_t dev, ino_t ino)
 {
@@ -1359,18 +1310,14 @@ visit_dir (dev_t dev, ino_t ino)
   ent_from_table = hash_insert (active_dir_set, ent);
 
   if (ent_from_table == NULL)
-    {
-      /* Insertion failed due to lack of memory.  */
-      xalloc_die ();
-    }
+    /* Insertion failed due to lack of memory.  */
+    xalloc_die ();
 
   found_match = (ent_from_table != ent);
 
   if (found_match)
-    {
-      /* ent was not inserted, so free it.  */
-      free (ent);
-    }
+    /* ent was not inserted, so free it.  */
+    free (ent);
 
   return found_match;
 }
@@ -1387,10 +1334,10 @@ static bool
 is_colored (enum indicator_no type)
 {
   size_t len = color_indicator[type].len;
-  char const *s = color_indicator[type].string;
-  return ! (len == 0
-            || (len == 1 && STRNCMP_LIT (s, "0") == 0)
-            || (len == 2 && STRNCMP_LIT (s, "00") == 0));
+  const char *s = color_indicator[type].string;
+  return !(len == 0
+           || (len == 1 && STRNCMP_LIT (s, "0") == 0)
+           || (len == 2 && STRNCMP_LIT (s, "00") == 0));
 }
 
 static void
@@ -1412,24 +1359,22 @@ set_normal_color (void)
 }
 
 /* An ordinary signal was received; arrange for the program to exit.  */
-
 static void
 sighandler (int sig)
 {
-  if (! SA_NOCLDSTOP)
+  if (!SA_NOCLDSTOP)
     signal (sig, SIG_IGN);
-  if (! interrupt_signal)
+  if (interrupt_signal == 0)
     interrupt_signal = sig;
 }
 
 /* A SIGTSTP was received; arrange for the program to suspend itself.  */
-
 static void
 stophandler (int sig)
 {
-  if (! SA_NOCLDSTOP)
+  if (!SA_NOCLDSTOP)
     signal (sig, stophandler);
-  if (! interrupt_signal)
+  if (interrupt_signal == 0)
     stop_signal_count++;
 }
 
@@ -1438,11 +1383,10 @@ stophandler (int sig)
    unbounded amount of time when signals are not being processed.
    Signal handling can restore the default colors, so callers must
    immediately change colors after invoking this function.  */
-
 static void
 process_signals (void)
 {
-  while (interrupt_signal || stop_signal_count)
+  while (interrupt_signal != 0 || stop_signal_count != 0)
     {
       int sig;
       int stops;
@@ -1460,7 +1404,7 @@ process_signals (void)
       stops = stop_signal_count;
 
       /* SIGTSTP is special, since the application can receive that signal
-         more than once.  In this case, don't set the signal handler to the
+         more than once.  In this case, do not set the signal handler to the
          default.  Instead, just raise the uncatchable SIGSTOP.  */
       if (stops)
         {
@@ -1481,42 +1425,40 @@ process_signals (void)
 
 /* Setup signal handlers if INIT is true,
    otherwise restore to the default.  */
-
 static void
 signal_setup (bool init)
 {
   /* The signals that are trapped, and the number of such signals.  */
-  static int const sig[] =
-    {
-      /* This one is handled specially.  */
-      SIGTSTP,
+  static const int sig[] =
+  {
+    /* This one is handled specially.  */
+    SIGTSTP,
 
-      /* The usual suspects.  */
-      SIGALRM, SIGHUP, SIGINT, SIGPIPE, SIGQUIT, SIGTERM,
+    /* The usual suspects.  */
+    SIGALRM, SIGHUP, SIGINT, SIGPIPE, SIGQUIT, SIGTERM,
 #ifdef SIGPOLL
-      SIGPOLL,
+    SIGPOLL,
 #endif
 #ifdef SIGPROF
-      SIGPROF,
+    SIGPROF,
 #endif
 #ifdef SIGVTALRM
-      SIGVTALRM,
+    SIGVTALRM,
 #endif
 #ifdef SIGXCPU
-      SIGXCPU,
+    SIGXCPU,
 #endif
 #ifdef SIGXFSZ
-      SIGXFSZ,
+    SIGXFSZ,
 #endif
-    };
+  };
   enum { nsigs = ARRAY_CARDINALITY (sig) };
 
-#if ! SA_NOCLDSTOP
+#if !SA_NOCLDSTOP
   static bool caught_sig[nsigs];
 #endif
 
   int j;
-
   if (init)
     {
 #if SA_NOCLDSTOP
@@ -1551,7 +1493,7 @@ signal_setup (bool init)
         }
 #endif
     }
-  else /* restore.  */
+  else /* Restore.  */
     {
 #if SA_NOCLDSTOP
       for (j = 0; j < nsigs; j++)
@@ -1593,8 +1535,7 @@ main (int argc, char **argv)
   initialize_exit_failure (LS_FAILURE);
   atexit (close_stdout);
 
-  assert (ARRAY_CARDINALITY (color_indicator) + 1
-          == ARRAY_CARDINALITY (indicator_name));
+  assert (ARRAY_CARDINALITY (color_indicator) + 1 == ARRAY_CARDINALITY (indicator_name));
 
   exit_status = EXIT_SUCCESS;
   print_dir_name = true;
@@ -1648,11 +1589,10 @@ main (int argc, char **argv)
     || format == long_format
     || print_scontext
     || print_block_size;
-  format_needs_type = (! format_needs_stat
-                       && (recursive
-                           || print_with_color
-                           || indicator_style != none
-                           || directories_first));
+  format_needs_type = (!format_needs_stat && (recursive
+                                              || print_with_color
+                                              || indicator_style != none
+                                              || directories_first));
 
   if (dired)
     {
@@ -1667,7 +1607,7 @@ main (int argc, char **argv)
       hostname = xgethostname ();
       /* The hostname is generally ignored,
          so ignore failures obtaining it.  */
-      if (! hostname)
+      if (!hostname)
         hostname = "";
     }
 
@@ -1691,7 +1631,7 @@ main (int argc, char **argv)
       gobble_file (argv[i++], unknown, NOT_AN_INODE_NUMBER, true, "");
     while (i < argc);
 
-  if (cwd_n_used)
+  if (cwd_n_used != 0)
     {
       sort_files ();
       if (!immediate_dirs)
@@ -1703,7 +1643,7 @@ main (int argc, char **argv)
      (and not pending_dirs->name) because there may be no markers in the queue
      at this point.  A marker may be enqueued when extract_dirs_from_files is
      called with a non-empty string or via print_dir.  */
-  if (cwd_n_used)
+  if (cwd_n_used != 0)
     {
       print_current_files ();
       if (pending_dirs)
@@ -1722,7 +1662,7 @@ main (int argc, char **argv)
           if (thispend->name == NULL)
             {
               /* thispend->name == NULL means this is a marker entry
-                 indicating we've finished processing the directory.
+                 indicating we have finished processing the directory.
                  Use its dev/ino numbers to remove the corresponding
                  entry from the active_dir_set hash table.  */
               struct dev_ino di = dev_ino_pop ();
@@ -1744,8 +1684,6 @@ main (int argc, char **argv)
 
   if (print_with_color && used_color)
     {
-      int j;
-
       /* Skip the restore when it would be a no-op, i.e.,
          when left is "\033[" and right is "m".  */
       if (!(color_indicator[C_LEFT].len == 2
@@ -1759,14 +1697,13 @@ main (int argc, char **argv)
       signal_restore ();
 
       /* Act on any signals that arrived before the default was restored.
-         This can process signals out of order, but there doesn't seem to
-         be an easy way to do them in order, and the order isn't that
+         This can process signals out of order, but there does not seem to
+         be an easy way to do them in order, and the order is not that
          important anyway.  */
-      for (j = stop_signal_count; j; j--)
+      for (int j = stop_signal_count; j != 0; j--)
         raise (SIGSTOP);
-      j = interrupt_signal;
-      if (j)
-        raise (j);
+      if (interrupt_signal != 0)
+        raise (interrupt_signal);
     }
 
   if (dired)
@@ -1789,9 +1726,8 @@ main (int argc, char **argv)
 
 /* Set the line length to the value given by SPEC.  Return true if
    successful.  0 means no limit on line length.  */
-
 static bool
-set_line_length (char const *spec)
+set_line_length (const char *spec)
 {
   uintmax_t val;
 
@@ -1802,11 +1738,9 @@ set_line_length (char const *spec)
     case LONGINT_OK:
       line_length = MIN (val, SIZE_MAX);
       return true;
-
     case LONGINT_OVERFLOW:
       line_length = SIZE_MAX;
       return true;
-
     default:
       return false;
     }
@@ -1814,10 +1748,11 @@ set_line_length (char const *spec)
 
 /* Set all the option flags according to the switches specified.
    Return the index of the first non-option argument.  */
-
 static int
 decode_switches (int argc, char **argv)
 {
+  int optc = EOF;
+  int oi = EOF;
   char *time_style_option = NULL;
 
   bool sort_type_specified = false;
@@ -1825,8 +1760,7 @@ decode_switches (int argc, char **argv)
 
   qmark_funny_chars = false;
 
-  /* initialize all switches to default settings */
-
+  /* Initialize all switches to default settings.  */
   switch (ls_mode)
     {
     case LS_MULTI_COL:
@@ -1834,13 +1768,11 @@ decode_switches (int argc, char **argv)
       format = many_per_line;
       set_quoting_style (NULL, escape_quoting_style);
       break;
-
     case LS_LONG_FORMAT:
       /* This is for the 'vdir' program.  */
       format = long_format;
       set_quoting_style (NULL, escape_quoting_style);
       break;
-
     case LS_LS:
       /* This is for the 'ls' program.  */
       if (isatty (STDOUT_FILENO))
@@ -1856,7 +1788,6 @@ decode_switches (int argc, char **argv)
           qmark_funny_chars = false;
         }
       break;
-
     default:
       abort ();
     }
@@ -1879,9 +1810,10 @@ decode_switches (int argc, char **argv)
   getenv_quoting_style ();
 
   line_length = 80;
+
   {
-    char const *p = getenv ("COLUMNS");
-    if (p && *p && ! set_line_length (p))
+    const char *p = getenv ("COLUMNS");
+    if (p != NULL && *p != '\0' && !set_line_length (p))
       error (0, 0,
              _("ignoring invalid width in environment variable COLUMNS: %s"),
              quote (p));
@@ -1891,20 +1823,19 @@ decode_switches (int argc, char **argv)
   {
     struct winsize ws;
 
-    if (ioctl (STDOUT_FILENO, TIOCGWINSZ, &ws) != -1
-        && 0 < ws.ws_col && ws.ws_col == (size_t) ws.ws_col)
+    if (ioctl (STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0
+        && ws.ws_col > 0 && ws.ws_col == (size_t) ws.ws_col)
       line_length = ws.ws_col;
   }
 #endif
 
   {
-    char const *p = getenv ("TABSIZE");
+    const char *p = getenv ("TABSIZE");
     tabsize = 8;
-    if (p)
+    if (p != NULL)
       {
         uintmax_t tmp;
-        if (xstrtoumax (p, NULL, 0, &tmp, "") == LONGINT_OK
-            && tmp <= SIZE_MAX)
+        if (xstrtoumax (p, NULL, 0, &tmp, "") == LONGINT_OK && tmp <= SIZE_MAX)
           tabsize = tmp;
         else
           error (0, 0,
@@ -1914,335 +1845,268 @@ decode_switches (int argc, char **argv)
       }
   }
 
-  while (true)
-    {
-      int oi = -1;
-      int c = getopt_long (argc, argv,
-                           "abcdfghiklmnopqrstuvw:xABCDFGHI:LNQRST:UXZ1",
-                           long_options, &oi);
-      if (c == -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv,
+                              "abcdfghiklmnopqrstuvw:xABCDFGHI:LNQRST:UXZ1",
+                              long_options, &oi)) != -1)
+    switch (optc)
+      {
+      case 'a':
+        ignore_mode = IGNORE_MINIMAL;
         break;
-
-      switch (c)
+      case 'b':
+        set_quoting_style (NULL, escape_quoting_style);
+        break;
+      case 'c':
+        time_type = time_ctime;
+        break;
+      case 'd':
+        immediate_dirs = true;
+        break;
+      case 'f':
+        /* Same as enabling -a -U and disabling -l -s.  */
+        ignore_mode = IGNORE_MINIMAL;
+        sort_type = sort_none;
+        sort_type_specified = true;
+        /* Disable -l.  */
+        if (format == long_format)
+          format = (isatty (STDOUT_FILENO) ? many_per_line : one_per_line);
+        print_block_size = false; /* Disable -s.  */
+        print_with_color = false; /* Disable --color.  */
+        print_hyperlink = false;  /* Disable --hyperlink.  */
+        break;
+      case FILE_TYPE_INDICATOR_OPTION: /* --file-type */
+        indicator_style = file_type;
+        break;
+      case 'g':
+        format = long_format;
+        print_owner = false;
+        break;
+      case 'h':
+        file_human_output_opts = human_output_opts =
+          human_autoscale | human_SI | human_base_1024;
+        file_output_block_size = output_block_size = 1;
+        break;
+      case 'i':
+        print_inode = true;
+        break;
+      case 'k':
+        kibibytes_specified = true;
+        break;
+      case 'l':
+        format = long_format;
+        break;
+      case 'm':
+        format = with_commas;
+        break;
+      case 'n':
+        numeric_ids = true;
+        format = long_format;
+        break;
+      case 'o': /* Just like -l, but do not display group info.  */
+        format = long_format;
+        print_group = false;
+        break;
+      case 'p':
+        indicator_style = slash;
+        break;
+      case 'q':
+        qmark_funny_chars = true;
+        break;
+      case 'r':
+        sort_reverse = true;
+        break;
+      case 's':
+        print_block_size = true;
+        break;
+      case 't':
+        sort_type = sort_time;
+        sort_type_specified = true;
+        break;
+      case 'u':
+        time_type = time_atime;
+        break;
+      case 'v':
+        sort_type = sort_version;
+        sort_type_specified = true;
+        break;
+      case 'w':
+        if (!set_line_length (optarg))
+          die (LS_FAILURE, 0, "%s: %s", _("invalid line width"),
+               quote (optarg));
+        break;
+      case 'x':
+        format = horizontal;
+        break;
+      case 'A':
+        ignore_mode = IGNORE_DOT_AND_DOTDOT;
+        break;
+      case 'B':
+        add_ignore_pattern ("*~");
+        add_ignore_pattern (".*~");
+        break;
+      case 'C':
+        format = many_per_line;
+        break;
+      case 'D':
+        dired = true;
+        break;
+      case 'F':
+        indicator_style = classify;
+        break;
+      case 'G': /* Inhibit display of group info.  */
+        print_group = false;
+        break;
+      case 'H':
+        dereference = DEREF_COMMAND_LINE_ARGUMENTS;
+        break;
+      case DEREFERENCE_COMMAND_LINE_SYMLINK_TO_DIR_OPTION:
+        dereference = DEREF_COMMAND_LINE_SYMLINK_TO_DIR;
+        break;
+      case 'I':
+        add_ignore_pattern (optarg);
+        break;
+      case 'L':
+        dereference = DEREF_ALWAYS;
+        break;
+      case 'N':
+        set_quoting_style (NULL, literal_quoting_style);
+        break;
+      case 'Q':
+        set_quoting_style (NULL, c_quoting_style);
+        break;
+      case 'R':
+        recursive = true;
+        break;
+      case 'S':
+        sort_type = sort_size;
+        sort_type_specified = true;
+        break;
+      case 'T':
+        tabsize = xnumtoumax (optarg, 0, 0, SIZE_MAX, "",
+                              _("invalid tab size"), LS_FAILURE);
+        break;
+      case 'U':
+        sort_type = sort_none;
+        sort_type_specified = true;
+        break;
+      case 'X':
+        sort_type = sort_extension;
+        sort_type_specified = true;
+        break;
+      case '1':
+        /* -1 has no effect after -l.  */
+        if (format != long_format)
+          format = one_per_line;
+        break;
+      case AUTHOR_OPTION:
+        print_author = true;
+        break;
+      case HIDE_OPTION:
         {
-        case 'a':
-          ignore_mode = IGNORE_MINIMAL;
-          break;
-
-        case 'b':
-          set_quoting_style (NULL, escape_quoting_style);
-          break;
-
-        case 'c':
-          time_type = time_ctime;
-          break;
-
-        case 'd':
-          immediate_dirs = true;
-          break;
-
-        case 'f':
-          /* Same as enabling -a -U and disabling -l -s.  */
-          ignore_mode = IGNORE_MINIMAL;
-          sort_type = sort_none;
-          sort_type_specified = true;
-          /* disable -l */
-          if (format == long_format)
-            format = (isatty (STDOUT_FILENO) ? many_per_line : one_per_line);
-          print_block_size = false;	/* disable -s */
-          print_with_color = false;	/* disable --color */
-          print_hyperlink = false;	/* disable --hyperlink */
-          break;
-
-        case FILE_TYPE_INDICATOR_OPTION: /* --file-type */
-          indicator_style = file_type;
-          break;
-
-        case 'g':
-          format = long_format;
-          print_owner = false;
-          break;
-
-        case 'h':
-          file_human_output_opts = human_output_opts =
-            human_autoscale | human_SI | human_base_1024;
-          file_output_block_size = output_block_size = 1;
-          break;
-
-        case 'i':
-          print_inode = true;
-          break;
-
-        case 'k':
-          kibibytes_specified = true;
-          break;
-
-        case 'l':
-          format = long_format;
-          break;
-
-        case 'm':
-          format = with_commas;
-          break;
-
-        case 'n':
-          numeric_ids = true;
-          format = long_format;
-          break;
-
-        case 'o':  /* Just like -l, but don't display group info.  */
-          format = long_format;
-          print_group = false;
-          break;
-
-        case 'p':
-          indicator_style = slash;
-          break;
-
-        case 'q':
-          qmark_funny_chars = true;
-          break;
-
-        case 'r':
-          sort_reverse = true;
-          break;
-
-        case 's':
-          print_block_size = true;
-          break;
-
-        case 't':
-          sort_type = sort_time;
-          sort_type_specified = true;
-          break;
-
-        case 'u':
-          time_type = time_atime;
-          break;
-
-        case 'v':
-          sort_type = sort_version;
-          sort_type_specified = true;
-          break;
-
-        case 'w':
-          if (! set_line_length (optarg))
-            die (LS_FAILURE, 0, "%s: %s", _("invalid line width"),
-                 quote (optarg));
-          break;
-
-        case 'x':
-          format = horizontal;
-          break;
-
-        case 'A':
-          ignore_mode = IGNORE_DOT_AND_DOTDOT;
-          break;
-
-        case 'B':
-          add_ignore_pattern ("*~");
-          add_ignore_pattern (".*~");
-          break;
-
-        case 'C':
-          format = many_per_line;
-          break;
-
-        case 'D':
-          dired = true;
-          break;
-
-        case 'F':
-          indicator_style = classify;
-          break;
-
-        case 'G':		/* inhibit display of group info */
-          print_group = false;
-          break;
-
-        case 'H':
-          dereference = DEREF_COMMAND_LINE_ARGUMENTS;
-          break;
-
-        case DEREFERENCE_COMMAND_LINE_SYMLINK_TO_DIR_OPTION:
-          dereference = DEREF_COMMAND_LINE_SYMLINK_TO_DIR;
-          break;
-
-        case 'I':
-          add_ignore_pattern (optarg);
-          break;
-
-        case 'L':
-          dereference = DEREF_ALWAYS;
-          break;
-
-        case 'N':
-          set_quoting_style (NULL, literal_quoting_style);
-          break;
-
-        case 'Q':
-          set_quoting_style (NULL, c_quoting_style);
-          break;
-
-        case 'R':
-          recursive = true;
-          break;
-
-        case 'S':
-          sort_type = sort_size;
-          sort_type_specified = true;
-          break;
-
-        case 'T':
-          tabsize = xnumtoumax (optarg, 0, 0, SIZE_MAX, "",
-                                _("invalid tab size"), LS_FAILURE);
-          break;
-
-        case 'U':
-          sort_type = sort_none;
-          sort_type_specified = true;
-          break;
-
-        case 'X':
-          sort_type = sort_extension;
-          sort_type_specified = true;
-          break;
-
-        case '1':
-          /* -1 has no effect after -l.  */
-          if (format != long_format)
-            format = one_per_line;
-          break;
-
-        case AUTHOR_OPTION:
-          print_author = true;
-          break;
-
-        case HIDE_OPTION:
-          {
-            struct ignore_pattern *hide = xmalloc (sizeof *hide);
-            hide->pattern = optarg;
-            hide->next = hide_patterns;
-            hide_patterns = hide;
-          }
-          break;
-
-        case SORT_OPTION:
-          sort_type = XARGMATCH ("--sort", optarg, sort_args, sort_types);
-          sort_type_specified = true;
-          break;
-
-        case GROUP_DIRECTORIES_FIRST_OPTION:
-          directories_first = true;
-          break;
-
-        case TIME_OPTION:
-          time_type = XARGMATCH ("--time", optarg, time_args, time_types);
-          break;
-
-        case FORMAT_OPTION:
-          format = XARGMATCH ("--format", optarg, format_args, format_types);
-          break;
-
-        case FULL_TIME_OPTION:
-          format = long_format;
-          time_style_option = bad_cast ("full-iso");
-          break;
-
-        case COLOR_OPTION:
-          {
-            int i;
-            if (optarg)
-              i = XARGMATCH ("--color", optarg, when_args, when_types);
-            else
-              /* Using --color with no argument is equivalent to using
-                 --color=always.  */
-              i = when_always;
-
-            print_with_color = (i == when_always
-                                || (i == when_if_tty
-                                    && isatty (STDOUT_FILENO)));
-
-            if (print_with_color)
-              {
-                /* Don't use TAB characters in output.  Some terminal
-                   emulators can't handle the combination of tabs and
-                   color codes on the same line.  */
-                tabsize = 0;
-              }
-            break;
-          }
-
-        case HYPERLINK_OPTION:
-          {
-            int i;
-            if (optarg)
-              i = XARGMATCH ("--hyperlink", optarg, when_args, when_types);
-            else
-              /* Using --hyperlink with no argument is equivalent to using
-                 --hyperlink=always.  */
-              i = when_always;
-
-            print_hyperlink = (i == when_always
-                               || (i == when_if_tty
-                                   && isatty (STDOUT_FILENO)));
-            break;
-          }
-
-        case INDICATOR_STYLE_OPTION:
-          indicator_style = XARGMATCH ("--indicator-style", optarg,
-                                       indicator_style_args,
-                                       indicator_style_types);
-          break;
-
-        case QUOTING_STYLE_OPTION:
-          set_quoting_style (NULL,
-                             XARGMATCH ("--quoting-style", optarg,
-                                        quoting_style_args,
-                                        quoting_style_vals));
-          break;
-
-        case TIME_STYLE_OPTION:
-          time_style_option = optarg;
-          break;
-
-        case SHOW_CONTROL_CHARS_OPTION:
-          qmark_funny_chars = false;
-          break;
-
-        case BLOCK_SIZE_OPTION:
-          {
-            enum strtol_error e = human_options (optarg, &human_output_opts,
-                                                 &output_block_size);
-            if (e != LONGINT_OK)
-              xstrtol_fatal (e, oi, 0, long_options, optarg);
-            file_human_output_opts = human_output_opts;
-            file_output_block_size = output_block_size;
-          }
-          break;
-
-        case SI_OPTION:
-          file_human_output_opts = human_output_opts =
-            human_autoscale | human_SI;
-          file_output_block_size = output_block_size = 1;
-          break;
-
-        case 'Z':
-          print_scontext = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (LS_FAILURE);
+          struct ignore_pattern *hide = xmalloc (sizeof *hide);
+          hide->pattern = optarg;
+          hide->next = hide_patterns;
+          hide_patterns = hide;
         }
-    }
+        break;
+      case SORT_OPTION:
+        sort_type = XARGMATCH ("--sort", optarg, sort_args, sort_types);
+        sort_type_specified = true;
+        break;
+      case GROUP_DIRECTORIES_FIRST_OPTION:
+        directories_first = true;
+        break;
+      case TIME_OPTION:
+        time_type = XARGMATCH ("--time", optarg, time_args, time_types);
+        break;
+      case FORMAT_OPTION:
+        format = XARGMATCH ("--format", optarg, format_args, format_types);
+        break;
+      case FULL_TIME_OPTION:
+        format = long_format;
+        time_style_option = bad_cast ("full-iso");
+        break;
+      case COLOR_OPTION:
+        {
+          int i;
+          if (optarg != NULL)
+            i = XARGMATCH ("--color", optarg, when_args, when_types);
+          else
+            /* Using --color with no argument is equivalent to using
+               --color=always.  */
+            i = when_always;
 
-  if (! output_block_size)
+          print_with_color = (i == when_always
+                              || (i == when_if_tty && isatty (STDOUT_FILENO)));
+
+          if (print_with_color)
+            {
+              /* Do not use TAB characters in output.  Some terminal
+                 emulators cannot handle the combination of tabs and
+                 color codes on the same line.  */
+              tabsize = 0;
+            }
+          break;
+        }
+      case HYPERLINK_OPTION:
+        {
+          int i;
+          if (optarg)
+            i = XARGMATCH ("--hyperlink", optarg, when_args, when_types);
+          else
+            /* Using --hyperlink with no argument is equivalent to using
+               --hyperlink=always.  */
+            i = when_always;
+
+          print_hyperlink = (i == when_always
+                             || (i == when_if_tty && isatty (STDOUT_FILENO)));
+          break;
+        }
+      case INDICATOR_STYLE_OPTION:
+        indicator_style = XARGMATCH ("--indicator-style", optarg,
+                                     indicator_style_args,
+                                     indicator_style_types);
+        break;
+      case QUOTING_STYLE_OPTION:
+        set_quoting_style (NULL,
+                           XARGMATCH ("--quoting-style", optarg,
+                                      quoting_style_args,
+                                      quoting_style_vals));
+        break;
+      case TIME_STYLE_OPTION:
+        time_style_option = optarg;
+        break;
+      case SHOW_CONTROL_CHARS_OPTION:
+        qmark_funny_chars = false;
+        break;
+      case BLOCK_SIZE_OPTION:
+        {
+          enum strtol_error e = human_options (optarg, &human_output_opts,
+                                               &output_block_size);
+          if (e != LONGINT_OK)
+            xstrtol_fatal (e, oi, 0, long_options, optarg);
+          file_human_output_opts = human_output_opts;
+          file_output_block_size = output_block_size;
+        }
+        break;
+      case SI_OPTION:
+        file_human_output_opts = human_output_opts =
+          human_autoscale | human_SI;
+        file_output_block_size = output_block_size = 1;
+        break;
+      case 'Z':
+        print_scontext = true;
+        break;
+      default:
+        usage (LS_FAILURE);
+      }
+
+  if (!output_block_size)
     {
-      char const *ls_block_size = getenv ("LS_BLOCK_SIZE");
+      const char *ls_block_size = getenv ("LS_BLOCK_SIZE");
       human_options (ls_block_size,
                      &human_output_opts, &output_block_size);
       if (ls_block_size || getenv ("BLOCK_SIZE"))
@@ -2275,8 +2139,8 @@ decode_switches (int argc, char **argv)
     set_char_quoting (filename_quoting_options, ' ', 1);
   if (file_type <= indicator_style)
     {
-      char const *p;
-      for (p = &"*=>@|"[indicator_style - file_type]; *p; p++)
+      const char *p;
+      for (p = &"*=>@|"[indicator_style - file_type]; *p != '\0'; p++)
         set_char_quoting (filename_quoting_options, *p, 1);
     }
 
@@ -2296,25 +2160,22 @@ decode_switches (int argc, char **argv)
      sort by atime (this is the one that's not specified by the POSIX spec),
      -lu means show atime and sort by name, -lut means show atime and sort
      by atime.  */
-
   if ((time_type == time_ctime || time_type == time_atime)
       && !sort_type_specified && format != long_format)
-    {
-      sort_type = sort_time;
-    }
+    sort_type = sort_time;
 
   if (format == long_format)
     {
       char *style = time_style_option;
-      static char const posix_prefix[] = "posix-";
+      static const char posix_prefix[] = "posix-";
 
-      if (! style)
-        if (! (style = getenv ("TIME_STYLE")))
+      if (style == NULL)
+        if ((style = getenv ("TIME_STYLE")) == NULL)
           style = bad_cast ("locale");
 
       while (STREQ_LEN (style, posix_prefix, sizeof posix_prefix - 1))
         {
-          if (! hard_locale (LC_TIME))
+          if (!hard_locale (LC_TIME))
             return optind;
           style += sizeof posix_prefix - 1;
         }
@@ -2323,11 +2184,11 @@ decode_switches (int argc, char **argv)
         {
           char *p0 = style + 1;
           char *p1 = strchr (p0, '\n');
-          if (! p1)
+          if (p1 == NULL)
             p1 = p0;
           else
             {
-              if (strchr (p1 + 1, '\n'))
+              if (strchr (p1 + 1, '\n') != NULL)
                 die (LS_FAILURE, 0, _("invalid time style format %s"),
                      quote (p0));
               *p1++ = '\0';
@@ -2338,7 +2199,7 @@ decode_switches (int argc, char **argv)
       else
         {
           ptrdiff_t res = argmatch (style, time_style_args,
-                                    (char const *) time_style_types,
+                                    (const char *) time_style_types,
                                     sizeof (*time_style_types));
           if (res < 0)
             {
@@ -2353,8 +2214,8 @@ decode_switches (int argc, char **argv)
                  only because all four existing time_style_types values
                  are distinct.  */
               fputs (_("Valid arguments are:\n"), stderr);
-              char const *const *p = time_style_args;
-              while (*p)
+              const char *const *p = time_style_args;
+              while (*p != NULL)
                 fprintf (stderr, "  - [posix-]%s\n", *p++);
               fputs (_("  - +FORMAT (e.g., +%H:%M) for a 'date'-style"
                        " format\n"), stderr);
@@ -2363,25 +2224,20 @@ decode_switches (int argc, char **argv)
           switch (res)
             {
             case full_iso_time_style:
-              long_time_format[0] = long_time_format[1] =
-                "%Y-%m-%d %H:%M:%S.%N %z";
+              long_time_format[0] = long_time_format[1] = "%Y-%m-%d %H:%M:%S.%N %z";
               break;
-
             case long_iso_time_style:
               long_time_format[0] = long_time_format[1] = "%Y-%m-%d %H:%M";
               break;
-
             case iso_time_style:
               long_time_format[0] = "%Y-%m-%d ";
               long_time_format[1] = "%m-%d %H:%M";
               break;
-
             case locale_time_style:
               if (hard_locale (LC_TIME))
                 {
                   for (int i = 0; i < 2; i++)
-                    long_time_format[i] =
-                      dcgettext (NULL, long_time_format[i], LC_TIME);
+                    long_time_format[i] = dcgettext (NULL, long_time_format[i], LC_TIME);
                 }
             }
         }
@@ -2404,60 +2260,56 @@ decode_switches (int argc, char **argv)
    Note that both dest and src are char **; on return they point to
    the first free byte after the array and the character that ended
    the input string, respectively.  */
-
 static bool
 get_funky_string (char **dest, const char **src, bool equals_end,
                   size_t *output_count)
 {
-  char num;			/* For numerical codes */
-  size_t count;			/* Something to count with */
-  enum {
-    ST_GND, ST_BACKSLASH, ST_OCTAL, ST_HEX, ST_CARET, ST_END, ST_ERROR
-  } state;
+  char num;     /* For numerical codes.  */
+  size_t count; /* Something to count with.  */
+  enum {ST_GND, ST_BACKSLASH, ST_OCTAL, ST_HEX, ST_CARET, ST_END, ST_ERROR} state;
   const char *p;
   char *q;
 
-  p = *src;			/* We don't want to double-indirect */
-  q = *dest;			/* the whole darn time.  */
+  p = *src;  /* We do not want to double-indirect */
+  q = *dest; /* the whole darn time.  */
 
-  count = 0;			/* No characters counted in yet.  */
+  count = 0; /* No characters counted in yet.  */
   num = 0;
 
-  state = ST_GND;		/* Start in ground state.  */
+  state = ST_GND; /* Start in ground state.  */
   while (state < ST_END)
     {
       switch (state)
         {
-        case ST_GND:		/* Ground state (no escapes) */
+        case ST_GND: /* Ground state (no escapes).  */
           switch (*p)
             {
             case ':':
             case '\0':
-              state = ST_END;	/* End of string */
+              state = ST_END; /* End of string.  */
               break;
             case '\\':
-              state = ST_BACKSLASH; /* Backslash escape sequence */
-              ++p;
+              state = ST_BACKSLASH; /* Backslash escape sequence.  */
+              p++;
               break;
             case '^':
-              state = ST_CARET; /* Caret escape */
-              ++p;
+              state = ST_CARET; /* Caret escape.  */
+              p++;
               break;
             case '=':
               if (equals_end)
                 {
-                  state = ST_END; /* End */
+                  state = ST_END; /* End.  */
                   break;
                 }
               FALLTHROUGH;
             default:
               *(q++) = *(p++);
-              ++count;
+              count++;
               break;
             }
           break;
-
-        case ST_BACKSLASH:	/* Backslash escaped character */
+        case ST_BACKSLASH: /* Backslash escaped character.  */
           switch (*p)
             {
             case '0':
@@ -2468,72 +2320,70 @@ get_funky_string (char **dest, const char **src, bool equals_end,
             case '5':
             case '6':
             case '7':
-              state = ST_OCTAL;	/* Octal sequence */
+              state = ST_OCTAL; /* Octal sequence.  */
               num = *p - '0';
               break;
             case 'x':
             case 'X':
-              state = ST_HEX;	/* Hex sequence */
+              state = ST_HEX; /* Hex sequence.  */
               num = 0;
               break;
-            case 'a':		/* Bell */
+            case 'a': /* Bell.  */
               num = '\a';
               break;
-            case 'b':		/* Backspace */
+            case 'b': /* Backspace.  */
               num = '\b';
               break;
-            case 'e':		/* Escape */
+            case 'e': /* Escape.  */
               num = 27;
               break;
-            case 'f':		/* Form feed */
+            case 'f': /* Form feed.  */
               num = '\f';
               break;
-            case 'n':		/* Newline */
+            case 'n': /* Newline.  */
               num = '\n';
               break;
-            case 'r':		/* Carriage return */
+            case 'r': /* Carriage return.  */
               num = '\r';
               break;
-            case 't':		/* Tab */
+            case 't': /* Tab.  */
               num = '\t';
               break;
-            case 'v':		/* Vtab */
+            case 'v': /* Vertical tab.  */
               num = '\v';
               break;
-            case '?':		/* Delete */
+            case '?': /* Delete.  */
               num = 127;
               break;
-            case '_':		/* Space */
+            case '_': /* Space.  */
               num = ' ';
               break;
-            case '\0':		/* End of string */
-              state = ST_ERROR;	/* Error! */
+            case '\0': /* End of string.  */
+              state = ST_ERROR; /* Error! */
               break;
-            default:		/* Escaped character like \ ^ : = */
+            default: /* Escaped character like \ ^ : = */
               num = *p;
               break;
             }
           if (state == ST_BACKSLASH)
             {
               *(q++) = num;
-              ++count;
+              count++;
               state = ST_GND;
             }
-          ++p;
+          p++;
           break;
-
-        case ST_OCTAL:		/* Octal sequence */
+        case ST_OCTAL: /* Octal sequence.  */
           if (*p < '0' || *p > '7')
             {
               *(q++) = num;
-              ++count;
+              count++;
               state = ST_GND;
             }
           else
             num = (num << 3) + (*(p++) - '0');
           break;
-
-        case ST_HEX:		/* Hex sequence */
+        case ST_HEX: /* Hex sequence.  */
           switch (*p)
             {
             case '0':
@@ -2566,28 +2416,26 @@ get_funky_string (char **dest, const char **src, bool equals_end,
               break;
             default:
               *(q++) = num;
-              ++count;
+              count++;
               state = ST_GND;
               break;
             }
           break;
-
-        case ST_CARET:		/* Caret escape */
-          state = ST_GND;	/* Should be the next state... */
+        case ST_CARET: /* Caret escape.  */
+          state = ST_GND; /* Should be the next state... */
           if (*p >= '@' && *p <= '~')
             {
               *(q++) = *(p++) & 037;
-              ++count;
+              count++;
             }
           else if (*p == '?')
             {
               *(q++) = 127;
-              ++count;
+              count++;
             }
           else
             state = ST_ERROR;
           break;
-
         default:
           abort ();
         }
@@ -2601,33 +2449,29 @@ get_funky_string (char **dest, const char **src, bool equals_end,
 }
 
 enum parse_state
-  {
-    PS_START = 1,
-    PS_2,
-    PS_3,
-    PS_4,
-    PS_DONE,
-    PS_FAIL
-  };
-
+{
+  PS_START = 1,
+  PS_2,
+  PS_3,
+  PS_4,
+  PS_DONE,
+  PS_FAIL
+};
 
 /* Check if the content of TERM is a valid name in dircolors.  */
-
 static bool
 known_term_type (void)
 {
-  char const *term = getenv ("TERM");
-  if (! term || ! *term)
+  const char *term = getenv ("TERM");
+  if (term == NULL || *term == '\0')
     return false;
 
-  char const *line = G_line;
+  const char *line = G_line;
   while (line - G_line < sizeof (G_line))
     {
       if (STRNCMP_LIT (line, "TERM ") == 0)
-        {
-          if (fnmatch (line + 5, term, 0) == 0)
-            return true;
-        }
+        if (fnmatch (line + 5, term, 0) == 0)
+          return true;
       line += strlen (line) + 1;
     }
 
@@ -2637,11 +2481,11 @@ known_term_type (void)
 static void
 parse_ls_color (void)
 {
-  const char *p;		/* Pointer to character being parsed */
-  char *buf;			/* color_buf buffer pointer */
-  int ind_no;			/* Indicator number */
-  char label[3];		/* Indicator label */
-  struct color_ext_type *ext;	/* Extension we are working on */
+  const char *p;              /* Pointer to character being parsed.  */
+  char *buf;                  /* color_buf buffer pointer.  */
+  int ind_no;                 /* Indicator number.  */
+  char label[3];              /* Indicator label.  */
+  struct color_ext_type *ext; /* Extension we are working on.  */
 
   if ((p = getenv ("LS_COLORS")) == NULL || *p == '\0')
     {
@@ -2649,8 +2493,8 @@ parse_ls_color (void)
          honor the COLORTERM and TERM env variables so that
          we only go with the internal ANSI color codes if the
          former is non empty or the latter is set to a known value.  */
-      char const *colorterm = getenv ("COLORTERM");
-      if (! (colorterm && *colorterm) && ! known_term_type ())
+      const char *colorterm = getenv ("COLORTERM");
+      if ((colorterm == NULL || *colorterm == '\0') && !known_term_type ())
         print_with_color = false;
       return;
     }
@@ -2669,63 +2513,56 @@ parse_ls_color (void)
     {
       switch (state)
         {
-        case PS_START:		/* First label character */
+        case PS_START: /* First label character */
           switch (*p)
             {
             case ':':
-              ++p;
+              p++;
               break;
-
             case '*':
               /* Allocate new extension block and add to head of
                  linked list (this way a later definition will
                  override an earlier one, which can be useful for
                  having terminal-specific defs override global).  */
-
               ext = xmalloc (sizeof *ext);
               ext->next = color_ext_list;
               color_ext_list = ext;
 
-              ++p;
+              p++;
               ext->ext.string = buf;
 
               state = (get_funky_string (&buf, &p, true, &ext->ext.len)
                        ? PS_4 : PS_FAIL);
               break;
-
             case '\0':
-              state = PS_DONE;	/* Done! */
+              state = PS_DONE; /* Done! */
               goto done;
-
-            default:	/* Assume it is file type label */
+            default: /* Assume it is file type label.  */
               label[0] = *(p++);
               state = PS_2;
               break;
             }
           break;
-
-        case PS_2:		/* Second label character */
-          if (*p)
+        case PS_2: /* Second label character.  */
+          if (*p != '\0')
             {
               label[1] = *(p++);
               state = PS_3;
             }
           else
-            state = PS_FAIL;	/* Error */
+            state = PS_FAIL; /* Error */
           break;
-
-        case PS_3:		/* Equal sign after indicator label */
-          state = PS_FAIL;	/* Assume failure...  */
-          if (*(p++) == '=')/* It *should* be...  */
+        case PS_3: /* Equal sign after indicator label.  */
+          state = PS_FAIL; /* Assume failure... */
+          if (*(p++) == '=') /* It *should* be... */
             {
-              for (ind_no = 0; indicator_name[ind_no] != NULL; ++ind_no)
+              for (ind_no = 0; indicator_name[ind_no] != NULL; ind_no++)
                 {
                   if (STREQ (label, indicator_name[ind_no]))
                     {
                       color_indicator[ind_no].string = buf;
                       state = (get_funky_string (&buf, &p, false,
-                                                 &color_indicator[ind_no].len)
-                               ? PS_START : PS_FAIL);
+                                                 &color_indicator[ind_no].len) ? PS_START : PS_FAIL);
                       break;
                     }
                 }
@@ -2733,40 +2570,35 @@ parse_ls_color (void)
                 error (0, 0, _("unrecognized prefix: %s"), quote (label));
             }
           break;
-
-        case PS_4:		/* Equal sign after *.ext */
+        case PS_4: /* Equal sign after *.ext */
           if (*(p++) == '=')
             {
               ext->seq.string = buf;
-              state = (get_funky_string (&buf, &p, false, &ext->seq.len)
-                       ? PS_START : PS_FAIL);
+              state = (get_funky_string (&buf, &p, false, &ext->seq.len) ? PS_START : PS_FAIL);
             }
           else
             state = PS_FAIL;
           break;
-
         case PS_FAIL:
           goto done;
-
         default:
           abort ();
         }
     }
- done:
 
+done:
   if (state == PS_FAIL)
     {
       struct color_ext_type *e;
-      struct color_ext_type *e2;
 
-      error (0, 0,
-             _("unparsable value for LS_COLORS environment variable"));
+      error (0, 0, _("unparsable value for LS_COLORS environment variable"));
       free (color_buf);
-      for (e = color_ext_list; e != NULL; /* empty */)
+      e = color_ext_list;
+      while (e != NULL)
         {
-          e2 = e;
+          struct color_ext_type *tmp = e;
           e = e->next;
-          free (e2);
+          free (tmp);
         }
       print_with_color = false;
     }
@@ -2778,26 +2610,24 @@ parse_ls_color (void)
 
 /* Set the quoting style default if the environment variable
    QUOTING_STYLE is set.  */
-
 static void
 getenv_quoting_style (void)
 {
-  char const *q_style = getenv ("QUOTING_STYLE");
-  if (q_style)
+  const char *q_style = getenv ("QUOTING_STYLE");
+  if (q_style != NULL)
     {
       int i = ARGMATCH (q_style, quoting_style_args, quoting_style_vals);
-      if (0 <= i)
+      if (i >= 0)
         set_quoting_style (NULL, quoting_style_vals[i]);
       else
         error (0, 0,
-       _("ignoring invalid value of environment variable QUOTING_STYLE: %s"),
+               _("ignoring invalid value of environment variable QUOTING_STYLE: %s"),
                quote (q_style));
     }
 }
 
 /* Set the exit status to report a failure.  If SERIOUS, it is a
    serious failure; otherwise, it is merely a minor problem.  */
-
 static void
 set_exit_status (bool serious)
 {
@@ -2810,9 +2640,8 @@ set_exit_status (bool serious)
 /* Assuming a failure is serious if SERIOUS, use the printf-style
    MESSAGE to report the failure to access a file named FILE.  Assume
    errno is set appropriately for the failure.  */
-
 static void
-file_failure (bool serious, char const *message, char const *file)
+file_failure (bool serious, const char *message, const char *file)
 {
   error (0, errno, message, quoteaf (file));
   set_exit_status (serious);
@@ -2827,9 +2656,8 @@ file_failure (bool serious, char const *message, char const *file)
    If NAME is non-NULL, we use its dev/ino information to save
    a call to stat -- when doing a recursive (-R) traversal.
    COMMAND_LINE_ARG means this directory was mentioned on the command line.  */
-
 static void
-queue_directory (char const *name, char const *realname, bool command_line_arg)
+queue_directory (const char *name, const char *realname, bool command_line_arg)
 {
   struct pending *new = xmalloc (sizeof *new);
   new->realname = realname ? xstrdup (realname) : NULL;
@@ -2843,9 +2671,8 @@ queue_directory (char const *name, char const *realname, bool command_line_arg)
    If REALNAME is nonzero, print its name instead of NAME;
    this is used for symbolic links to directories.
    COMMAND_LINE_ARG means this directory was mentioned on the command line.  */
-
 static void
-print_dir (char const *name, char const *realname, bool command_line_arg)
+print_dir (const char *name, const char *realname, bool command_line_arg)
 {
   DIR *dirp;
   struct dirent *next;
@@ -2854,7 +2681,7 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
 
   errno = 0;
   dirp = opendir (name);
-  if (!dirp)
+  if (dirp == NULL)
     {
       file_failure (command_line_arg, _("cannot open directory %s"), name);
       return;
@@ -2866,9 +2693,9 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
       int fd = dirfd (dirp);
 
       /* If dirfd failed, endure the overhead of stat'ing by path  */
-      if ((0 <= fd
+      if ((fd >= 0
            ? fstat_for_ino (fd, &dir_stat)
-           : stat_for_ino (name, &dir_stat)) < 0)
+           :  stat_for_ino (name, &dir_stat)) < 0)
         {
           file_failure (command_line_arg,
                         _("cannot determine device and inode of %s"), name);
@@ -2876,8 +2703,8 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
           return;
         }
 
-      /* If we've already visited this dev/inode pair, warn that
-         we've found a loop, and do not process this directory.  */
+      /* If we heve already visited this dev/inode pair, warn that
+         we heve found a loop, and do not process this directory.  */
       if (visit_dir (dir_stat.st_dev, dir_stat.st_ino))
         {
           error (0, 0, _("%s: not listing already-listed directory"),
@@ -2903,7 +2730,7 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
       if (print_hyperlink)
         {
           absolute_name = canonicalize_filename_mode (name, CAN_MISSING);
-          if (! absolute_name)
+          if (!absolute_name)
             file_failure (command_line_arg,
                           _("error canonicalizing %s"), name);
         }
@@ -2917,31 +2744,30 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
 
   /* Read the directory entries, and insert the subfiles into the 'cwd_file'
      table.  */
-
-  while (1)
+  while (true)
     {
       /* Set errno to zero so we can distinguish between a readdir failure
          and when readdir simply finds that there are no more entries.  */
       errno = 0;
       next = readdir (dirp);
-      if (next)
+      if (next != NULL)
         {
-          if (! file_ignored (next->d_name))
+          if (!file_ignored (next->d_name))
             {
               enum filetype type = unknown;
 
 #if HAVE_STRUCT_DIRENT_D_TYPE
               switch (next->d_type)
                 {
-                case DT_BLK:  type = blockdev;		break;
-                case DT_CHR:  type = chardev;		break;
-                case DT_DIR:  type = directory;		break;
-                case DT_FIFO: type = fifo;		break;
-                case DT_LNK:  type = symbolic_link;	break;
-                case DT_REG:  type = normal;		break;
-                case DT_SOCK: type = sock;		break;
+                case DT_BLK:  type = blockdev;      break;
+                case DT_CHR:  type = chardev;       break;
+                case DT_DIR:  type = directory;     break;
+                case DT_FIFO: type = fifo;          break;
+                case DT_LNK:  type = symbolic_link; break;
+                case DT_REG:  type = normal;        break;
+                case DT_SOCK: type = sock;          break;
 # ifdef DT_WHT
-                case DT_WHT:  type = whiteout;		break;
+                case DT_WHT:  type = whiteout;      break;
 # endif
                 }
 #endif
@@ -2974,7 +2800,7 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
       else
         break;
 
-      /* When processing a very large directory, and since we've inhibited
+      /* When processing a very large directory, and since we have inhibited
          interrupts, this loop would take so long that ls would be annoyingly
          uninterruptible.  This ensures that it handles signals promptly.  */
       process_signals ();
@@ -2983,7 +2809,7 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
   if (closedir (dirp) != 0)
     {
       file_failure (command_line_arg, _("closing directory %s"), name);
-      /* Don't return; print whatever we got.  */
+      /* Do not return; print whatever we got.  */
     }
 
   /* Sort the directory contents.  */
@@ -2991,7 +2817,6 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
 
   /* If any member files are subdirectories, perhaps they should have their
      contents listed rather than being mentioned here as files.  */
-
   if (recursive)
     extract_dirs_from_files (name, false);
 
@@ -3010,13 +2835,12 @@ print_dir (char const *name, char const *realname, bool command_line_arg)
       DIRED_PUTCHAR ('\n');
     }
 
-  if (cwd_n_used)
+  if (cwd_n_used != 0)
     print_current_files ();
 }
 
 /* Add 'pattern' to the list of patterns for which files that match are
    not listed.  */
-
 static void
 add_ignore_pattern (const char *pattern)
 {
@@ -3030,34 +2854,27 @@ add_ignore_pattern (const char *pattern)
 }
 
 /* Return true if one of the PATTERNS matches FILE.  */
-
 static bool
-patterns_match (struct ignore_pattern const *patterns, char const *file)
+patterns_match (struct ignore_pattern const *patterns, const char *file)
 {
-  struct ignore_pattern const *p;
-  for (p = patterns; p; p = p->next)
+  for (const struct ignore_pattern *p = patterns; p; p = p->next)
     if (fnmatch (p->pattern, file, FNM_PERIOD) == 0)
       return true;
   return false;
 }
 
 /* Return true if FILE should be ignored.  */
-
 static bool
-file_ignored (char const *name)
+file_ignored (const char *name)
 {
-  return ((ignore_mode != IGNORE_MINIMAL
-           && name[0] == '.'
-           && (ignore_mode == IGNORE_DEFAULT || ! name[1 + (name[1] == '.')]))
-          || (ignore_mode == IGNORE_DEFAULT
-              && patterns_match (hide_patterns, name))
+  return ((ignore_mode != IGNORE_MINIMAL && name[0] == '.' && (ignore_mode == IGNORE_DEFAULT || ! name[1 + (name[1] == '.')]))
+          || (ignore_mode == IGNORE_DEFAULT && patterns_match (hide_patterns, name))
           || patterns_match (ignore_patterns, name));
 }
 
 /* POSIX requires that a file size be printed without a sign, even
    when negative.  Assume the typical case where negative sizes are
    actually positive values that have wrapped around.  */
-
 static uintmax_t
 unsigned_file_size (off_t size)
 {
@@ -3067,7 +2884,7 @@ unsigned_file_size (off_t size)
 #ifdef HAVE_CAP
 /* Return true if NAME has a capability (see linux/capability.h) */
 static bool
-has_capability (char const *name)
+has_capability (const char *name)
 {
   char *result;
   bool has_cap;
@@ -3078,18 +2895,18 @@ has_capability (char const *name)
 
   result = cap_to_text (cap_d, NULL);
   cap_free (cap_d);
-  if (!result)
+  if (result == NULL)
     return false;
 
-  /* check if human-readable capability string is empty */
-  has_cap = !!*result;
+  /* Check if human-readable capability string is empty.  */
+  has_cap = *result != '\0';
 
   cap_free (result);
   return has_cap;
 }
 #else
 static bool
-has_capability (char const *name _GL_UNUSED)
+has_capability (const char *name _GL_UNUSED)
 {
   errno = ENOTSUP;
   return false;
@@ -3097,13 +2914,13 @@ has_capability (char const *name _GL_UNUSED)
 #endif
 
 /* Enter and remove entries in the table 'cwd_file'.  */
-
 static void
 free_ent (struct fileinfo *f)
 {
   free (f->name);
   free (f->linkname);
   free (f->absolute_name);
+
   if (f->scontext != UNKNOWN_SECURITY_CONTEXT)
     {
       if (is_smack_enabled ())
@@ -3118,10 +2935,7 @@ static void
 clear_files (void)
 {
   for (size_t i = 0; i < cwd_n_used; i++)
-    {
-      struct fileinfo *f = sorted_file[i];
-      free_ent (f);
-    }
+    free_ent ((struct fileinfo *) sorted_file[i]);
 
   cwd_n_used = 0;
   cwd_some_quoted = false;
@@ -3146,13 +2960,13 @@ errno_unsupported (int err)
   return (err == EINVAL || err == ENOSYS || is_ENOTSUP (err));
 }
 
-/* Cache *getfilecon failure, when it's trivial to do so.
-   Like getfilecon/lgetfilecon, but when F's st_dev says it's doesn't
+/* Cache *getfilecon failure, when it is trivial to do so.
+   Like getfilecon/lgetfilecon, but when F's st_dev says it is does not
    support getting the security context, fail with ENOTSUP immediately.  */
 static int
-getfilecon_cache (char const *file, struct fileinfo *f, bool deref)
+getfilecon_cache (const char *file, struct fileinfo *f, bool deref)
 {
-  /* st_dev of the most recently processed device for which we've
+  /* st_dev of the most recently processed device for which we have
      found that [l]getfilecon fails indicating lack of support.  */
   static dev_t unsupported_device;
 
@@ -3169,20 +2983,20 @@ getfilecon_cache (char const *file, struct fileinfo *f, bool deref)
   else
 #endif
     r = (deref
-         ? getfilecon (file, &f->scontext)
+         ?  getfilecon (file, &f->scontext)
          : lgetfilecon (file, &f->scontext));
   if (r < 0 && errno_unsupported (errno))
     unsupported_device = f->stat.st_dev;
   return r;
 }
 
-/* Cache file_has_acl failure, when it's trivial to do.
-   Like file_has_acl, but when F's st_dev says it's on a file
+/* Cache file_has_acl failure, when it is trivial to do.
+   Like file_has_acl, but when F's st_dev says it is on a file
    system lacking ACL support, return 0 with ENOTSUP immediately.  */
 static int
-file_has_acl_cache (char const *file, struct fileinfo *f)
+file_has_acl_cache (const char *file, struct fileinfo *f)
 {
-  /* st_dev of the most recently processed device for which we've
+  /* st_dev of the most recently processed device for which we have
      found that file_has_acl fails indicating lack of support.  */
   static dev_t unsupported_device;
 
@@ -3193,7 +3007,7 @@ file_has_acl_cache (char const *file, struct fileinfo *f)
     }
 
   /* Zero errno so that we can distinguish between two 0-returning cases:
-     "has-ACL-support, but only a default ACL" and "no ACL support". */
+     "has-ACL-support, but only a default ACL" and "no ACL support".  */
   errno = 0;
   int n = file_has_acl (file, &f->stat);
   if (n <= 0 && errno_unsupported (errno))
@@ -3201,13 +3015,13 @@ file_has_acl_cache (char const *file, struct fileinfo *f)
   return n;
 }
 
-/* Cache has_capability failure, when it's trivial to do.
-   Like has_capability, but when F's st_dev says it's on a file
+/* Cache has_capability failure, when it is trivial to do.
+   Like has_capability, but when F's st_dev says it is on a file
    system lacking capability support, return 0 with ENOTSUP immediately.  */
 static bool
-has_capability_cache (char const *file, struct fileinfo *f)
+has_capability_cache (const char *file, struct fileinfo *f)
 {
-  /* st_dev of the most recently processed device for which we've
+  /* st_dev of the most recently processed device for which we have
      found that has_capability fails indicating lack of support.  */
   static dev_t unsupported_device;
 
@@ -3218,16 +3032,16 @@ has_capability_cache (char const *file, struct fileinfo *f)
     }
 
   bool b = has_capability (file);
-  if ( !b && errno_unsupported (errno))
+  if (!b && errno_unsupported (errno))
     unsupported_device = f->stat.st_dev;
   return b;
 }
 
 static bool
-needs_quoting (char const* name)
+needs_quoting (const char* name)
 {
   char test[2];
-  size_t len = quotearg_buffer (test, sizeof test , name, -1,
+  size_t len = quotearg_buffer (test, sizeof test, name, -1,
                                 filename_quoting_options);
   return *name != *test || strlen (name) != len;
 }
@@ -3236,15 +3050,15 @@ needs_quoting (char const* name)
    Verify that the file exists, and print an error message if it does not.
    Return the number of blocks that the file occupies.  */
 static uintmax_t
-gobble_file (char const *name, enum filetype type, ino_t inode,
-             bool command_line_arg, char const *dirname)
+gobble_file (const char *name, enum filetype type, ino_t inode,
+             bool command_line_arg, const char *dirname)
 {
   uintmax_t blocks = 0;
   struct fileinfo *f;
 
   /* An inode value prior to gobble_file necessarily came from readdir,
      which is not used for command line arguments.  */
-  assert (! command_line_arg || inode == NOT_AN_INODE_NUMBER);
+  assert (!command_line_arg || inode == NOT_AN_INODE_NUMBER);
 
   if (cwd_n_used == cwd_n_alloc)
     {
@@ -3258,7 +3072,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
   f->filetype = type;
 
   f->quoted = -1;
-  if ((! cwd_some_quoted) && align_variable_outer_quotes)
+  if (!cwd_some_quoted && align_variable_outer_quotes)
     {
       /* Determine if any quoted for padding purposes.  */
       f->quoted = needs_quoting (name);
@@ -3289,14 +3103,14 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
           && (type == unknown || command_line_arg
               /* --indicator-style=classify (aka -F)
                  requires that we stat each regular file
-                 to see if it's executable.  */
+                 to see if it is executable.  */
               || (type == normal && (indicator_style == classify
                                      /* This is so that --color ends up
                                         highlighting files with these mode
                                         bits set even when options like -F are
                                         not specified.  Note we do a redundant
                                         stat in the very unlikely case where
-                                        C_CAP is set but not the others. */
+                                        C_CAP is set but not the others.  */
                                      || (print_with_color
                                          && (is_colored (C_EXEC)
                                              || is_colored (C_SETUID)
@@ -3310,8 +3124,12 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
       bool do_deref;
       int err;
 
-      if (name[0] == '/' || dirname[0] == 0)
-        full_name = (char *) name;
+      if (name[0] == '/' || dirname[0] == '\0')
+        {
+          size_t name_len = strlen (name);
+          full_name = alloca (name_len);
+          memcpy (full_name, name, name_len + 1);
+        }
       else
         {
           full_name = alloca (strlen (name) + strlen (dirname) + 2);
@@ -3322,7 +3140,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
         {
           f->absolute_name = canonicalize_filename_mode (full_name,
                                                          CAN_MISSING);
-          if (! f->absolute_name)
+          if (!f->absolute_name)
             file_failure (command_line_arg,
                           _("error canonicalizing %s"), full_name);
         }
@@ -3333,7 +3151,6 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
           err = do_stat (full_name, &f->stat);
           do_deref = true;
           break;
-
         case DEREF_COMMAND_LINE_ARGUMENTS:
         case DEREF_COMMAND_LINE_SYMLINK_TO_DIR:
           if (command_line_arg)
@@ -3347,7 +3164,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
 
               need_lstat = (err < 0
                             ? errno == ENOENT
-                            : ! S_ISDIR (f->stat.st_mode));
+                            : !S_ISDIR (f->stat.st_mode));
               if (!need_lstat)
                 break;
 
@@ -3357,7 +3174,6 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
                  in effect.  Fall through so that we call lstat instead.  */
             }
           FALLTHROUGH;
-
         default: /* DEREF_NEVER */
           err = do_lstat (full_name, &f->stat);
           do_deref = false;
@@ -3382,7 +3198,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
 
       f->stat_ok = true;
 
-      /* Note has_capability() adds around 30% runtime to 'ls --color'  */
+      /* Note has_capability() adds around 30% runtime to 'ls --color'.  */
       if ((type == normal || S_ISREG (f->stat.st_mode))
           && print_with_color && is_colored (C_CAP))
         f->has_capability = has_capability_cache (full_name, f);
@@ -3397,18 +3213,18 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
           if (err == 0)
             {
               if (is_smack_enabled ())
-                have_scontext = ! STREQ ("_", f->scontext);
+                have_scontext = !STREQ ("_", f->scontext);
               else
-                have_scontext = ! STREQ ("unlabeled", f->scontext);
+                have_scontext = !STREQ ("unlabeled", f->scontext);
             }
           else
             {
               f->scontext = UNKNOWN_SECURITY_CONTEXT;
 
-              /* When requesting security context information, don't make
+              /* When requesting security context information, do not make
                  ls fail just because the file (even a command line argument)
-                 isn't on the right type of file system.  I.e., a getfilecon
-                 failure isn't in the same class as a stat failure.  */
+                 is not on the right type of file system.  I.e., a getfilecon
+                 failure is not in the same class as a stat failure.  */
               if (is_ENOTSUP (errno) || errno == ENODATA)
                 err = 0;
             }
@@ -3440,7 +3256,7 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
           char *linkname = make_link_name (full_name, f->linkname);
 
           /* Use the slower quoting path for this entry, though
-             don't update CWD_SOME_QUOTED since alignment not affected.  */
+             do not update CWD_SOME_QUOTED since alignment not affected.  */
           if (linkname && f->quoted == 0 && needs_quoting (f->linkname))
             f->quoted = -1;
 
@@ -3487,14 +3303,12 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
               if (owner_width < len)
                 owner_width = len;
             }
-
           if (print_group)
             {
               int len = format_group_width (f->stat.st_gid);
               if (group_width < len)
                 group_width = len;
             }
-
           if (print_author)
             {
               int len = format_user_width (f->stat.st_author);
@@ -3502,14 +3316,12 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
                 author_width = len;
             }
         }
-
       if (print_scontext)
         {
           int len = strlen (f->scontext);
           if (scontext_width < len)
             scontext_width = len;
         }
-
       if (format == long_format)
         {
           char b[INT_BUFSIZE_BOUND (uintmax_t)];
@@ -3562,23 +3374,24 @@ gobble_file (char const *name, enum filetype type, ino_t inode,
 static bool
 is_directory (const struct fileinfo *f)
 {
-  return f->filetype == directory || f->filetype == arg_directory;
+  return f->filetype == directory
+    || f->filetype == arg_directory;
 }
 
 /* Return true if F refers to a (symlinked) directory.  */
 static bool
 is_linked_directory (const struct fileinfo *f)
 {
-  return f->filetype == directory || f->filetype == arg_directory
-         || S_ISDIR (f->linkmode);
+  return f->filetype == directory
+    || f->filetype == arg_directory
+    || S_ISDIR (f->linkmode);
 }
 
 /* Put the name of the file that FILENAME is a symbolic link to
    into the LINKNAME field of 'f'.  COMMAND_LINE_ARG indicates whether
    FILENAME is a command-line argument.  */
-
 static void
-get_link_name (char const *filename, struct fileinfo *f, bool command_line_arg)
+get_link_name (const char *filename, struct fileinfo *f, bool command_line_arg)
 {
   f->linkname = areadlink_with_size (filename, f->stat.st_size);
   if (f->linkname == NULL)
@@ -3590,11 +3403,10 @@ get_link_name (char const *filename, struct fileinfo *f, bool command_line_arg)
    leading directories, return LINKNAME with those directories
    prepended; otherwise, return a copy of LINKNAME.
    If LINKNAME is NULL, return NULL.  */
-
 static char *
-make_link_name (char const *name, char const *linkname)
+make_link_name (const char *name, const char *linkname)
 {
-  if (!linkname)
+  if (linkname == NULL)
     return NULL;
 
   if (IS_ABSOLUTE_FILE_NAME (linkname))
@@ -3611,20 +3423,19 @@ make_link_name (char const *name, char const *linkname)
   /* PREFIX_LEN usually specifies a string not ending in slash.
      In that case, extend it by one, since the next byte *is* a slash.
      Otherwise, the prefix is "/", so leave the length unchanged.  */
-  if ( ! ISSLASH (name[prefix_len - 1]))
-    ++prefix_len;
+  if (!ISSLASH (name[prefix_len - 1]))
+    prefix_len++;
 
   stpcpy (stpncpy (p, name, prefix_len), linkname);
   return p;
 }
 
 /* Return true if the last component of NAME is '.' or '..'
-   This is so we don't try to recurse on '././././. ...' */
-
+   This is so we do not try to recurse on '././././. ...' */
 static bool
 basename_is_dot_or_dotdot (const char *name)
 {
-  char const *base = last_component (name);
+  const char *base = last_component (name);
   return dot_or_dotdot (base);
 }
 
@@ -3635,9 +3446,8 @@ basename_is_dot_or_dotdot (const char *name)
    if it is null, no prefix is needed and "." and ".." should not be ignored.
    If COMMAND_LINE_ARG is true, this directory was mentioned at the top level,
    This is desirable when processing directories recursively.  */
-
 static void
-extract_dirs_from_files (char const *dirname, bool command_line_arg)
+extract_dirs_from_files (const char *dirname, bool command_line_arg)
 {
   size_t i;
   size_t j;
@@ -3646,7 +3456,7 @@ extract_dirs_from_files (char const *dirname, bool command_line_arg)
   if (dirname && LOOP_DETECT)
     {
       /* Insert a marker entry first.  When we dequeue this marker entry,
-         we'll know that DIRNAME has been processed and may be removed
+         we will know that DIRNAME has been processed and may be removed
          from the set of active directories.  */
       queue_directory (NULL, dirname, false);
     }
@@ -3658,8 +3468,8 @@ extract_dirs_from_files (char const *dirname, bool command_line_arg)
       struct fileinfo *f = sorted_file[i];
 
       if (is_directory (f)
-          && (! ignore_dot_and_dot_dot
-              || ! basename_is_dot_or_dotdot (f->name)))
+          && (!ignore_dot_and_dot_dot
+              || !basename_is_dot_or_dotdot (f->name)))
         {
           if (!dirname || f->name[0] == '/')
             queue_directory (f->name, f->linkname, command_line_arg);
@@ -3676,28 +3486,26 @@ extract_dirs_from_files (char const *dirname, bool command_line_arg)
 
   /* Now delete the directories from the table, compacting all the remaining
      entries.  */
-
   for (i = 0, j = 0; i < cwd_n_used; i++)
     {
       struct fileinfo *f = sorted_file[i];
       sorted_file[j] = f;
-      j += (f->filetype != arg_directory);
+      j += (f->filetype != arg_directory ? 1 : 0);
     }
   cwd_n_used = j;
 }
 
 /* Use strcoll to compare strings in this locale.  If an error occurs,
    report an error and longjmp to failed_strcoll.  */
-
 static jmp_buf failed_strcoll;
 
 static int
-xstrcoll (char const *a, char const *b)
+xstrcoll (const char *a, const char *b)
 {
   int diff;
   errno = 0;
   diff = strcoll (a, b);
-  if (errno)
+  if (errno != 0)
     {
       error (0, errno, _("cannot compare file names %s and %s"),
              quote_n (0, a), quote_n (1, b));
@@ -3708,23 +3516,22 @@ xstrcoll (char const *a, char const *b)
 }
 
 /* Comparison routines for sorting the files.  */
-
-typedef void const *V;
-typedef int (*qsortFunc)(V a, V b);
+typedef const void *V;
+typedef int (*qsort_func)(V a, V b);
 
 /* Used below in DEFINE_SORT_FUNCTIONS for _df_ sort function variants.
    The do { ... } while(0) makes it possible to use the macro more like
    a statement, without violating C89 rules: */
-#define DIRFIRST_CHECK(a, b)						\
-  do									\
-    {									\
-      bool a_is_dir = is_linked_directory ((struct fileinfo const *) a);\
-      bool b_is_dir = is_linked_directory ((struct fileinfo const *) b);\
-      if (a_is_dir && !b_is_dir)					\
-        return -1;         /* a goes before b */			\
-      if (!a_is_dir && b_is_dir)					\
-        return 1;          /* b goes before a */			\
-    }									\
+#define DIRFIRST_CHECK(a, b)                                             \
+  do                                                                     \
+    {                                                                    \
+      bool a_is_dir = is_linked_directory ((const struct fileinfo *) a); \
+      bool b_is_dir = is_linked_directory ((const struct fileinfo *) b); \
+      if (a_is_dir && !b_is_dir)                                         \
+        return -1; /* A goes before B.  */                               \
+      if (!a_is_dir && b_is_dir)                                         \
+        return +1; /* B goes before A.  */                               \
+    }                                                                    \
   while (0)
 
 /* Define the 8 different sort function variants required for each sortkey.
@@ -3732,84 +3539,84 @@ typedef int (*qsortFunc)(V a, V b);
    KEY_CMP_FUNC is a function to compare records based on that key, e.g.,
    ctime_cmp, atime_cmp, size_cmp.  Append KEY_NAME to the string,
    '[rev_][x]str{cmp|coll}[_df]_', to create each function name.  */
-#define DEFINE_SORT_FUNCTIONS(key_name, key_cmp_func)			\
-  /* direct, non-dirfirst versions */					\
-  static int xstrcoll_##key_name (V a, V b)				\
-  { return key_cmp_func (a, b, xstrcoll); }				\
-  static int _GL_ATTRIBUTE_PURE strcmp_##key_name (V a, V b)		\
-  { return key_cmp_func (a, b, strcmp); }				\
-                                                                        \
-  /* reverse, non-dirfirst versions */					\
-  static int rev_xstrcoll_##key_name (V a, V b)				\
-  { return key_cmp_func (b, a, xstrcoll); }				\
-  static int _GL_ATTRIBUTE_PURE rev_strcmp_##key_name (V a, V b)	\
-  { return key_cmp_func (b, a, strcmp); }				\
-                                                                        \
-  /* direct, dirfirst versions */					\
-  static int xstrcoll_df_##key_name (V a, V b)				\
-  { DIRFIRST_CHECK (a, b); return key_cmp_func (a, b, xstrcoll); }	\
-  static int _GL_ATTRIBUTE_PURE strcmp_df_##key_name (V a, V b)		\
-  { DIRFIRST_CHECK (a, b); return key_cmp_func (a, b, strcmp); }	\
-                                                                        \
-  /* reverse, dirfirst versions */					\
-  static int rev_xstrcoll_df_##key_name (V a, V b)			\
-  { DIRFIRST_CHECK (a, b); return key_cmp_func (b, a, xstrcoll); }	\
-  static int _GL_ATTRIBUTE_PURE rev_strcmp_df_##key_name (V a, V b)	\
+#define DEFINE_SORT_FUNCTIONS(key_name, key_cmp_func)                       \
+  /* Direct, non-dirfirst versions.  */                                     \
+  static inline int xstrcoll_##key_name (V a, V b)                          \
+  { return key_cmp_func (a, b, xstrcoll); }                                 \
+  static inline int _GL_ATTRIBUTE_CONST strcmp_##key_name (V a, V b)        \
+  { return key_cmp_func (a, b, strcmp); }                                   \
+                                                                            \
+  /* Reverse, non-dirfirst versions.  */                                    \
+  static inline int rev_xstrcoll_##key_name (V a, V b)                      \
+  { return key_cmp_func (b, a, xstrcoll); }                                 \
+  static inline int _GL_ATTRIBUTE_CONST rev_strcmp_##key_name (V a, V b)    \
+  { return key_cmp_func (b, a, strcmp); }                                   \
+                                                                            \
+  /* Direct, dirfirst versions.  */                                         \
+  static inline int xstrcoll_df_##key_name (V a, V b)                       \
+  { DIRFIRST_CHECK (a, b); return key_cmp_func (a, b, xstrcoll); }          \
+  static inline int _GL_ATTRIBUTE_CONST strcmp_df_##key_name (V a, V b)     \
+  { DIRFIRST_CHECK (a, b); return key_cmp_func (a, b, strcmp); }            \
+                                                                            \
+  /* Reverse, dirfirst versions.  */                                        \
+  static inline int rev_xstrcoll_df_##key_name (V a, V b)                   \
+  { DIRFIRST_CHECK (a, b); return key_cmp_func (b, a, xstrcoll); }          \
+  static inline int _GL_ATTRIBUTE_CONST rev_strcmp_df_##key_name (V a, V b) \
   { DIRFIRST_CHECK (a, b); return key_cmp_func (b, a, strcmp); }
 
 static inline int
-cmp_ctime (struct fileinfo const *a, struct fileinfo const *b,
-           int (*cmp) (char const *, char const *))
+cmp_ctime (const struct fileinfo *a, const struct fileinfo *b,
+           int (*cmp) (const char *, const char *))
 {
   int diff = timespec_cmp (get_stat_ctime (&b->stat),
                            get_stat_ctime (&a->stat));
-  return diff ? diff : cmp (a->name, b->name);
+  return diff != 0 ? diff : cmp (a->name, b->name);
 }
 
 static inline int
-cmp_mtime (struct fileinfo const *a, struct fileinfo const *b,
-           int (*cmp) (char const *, char const *))
+cmp_mtime (const struct fileinfo *a, const struct fileinfo *b,
+           int (*cmp) (const char *, const char *))
 {
   int diff = timespec_cmp (get_stat_mtime (&b->stat),
                            get_stat_mtime (&a->stat));
-  return diff ? diff : cmp (a->name, b->name);
+  return diff != 0 ? diff : cmp (a->name, b->name);
 }
 
 static inline int
-cmp_atime (struct fileinfo const *a, struct fileinfo const *b,
-           int (*cmp) (char const *, char const *))
+cmp_atime (const struct fileinfo *a, const struct fileinfo *b,
+           int (*cmp) (const char *, const char *))
 {
   int diff = timespec_cmp (get_stat_atime (&b->stat),
                            get_stat_atime (&a->stat));
-  return diff ? diff : cmp (a->name, b->name);
+  return diff != 0 ? diff : cmp (a->name, b->name);
 }
 
 static inline int
-cmp_size (struct fileinfo const *a, struct fileinfo const *b,
-          int (*cmp) (char const *, char const *))
+cmp_size (const struct fileinfo *a, const struct fileinfo *b,
+          int (*cmp) (const char *, const char *))
 {
   int diff = longdiff (b->stat.st_size, a->stat.st_size);
-  return diff ? diff : cmp (a->name, b->name);
+  return diff != 0 ? diff : cmp (a->name, b->name);
 }
 
 static inline int
-cmp_name (struct fileinfo const *a, struct fileinfo const *b,
-          int (*cmp) (char const *, char const *))
+cmp_name (const struct fileinfo *a, const struct fileinfo *b,
+          int (*cmp) (const char *, const char *))
 {
   return cmp (a->name, b->name);
 }
 
 /* Compare file extensions.  Files with no extension are 'smallest'.
    If extensions are the same, compare by file names instead.  */
-
 static inline int
-cmp_extension (struct fileinfo const *a, struct fileinfo const *b,
-               int (*cmp) (char const *, char const *))
+cmp_extension (const struct fileinfo *a, const struct fileinfo *b,
+               int (*cmp) (const char *, const char *))
 {
-  char const *base1 = strrchr (a->name, '.');
-  char const *base2 = strrchr (b->name, '.');
-  int diff = cmp (base1 ? base1 : "", base2 ? base2 : "");
-  return diff ? diff : cmp (a->name, b->name);
+  const char *base1 = strrchr (a->name, '.');
+  const char *base2 = strrchr (b->name, '.');
+  int diff = cmp (base1 != NULL ? base1 : "",
+                  base2 != NULL ? base2 : "");
+  return diff != 0 ? diff : cmp (a->name, b->name);
 }
 
 DEFINE_SORT_FUNCTIONS (ctime, cmp_ctime)
@@ -3829,7 +3636,7 @@ DEFINE_SORT_FUNCTIONS (extension, cmp_extension)
    sort key), and xstrcoll has the ability to do a longjmp if strcoll fails for
    locale reasons.  Lastly, filevercmp is ALWAYS available with gnulib.  */
 static inline int
-cmp_version (struct fileinfo const *a, struct fileinfo const *b)
+cmp_version (const struct fileinfo *a, const struct fileinfo *b)
 {
   return filevercmp (a->name, b->name);
 }
@@ -3843,17 +3650,15 @@ static int xstrcoll_df_version (V a, V b)
 static int rev_xstrcoll_df_version (V a, V b)
 { DIRFIRST_CHECK (a, b); return cmp_version (b, a); }
 
-
 /* We have 2^3 different variants for each sort-key function
    (for 3 independent sort modes).
    The function pointers stored in this array must be dereferenced as:
 
-    sort_variants[sort_key][use_strcmp][reverse][dirs_first]
+     sort_variants[sort_key][use_strcmp][reverse][dirs_first]
 
    Note that the order in which sort keys are listed in the function pointer
    array below is defined by the order of the elements in the time_type and
    sort_type enums!  */
-
 #define LIST_SORTFUNCTION_VARIANTS(key_name)                        \
   {                                                                 \
     {                                                               \
@@ -3866,33 +3671,33 @@ static int rev_xstrcoll_df_version (V a, V b)
     }                                                               \
   }
 
-static qsortFunc const sort_functions[][2][2][2] =
+static const qsort_func sort_functions[][2][2][2] =
+{
+  LIST_SORTFUNCTION_VARIANTS (name),
+  LIST_SORTFUNCTION_VARIANTS (extension),
+  LIST_SORTFUNCTION_VARIANTS (size),
+
   {
-    LIST_SORTFUNCTION_VARIANTS (name),
-    LIST_SORTFUNCTION_VARIANTS (extension),
-    LIST_SORTFUNCTION_VARIANTS (size),
-
     {
-      {
-        { xstrcoll_version, xstrcoll_df_version },
-        { rev_xstrcoll_version, rev_xstrcoll_df_version },
-      },
-
-      /* We use NULL for the strcmp variants of version comparison
-         since as explained in cmp_version definition, version comparison
-         does not rely on xstrcoll, so it will never longjmp, and never
-         need to try the strcmp fallback. */
-      {
-        { NULL, NULL },
-        { NULL, NULL },
-      }
+      { xstrcoll_version, xstrcoll_df_version },
+      { rev_xstrcoll_version, rev_xstrcoll_df_version },
     },
 
-    /* last are time sort functions */
-    LIST_SORTFUNCTION_VARIANTS (mtime),
-    LIST_SORTFUNCTION_VARIANTS (ctime),
-    LIST_SORTFUNCTION_VARIANTS (atime)
-  };
+   /* We use NULL for the strcmp variants of version comparison
+      since as explained in cmp_version definition, version comparison
+      does not rely on xstrcoll, so it will never longjmp, and never
+      need to try the strcmp fallback.  */
+    {
+      { NULL, NULL },
+      { NULL, NULL },
+    }
+  },
+
+  /* Last are time sort functions.  */
+  LIST_SORTFUNCTION_VARIANTS (mtime),
+  LIST_SORTFUNCTION_VARIANTS (ctime),
+  LIST_SORTFUNCTION_VARIANTS (atime)
+};
 
 /* The number of sort keys is calculated as the sum of
      the number of elements in the sort_type enum (i.e., sort_numtypes)
@@ -3901,12 +3706,10 @@ static qsortFunc const sort_functions[][2][2][2] =
    time_numtypes possible sort keys.
 
    This line verifies at compile-time that the array of sort functions has been
-   initialized for all possible sort keys. */
-verify (ARRAY_CARDINALITY (sort_functions)
-        == sort_numtypes + time_numtypes - 1 );
+   initialized for all possible sort keys.  */
+verify (ARRAY_CARDINALITY (sort_functions) == sort_numtypes + time_numtypes - 1);
 
 /* Set up SORTED_FILE to point to the in-use entries in CWD_FILE, in order.  */
-
 static void
 initialize_ordering_vector (void)
 {
@@ -3915,7 +3718,6 @@ initialize_ordering_vector (void)
 }
 
 /* Sort the files now in the table.  */
-
 static void
 sort_files (void)
 {
@@ -3924,8 +3726,8 @@ sort_files (void)
   if (sorted_file_alloc < cwd_n_used + cwd_n_used / 2)
     {
       free (sorted_file);
-      sorted_file = xnmalloc (cwd_n_used, 3 * sizeof *sorted_file);
-      sorted_file_alloc = 3 * cwd_n_used;
+      sorted_file = xnmalloc (cwd_n_used, sizeof *sorted_file * 3);
+      sorted_file_alloc = cwd_n_used * 3;
     }
 
   initialize_ordering_vector ();
@@ -3933,13 +3735,12 @@ sort_files (void)
   if (sort_type == sort_none)
     return;
 
-  /* Try strcoll.  If it fails, fall back on strcmp.  We can't safely
+  /* Try strcoll.  If it fails, fall back on strcmp.  We cannot safely
      ignore strcoll failures, as a failing strcoll might be a
      comparison function that is not a total order, and if we ignored
      the failure this might cause qsort to dump core.  */
-
-  if (! setjmp (failed_strcoll))
-    use_strcmp = false;      /* strcoll() succeeded */
+  if (setjmp (failed_strcoll) == 0)
+    use_strcmp = false; /* strcoll() succeeded */
   else
     {
       use_strcmp = true;
@@ -3948,14 +3749,13 @@ sort_files (void)
     }
 
   /* When sort_type == sort_time, use time_type as subindex.  */
-  mpsort ((void const **) sorted_file, cwd_n_used,
+  mpsort ((const void **) sorted_file, cwd_n_used,
           sort_functions[sort_type + (sort_type == sort_time ? time_type : 0)]
-                        [use_strcmp][sort_reverse]
-                        [directories_first]);
+          [use_strcmp][sort_reverse]
+          [directories_first]);
 }
 
 /* List all the files now in the table.  */
-
 static void
 print_current_files (void)
 {
@@ -3970,25 +3770,21 @@ print_current_files (void)
           putchar ('\n');
         }
       break;
-
     case many_per_line:
-      if (! line_length)
+      if (!line_length)
         print_with_separator (' ');
       else
         print_many_per_line ();
       break;
-
     case horizontal:
-      if (! line_length)
+      if (!line_length)
         print_with_separator (' ');
       else
         print_horizontal ();
       break;
-
     case with_commas:
       print_with_separator (',');
       break;
-
     case long_format:
       for (i = 0; i < cwd_n_used; i++)
         {
@@ -4005,10 +3801,10 @@ print_current_files (void)
    process by around 17%, compared to letting strftime() handle the %b.  */
 
 static size_t
-align_nstrftime (char *buf, size_t size, bool recent, struct tm const *tm,
+align_nstrftime (char *buf, size_t size, bool recent, const struct tm *tm,
                  timezone_t tz, int ns)
 {
-  char const *nfmt = (use_abformat
+  const char *nfmt = (use_abformat
                       ? abformat[recent][tm->tm_mon]
                       : long_time_format[recent]);
   return nstrftime (buf, size, nfmt, tm, tz, ns);
@@ -4016,7 +3812,6 @@ align_nstrftime (char *buf, size_t size, bool recent, struct tm const *tm,
 
 /* Return the expected number of columns in a long-format timestamp,
    or zero if it cannot be calculated.  */
-
 static int
 long_time_expected_width (void)
 {
@@ -4029,7 +3824,7 @@ long_time_expected_width (void)
       char buf[TIME_STAMP_LEN_MAXIMUM + 1];
 
       /* In case you're wondering if localtime_rz can fail with an input time_t
-         value of 0, let's just say it's very unlikely, but not inconceivable.
+         value of 0, let's just say it is very unlikely, but not inconceivable.
          The TZ environment variable would have to specify a time zone that
          is 2**31-1900 years or more ahead of UTC.  This could happen only on
          a 64-bit system that blindly accepts e.g., TZ=UTC+20000000000000.
@@ -4052,13 +3847,12 @@ long_time_expected_width (void)
 
 /* Print the user or group name NAME, with numeric id ID, using a
    print width of WIDTH columns.  */
-
 static void
-format_user_or_group (char const *name, unsigned long int id, int width)
+format_user_or_group (const char *name, unsigned long int id, int width)
 {
   size_t len;
 
-  if (name)
+  if (name != NULL)
     {
       int width_gap = width - mbswidth (name, 0);
       int pad = MAX (0, width_gap);
@@ -4080,33 +3874,29 @@ format_user_or_group (char const *name, unsigned long int id, int width)
 
 /* Print the name or id of the user with id U, using a print width of
    WIDTH.  */
-
 static void
 format_user (uid_t u, int width, bool stat_ok)
 {
-  format_user_or_group (! stat_ok ? "?" :
-                        (numeric_ids ? NULL : getuser (u)), u, width);
+  format_user_or_group (!stat_ok
+                        ? "?"
+                        : (numeric_ids ? NULL : getuser (u)), u, width);
 }
 
 /* Likewise, for groups.  */
-
 static void
 format_group (gid_t g, int width, bool stat_ok)
 {
-  format_user_or_group (! stat_ok ? "?" :
-                        (numeric_ids ? NULL : getgroup (g)), g, width);
+  format_user_or_group (!stat_ok
+                        ? "?"
+                        : (numeric_ids ? NULL : getgroup (g)), g, width);
 }
 
 /* Return the number of columns that format_user_or_group will print.  */
-
 static int
-format_user_or_group_width (char const *name, unsigned long int id)
+format_user_or_group_width (const char *name, unsigned long int id)
 {
-  if (name)
-    {
-      int len = mbswidth (name, 0);
-      return MAX (0, len);
-    }
+  if (name != NULL)
+    return MAX (0, mbswidth (name, 0));
   else
     {
       char buf[INT_BUFSIZE_BOUND (id)];
@@ -4116,7 +3906,6 @@ format_user_or_group_width (char const *name, unsigned long int id)
 }
 
 /* Return the number of columns that format_user will print.  */
-
 static int
 format_user_width (uid_t u)
 {
@@ -4124,7 +3913,6 @@ format_user_width (uid_t u)
 }
 
 /* Likewise, for groups.  */
-
 static int
 format_group_width (gid_t g)
 {
@@ -4140,7 +3928,7 @@ format_inode (char *buf, size_t buflen, const struct fileinfo *f)
   assert (INT_BUFSIZE_BOUND (uintmax_t) <= buflen);
   return (f->stat_ok && f->stat.st_ino != NOT_AN_INODE_NUMBER
           ? umaxtostr (f->stat.st_ino, buf)
-          : (char *) "?");
+          : bad_cast ("?"));
 }
 
 /* Print information about F in long format.  */
@@ -4149,14 +3937,15 @@ print_long_format (const struct fileinfo *f)
 {
   char modebuf[12];
   char buf
-    [LONGEST_HUMAN_READABLE + 1		/* inode */
-     + LONGEST_HUMAN_READABLE + 1	/* size in blocks */
-     + sizeof (modebuf) - 1 + 1		/* mode string */
-     + INT_BUFSIZE_BOUND (uintmax_t)	/* st_nlink */
-     + LONGEST_HUMAN_READABLE + 2	/* major device number */
-     + LONGEST_HUMAN_READABLE + 1	/* minor device number */
-     + TIME_STAMP_LEN_MAXIMUM + 1	/* max length of time/date */
-     ];
+    [
+      LONGEST_HUMAN_READABLE + 1      /* Inode.  */
+      + LONGEST_HUMAN_READABLE + 1    /* Size in blocks.  */
+      + sizeof (modebuf) - 1 + 1      /* Mode string.  */
+      + INT_BUFSIZE_BOUND (uintmax_t) /* st_nlink.  */
+      + LONGEST_HUMAN_READABLE + 2    /* Major device number.  */
+      + LONGEST_HUMAN_READABLE + 1    /* Minor device number.  */
+      + TIME_STAMP_LEN_MAXIMUM + 1    /* Max length of time/date.  */
+    ];
   size_t s;
   char *p;
   struct timespec when_timespec;
@@ -4172,7 +3961,7 @@ print_long_format (const struct fileinfo *f)
       memset (modebuf + 1, '?', 10);
       modebuf[11] = '\0';
     }
-  if (! any_has_acl)
+  if (!any_has_acl)
     modebuf[10] = '\0';
   else if (f->acl_type == ACL_T_LSM_CONTEXT_ONLY)
     modebuf[10] = '.';
@@ -4209,13 +3998,13 @@ print_long_format (const struct fileinfo *f)
   if (print_block_size)
     {
       char hbuf[LONGEST_HUMAN_READABLE + 1];
-      char const *blocks =
-        (! f->stat_ok
-         ? "?"
-         : human_readable (ST_NBLOCKS (f->stat), hbuf, human_output_opts,
-                           ST_NBLOCKSIZE, output_block_size));
+      const char *blocks =
+        (f->stat_ok
+         ? human_readable (ST_NBLOCKS (f->stat), hbuf, human_output_opts,
+                           ST_NBLOCKSIZE, output_block_size)
+         : "?");
       int pad;
-      for (pad = block_size_width - mbswidth (blocks, 0); 0 < pad; pad--)
+      for (pad = block_size_width - mbswidth (blocks, 0); pad > 0; pad--)
         *p++ = ' ';
       while ((*p++ = *blocks++))
         continue;
@@ -4227,7 +4016,7 @@ print_long_format (const struct fileinfo *f)
   {
     char hbuf[INT_BUFSIZE_BOUND (uintmax_t)];
     sprintf (p, "%s %*s ", modebuf, nlink_width,
-             ! f->stat_ok ? "?" : umaxtostr (f->stat.st_nlink, hbuf));
+             f->stat_ok ? umaxtostr (f->stat.st_nlink, hbuf) : "?");
   }
   /* Increment by strlen (p) here, rather than by, e.g.,
      sizeof modebuf - 2 + any_has_acl + 1 + nlink_width + 1.
@@ -4255,14 +4044,12 @@ print_long_format (const struct fileinfo *f)
       p = buf;
     }
 
-  if (f->stat_ok
-      && (S_ISCHR (f->stat.st_mode) || S_ISBLK (f->stat.st_mode)))
+  if (f->stat_ok && (S_ISCHR (f->stat.st_mode) || S_ISBLK (f->stat.st_mode)))
     {
       char majorbuf[INT_BUFSIZE_BOUND (uintmax_t)];
       char minorbuf[INT_BUFSIZE_BOUND (uintmax_t)];
-      int blanks_width = (file_size_width
-                          - (major_device_number_width + 2
-                             + minor_device_number_width));
+      int blanks_width = (file_size_width - (major_device_number_width + 2
+                                             + minor_device_number_width));
       sprintf (p, "%*s, %*s ",
                major_device_number_width + MAX (0, blanks_width),
                umaxtostr (major (f->stat.st_rdev), majorbuf),
@@ -4273,14 +4060,13 @@ print_long_format (const struct fileinfo *f)
   else
     {
       char hbuf[LONGEST_HUMAN_READABLE + 1];
-      char const *size =
-        (! f->stat_ok
-         ? "?"
-         : human_readable (unsigned_file_size (f->stat.st_size),
+      const char *size =
+        (f->stat_ok
+         ? human_readable (unsigned_file_size (f->stat.st_size),
                            hbuf, file_human_output_opts, 1,
-                           file_output_block_size));
-      int pad;
-      for (pad = file_size_width - mbswidth (size, 0); 0 < pad; pad--)
+                           file_output_block_size)
+         : "?");
+      for (int pad = file_size_width - mbswidth (size, 0); 0 < pad; pad--)
         *p++ = ' ';
       while ((*p++ = *size++))
         continue;
@@ -4317,7 +4103,7 @@ print_long_format (const struct fileinfo *f)
                            &when_local, localtz, when_timespec.tv_nsec);
     }
 
-  if (s || !*p)
+  if (s != 0 || *p == '\0')
     {
       p += s;
       *p++ = ' ';
@@ -4331,10 +4117,10 @@ print_long_format (const struct fileinfo *f)
          print it as a huge integer number of seconds.  */
       char hbuf[INT_BUFSIZE_BOUND (intmax_t)];
       sprintf (p, "%*s ", long_time_expected_width (),
-               (! f->stat_ok
-                ? "?"
-                : timetostr (when_timespec.tv_sec, hbuf)));
-      /* FIXME: (maybe) We discarded when_timespec.tv_nsec. */
+               (f->stat_ok
+                ? timetostr (when_timespec.tv_sec, hbuf)
+                : "?"));
+      /* FIXME: (maybe) We discarded when_timespec.tv_nsec.  */
       p += strlen (p);
     }
 
@@ -4343,7 +4129,7 @@ print_long_format (const struct fileinfo *f)
 
   if (f->filetype == symbolic_link)
     {
-      if (f->linkname)
+      if (f->linkname != NULL)
         {
           DIRED_FPUTS_LITERAL (" -> ", stdout);
           print_name_with_quoting (f, true, NULL, (p - buf) + w + 4);
@@ -4363,7 +4149,6 @@ print_long_format (const struct fileinfo *f)
    representation into WIDTH, if non-NULL.
    Store into PAD whether an initial space is needed for padding.
    Return the number of bytes in *BUF.  */
-
 static size_t
 quote_name_buf (char **inbuf, size_t bufsize, char *name,
                 struct quoting_options const *options,
@@ -4411,8 +4196,8 @@ quote_name_buf (char **inbuf, size_t bufsize, char *name,
     {
       if (MB_CUR_MAX > 1)
         {
-          char const *p = buf;
-          char const *plimit = buf + len;
+          const char *p = buf;
+          const char *plimit = buf + len;
           char *q = buf;
           displayed_width = 0;
 
@@ -4448,7 +4233,7 @@ quote_name_buf (char **inbuf, size_t bufsize, char *name,
                      reach its end, replacing each non-printable multibyte
                      character with a single question mark.  */
                   {
-                    mbstate_t mbstate = { 0, };
+                    mbstate_t mbstate = { 0 };
                     do
                       {
                         wchar_t wc;
@@ -4488,7 +4273,7 @@ quote_name_buf (char **inbuf, size_t bufsize, char *name,
                           {
                             /* A printable multibyte character.
                                Keep it.  */
-                            for (; bytes > 0; --bytes)
+                            for (; bytes > 0; bytes--)
                               *q++ = *p++;
                             displayed_width += w;
                           }
@@ -4502,7 +4287,7 @@ quote_name_buf (char **inbuf, size_t bufsize, char *name,
                             displayed_width += 1;
                           }
                       }
-                    while (! mbsinit (&mbstate));
+                    while (!mbsinit (&mbstate));
                   }
                   break;
               }
@@ -4513,11 +4298,11 @@ quote_name_buf (char **inbuf, size_t bufsize, char *name,
       else
         {
           char *p = buf;
-          char const *plimit = buf + len;
+          const char *plimit = buf + len;
 
           while (p < plimit)
             {
-              if (! isprint (to_uchar (*p)))
+              if (!isprint (to_uchar (*p)))
                 *p = '?';
               p++;
             }
@@ -4530,8 +4315,8 @@ quote_name_buf (char **inbuf, size_t bufsize, char *name,
         displayed_width = mbsnwidth (buf, len, 0);
       else
         {
-          char const *p = buf;
-          char const *plimit = buf + len;
+          const char *p = buf;
+          const char *plimit = buf + len;
 
           displayed_width = 0;
           while (p < plimit)
@@ -4557,7 +4342,7 @@ quote_name_buf (char **inbuf, size_t bufsize, char *name,
 }
 
 static size_t
-quote_name_width (const char *name, struct quoting_options const *options,
+quote_name_width (const char *name, const struct quoting_options *options,
                   int needs_general_quoting)
 {
   char smallbuf[BUFSIZ];
@@ -4583,7 +4368,7 @@ file_escape (const char *str, bool path)
 {
   char *esc = xnmalloc (3, strlen (str) + 1);
   char *p = esc;
-  while (*str)
+  while (*str != '\0')
     {
       if (path && ISSLASH (*str))
         {
@@ -4600,9 +4385,9 @@ file_escape (const char *str, bool path)
 }
 
 static size_t
-quote_name (char const *name, struct quoting_options const *options,
+quote_name (const char *name, const struct quoting_options *options,
             int needs_general_quoting, const struct bin_str *color,
-            bool allow_pad, struct obstack *stack, char const *absolute_name)
+            bool allow_pad, struct obstack *stack, const char *absolute_name)
 {
   char smallbuf[BUFSIZ];
   char *buf = smallbuf;
@@ -4615,22 +4400,22 @@ quote_name (char const *name, struct quoting_options const *options,
   if (pad && allow_pad)
       DIRED_PUTCHAR (' ');
 
-  if (color)
+  if (color != NULL)
     print_color_indicator (color);
 
-  /* If we're padding, then don't include the outer quotes in
+  /* If we are padding, then do not include the outer quotes in
      the --hyperlink, to improve the alignment of those links.  */
   bool skip_quotes = false;
 
-  if (absolute_name)
+  if (absolute_name != NULL)
     {
       if (align_variable_outer_quotes && cwd_some_quoted && ! pad)
         {
           skip_quotes = true;
           putchar (*buf);
         }
-      char *h = file_escape (hostname, /* path= */ false);
-      char *n = file_escape (absolute_name, /* path= */ true);
+      char *h = file_escape (hostname, /* path = */ false);
+      char *n = file_escape (absolute_name, /* path = */ true);
       /* TODO: It would be good to be able to define parameters
          to give hints to the terminal as how best to render the URI.
          For example since ls is outputting a dense block of URIs
@@ -4641,17 +4426,17 @@ quote_name (char const *name, struct quoting_options const *options,
       free (n);
     }
 
-  if (stack)
+  if (stack != NULL)
     PUSH_CURRENT_DIRED_POS (stack);
 
   fwrite (buf + skip_quotes, 1, len - (skip_quotes * 2), stdout);
 
   dired_pos += len;
 
-  if (stack)
+  if (stack != NULL)
     PUSH_CURRENT_DIRED_POS (stack);
 
-  if (absolute_name)
+  if (absolute_name != NULL)
     {
       fputs ("\033]8;;\a", stdout);
       if (skip_quotes)
@@ -4670,13 +4455,13 @@ print_name_with_quoting (const struct fileinfo *f,
                          struct obstack *stack,
                          size_t start_col)
 {
-  const char* name = symlink_target ? f->linkname : f->name;
+  const char *name = symlink_target ? f->linkname : f->name;
 
-  const struct bin_str *color = print_with_color ?
-                                get_color_indicator (f, symlink_target) : NULL;
+  const struct bin_str *color = print_with_color
+                                ? get_color_indicator (f, symlink_target)
+                                : NULL;
 
-  bool used_color_this_time = (print_with_color
-                               && (color || is_colored (C_NORM)));
+  bool used_color_this_time = (print_with_color && (color || is_colored (C_NORM)));
 
   size_t len = quote_name (name, filename_quoting_options, f->quoted,
                            color, !symlink_target, stack, f->absolute_name);
@@ -4691,9 +4476,8 @@ print_name_with_quoting (const struct fileinfo *f,
          because we only output the clear to EOL sequence if the name
          _might_ wrap to the next line.  This may output a sequence
          unnecessarily in multi-byte locales for example,
-         but in that case it's inconsequential to the output.  */
-      if (line_length
-          && (start_col / line_length != (start_col + len - 1) / line_length))
+         but in that case it is inconsequential to the output.  */
+      if (line_length != 0 && (start_col / line_length != (start_col + len - 1) / line_length))
         put_indicator (&color_indicator[C_CLR_TO_EOL]);
     }
 
@@ -4716,7 +4500,6 @@ prep_non_filename_text (void)
 /* Print the file name of 'f' with appropriate quoting.
    Also print file size, inode number, and filetype indicator character,
    as requested by switches.  */
-
 static size_t
 print_file_name_and_frills (const struct fileinfo *f, size_t start_col)
 {
@@ -4730,9 +4513,10 @@ print_file_name_and_frills (const struct fileinfo *f, size_t start_col)
 
   if (print_block_size)
     printf ("%*s ", format == with_commas ? 0 : block_size_width,
-            ! f->stat_ok ? "?"
-            : human_readable (ST_NBLOCKS (f->stat), buf, human_output_opts,
-                              ST_NBLOCKSIZE, output_block_size));
+            f->stat_ok
+            ? human_readable (ST_NBLOCKS (f->stat), buf, human_output_opts,
+                              ST_NBLOCKSIZE, output_block_size)
+            : "?");
 
   if (print_scontext)
     printf ("%*s ", format == with_commas ? 0 : scontext_width, f->scontext);
@@ -4776,6 +4560,7 @@ get_type_indicator (bool stat_ok, mode_t mode, enum filetype type)
       else
         c = 0;
     }
+
   return c;
 }
 
@@ -4783,16 +4568,16 @@ static bool
 print_type_indicator (bool stat_ok, mode_t mode, enum filetype type)
 {
   char c = get_type_indicator (stat_ok, mode, type);
-  if (c)
+  if (c != '\0')
     DIRED_PUTCHAR (c);
-  return !!c;
+  return c != '\0';
 }
 
 /* Returns if color sequence was printed.  */
 static bool
 print_color_indicator (const struct bin_str *ind)
 {
-  if (ind)
+  if (ind != NULL)
     {
       /* Need to reset so not dealing with attribute combinations */
       if (is_colored (C_NORM))
@@ -4806,12 +4591,12 @@ print_color_indicator (const struct bin_str *ind)
 }
 
 /* Returns color indicator or NULL if none.  */
-static const struct bin_str* _GL_ATTRIBUTE_PURE
+static const struct bin_str * _GL_ATTRIBUTE_PURE
 get_color_indicator (const struct fileinfo *f, bool symlink_target)
 {
   enum indicator_no type;
-  struct color_ext_type *ext;	/* Color extension */
-  size_t len;			/* Length of name */
+  struct color_ext_type *ext; /* Color extension.  */
+  size_t len;                 /* Length of name.  */
 
   const char* name;
   mode_t mode;
@@ -4830,7 +4615,6 @@ get_color_indicator (const struct fileinfo *f, bool symlink_target)
     }
 
   /* Is this a nonexistent file?  If so, linkok == -1.  */
-
   if (linkok == -1 && is_colored (C_MISSING))
     type = C_MISSING;
   else if (!f->stat_ok)
@@ -4880,10 +4664,8 @@ get_color_indicator (const struct fileinfo *f, bool symlink_target)
       else if (S_ISDOOR (mode))
         type = C_DOOR;
       else
-        {
-          /* Classify a file of some other type as C_ORPHAN.  */
-          type = C_ORPHAN;
-        }
+        /* Classify a file of some other type as C_ORPHAN.  */
+        type = C_ORPHAN;
     }
 
   /* Check the file's suffix only if still classified as C_FILE.  */
@@ -4891,14 +4673,12 @@ get_color_indicator (const struct fileinfo *f, bool symlink_target)
   if (type == C_FILE)
     {
       /* Test if NAME has a recognized suffix.  */
-
       len = strlen (name);
-      name += len;		/* Pointer to final \0.  */
+      name += len; /* Pointer to final \0.  */
       for (ext = color_ext_list; ext != NULL; ext = ext->next)
         {
-          if (ext->ext.len <= len
-              && c_strncasecmp (name - ext->ext.len, ext->ext.string,
-                                ext->ext.len) == 0)
+          if (ext->ext.len <= len && c_strncasecmp (name - ext->ext.len, ext->ext.string,
+                                                    ext->ext.len) == 0)
             break;
         }
     }
@@ -4910,17 +4690,16 @@ get_color_indicator (const struct fileinfo *f, bool symlink_target)
         type = C_ORPHAN;
     }
 
-  const struct bin_str *const s
-    = ext ? &(ext->seq) : &color_indicator[type];
+  const struct bin_str *const s = ext != NULL ? &(ext->seq) : &color_indicator[type];
 
-  return s->string ? s : NULL;
+  return s->string != NULL ? s : NULL;
 }
 
 /* Output a color indicator (which may contain nulls).  */
 static void
 put_indicator (const struct bin_str *ind)
 {
-  if (! used_color)
+  if (!used_color)
     {
       used_color = true;
 
@@ -4928,7 +4707,7 @@ put_indicator (const struct bin_str *ind)
          for signals, so that the colors can be restored to the
          default state if "ls" is suspended or interrupted.  */
 
-      if (0 <= tcgetpgrp (STDOUT_FILENO))
+      if (tcgetpgrp (STDOUT_FILENO) >= 0)
         signal_init ();
 
       prep_non_filename_text ();
@@ -4950,10 +4729,11 @@ length_of_file_name_and_frills (const struct fileinfo *f)
 
   if (print_block_size)
     len += 1 + (format == with_commas
-                ? strlen (! f->stat_ok ? "?"
-                          : human_readable (ST_NBLOCKS (f->stat), buf,
+                ? strlen (f->stat_ok
+                          ? human_readable (ST_NBLOCKS (f->stat), buf,
                                             human_output_opts, ST_NBLOCKSIZE,
-                                            output_block_size))
+                                            output_block_size)
+                          : "?")
                 : block_size_width);
 
   if (print_scontext)
@@ -4973,9 +4753,9 @@ length_of_file_name_and_frills (const struct fileinfo *f)
 static void
 print_many_per_line (void)
 {
-  size_t row;			/* Current row.  */
+  size_t row; /* Current row.  */
   size_t cols = calculate_columns (true);
-  struct column_info const *line_fmt = &column_info[cols - 1];
+  const struct column_info *line_fmt = &column_info[cols - 1];
 
   /* Calculate the number of rows that will be in each column except possibly
      for a short column on the right.  */
@@ -4988,9 +4768,9 @@ print_many_per_line (void)
       size_t pos = 0;
 
       /* Print the next row.  */
-      while (1)
+      while (true)
         {
-          struct fileinfo const *f = sorted_file[filesno];
+          const struct fileinfo *f = sorted_file[filesno];
           size_t name_length = length_of_file_name_and_frills (f);
           size_t max_name_length = line_fmt->col_arr[col++];
           print_file_name_and_frills (f, pos);
@@ -5002,6 +4782,7 @@ print_many_per_line (void)
           indent (pos + name_length, pos + max_name_length);
           pos += max_name_length;
         }
+
       putchar ('\n');
     }
 }
@@ -5012,8 +4793,8 @@ print_horizontal (void)
   size_t filesno;
   size_t pos = 0;
   size_t cols = calculate_columns (false);
-  struct column_info const *line_fmt = &column_info[cols - 1];
-  struct fileinfo const *f = sorted_file[0];
+  const struct column_info *line_fmt = &column_info[cols - 1];
+  const struct fileinfo *f = sorted_file[0];
   size_t name_length = length_of_file_name_and_frills (f);
   size_t max_name_length = line_fmt->col_arr[0];
 
@@ -5046,7 +4827,6 @@ print_horizontal (void)
 }
 
 /* Output name + SEP + ' '.  */
-
 static void
 print_with_separator (char sep)
 {
@@ -5055,14 +4835,14 @@ print_with_separator (char sep)
 
   for (filesno = 0; filesno < cwd_n_used; filesno++)
     {
-      struct fileinfo const *f = sorted_file[filesno];
-      size_t len = line_length ? length_of_file_name_and_frills (f) : 0;
+      const struct fileinfo *f = sorted_file[filesno];
+      size_t len = line_length != 0 ? length_of_file_name_and_frills (f) : 0;
 
       if (filesno != 0)
         {
           char separator;
 
-          if (! line_length
+          if (line_length == 0
               || ((pos + len + 2 < line_length)
                   && (pos <= SIZE_MAX - len - 2)))
             {
@@ -5087,7 +4867,6 @@ print_with_separator (char sep)
 
 /* Assuming cursor is at position FROM, indent up to position TO.
    Use a TAB character instead of two or more spaces whenever possible.  */
-
 static void
 indent (size_t from, size_t to)
 {
@@ -5109,34 +4888,35 @@ indent (size_t from, size_t to)
 /* Put DIRNAME/NAME into DEST, handling '.' and '/' properly.  */
 /* FIXME: maybe remove this function someday.  See about using a
    non-malloc'ing version of file_name_concat.  */
-
 static void
 attach (char *dest, const char *dirname, const char *name)
 {
-  const char *dirnamep = dirname;
-
-  /* Copy dirname if it is not ".".  */
-  if (dirname[0] != '.' || dirname[1] != 0)
+  if (*dirname == '\0')
     {
-      while (*dirnamep)
-        *dest++ = *dirnamep++;
-      /* Add '/' if 'dirname' doesn't already end with it.  */
-      if (dirnamep > dirname && dirnamep[-1] != '/')
-        *dest++ = '/';
+      strcpy (dest, name);
+      return;
     }
-  while (*name)
-    *dest++ = *name++;
-  *dest = 0;
+
+  size_t i = 0;
+
+  /* Copy dirname if it is not "." or if we were asked to do this.  */
+  if (dirname[0] == '.' && dirname[1] != '/' && dirname[1] != '\0')
+    {
+      memcpy (dest, dirname, (i = strlen (dirname)) + 1);
+      /* Add '/' if 'dirname' does not already end with it.  */
+      if (dirname[i - 1] != '/')
+        dest[i++] = '/';
+    }
+
+  strcpy (dest + i, name);
 }
 
 /* Allocate enough column info suitable for the current number of
    files and display columns, and initialize the info to represent the
    narrowest possible columns.  */
-
 static void
 init_column_info (void)
 {
-  size_t i;
   size_t max_cols = MIN (max_idx, cwd_n_used);
 
   /* Currently allocated columns in column_info.  */
@@ -5150,7 +4930,7 @@ init_column_info (void)
       if (max_cols < max_idx / 2)
         {
           /* The number of columns is far less than the display width
-             allows.  Grow the allocation, but only so that it's
+             allows.  Grow the allocation, but only so that it is
              double the current requirements.  If the display is
              extremely wide, this avoids allocating a lot of memory
              that is never needed.  */
@@ -5165,8 +4945,8 @@ init_column_info (void)
         }
 
       /* Allocate the new size_t objects by computing the triangle
-         formula n * (n + 1) / 2, except that we don't need to
-         allocate the part of the triangle that we've already
+         formula n * (n + 1) / 2, except that we do not need to
+         allocate the part of the triangle that we have already
          allocated.  Check for address arithmetic overflow.  */
       {
         size_t column_info_growth = new_column_info_alloc - column_info_alloc;
@@ -5178,7 +4958,7 @@ init_column_info (void)
       }
 
       /* Grow the triangle by parceling out the cells just allocated.  */
-      for (i = column_info_alloc; i < new_column_info_alloc; i++)
+      for (size_t i = column_info_alloc; i < new_column_info_alloc; i++)
         {
           column_info[i].col_arr = p;
           p += i + 1;
@@ -5187,25 +4967,22 @@ init_column_info (void)
       column_info_alloc = new_column_info_alloc;
     }
 
-  for (i = 0; i < max_cols; ++i)
+  for (size_t i = 0; i < max_cols; ++i)
     {
-      size_t j;
-
       column_info[i].valid_len = true;
       column_info[i].line_len = (i + 1) * MIN_COLUMN_WIDTH;
-      for (j = 0; j <= i; ++j)
+      for (size_t j = 0; j <= i; ++j)
         column_info[i].col_arr[j] = MIN_COLUMN_WIDTH;
     }
 }
 
 /* Calculate the number of columns needed to represent the current set
    of files in the current display width.  */
-
 static size_t
 calculate_columns (bool by_columns)
 {
-  size_t filesno;		/* Index into cwd_file.  */
-  size_t cols;			/* Number of files across.  */
+  size_t filesno; /* Index into cwd_file.  */
+  size_t cols;    /* Number of files across.  */
 
   /* Normally the maximum number of columns is determined by the
      screen width.  But if few files are available this might limit it
@@ -5215,9 +4992,9 @@ calculate_columns (bool by_columns)
   init_column_info ();
 
   /* Compute the maximum number of possible columns.  */
-  for (filesno = 0; filesno < cwd_n_used; ++filesno)
+  for (filesno = 0; filesno < cwd_n_used; filesno++)
     {
-      struct fileinfo const *f = sorted_file[filesno];
+      const struct fileinfo *f = sorted_file[filesno];
       size_t name_length = length_of_file_name_and_frills (f);
 
       for (size_t i = 0; i < max_cols; ++i)
@@ -5231,11 +5008,9 @@ calculate_columns (bool by_columns)
 
               if (column_info[i].col_arr[idx] < real_length)
                 {
-                  column_info[i].line_len += (real_length
-                                              - column_info[i].col_arr[idx]);
+                  column_info[i].line_len += (real_length - column_info[i].col_arr[idx]);
                   column_info[i].col_arr[idx] = real_length;
-                  column_info[i].valid_len = (column_info[i].line_len
-                                              < line_length);
+                  column_info[i].valid_len = (column_info[i].line_len < line_length);
                 }
             }
         }
@@ -5243,10 +5018,8 @@ calculate_columns (bool by_columns)
 
   /* Find maximum allowed columns.  */
   for (cols = max_cols; 1 < cols; --cols)
-    {
-      if (column_info[cols - 1].valid_len)
-        break;
-    }
+    if (column_info[cols - 1].valid_len)
+      break;
 
   return cols;
 }
@@ -5310,7 +5083,7 @@ Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.\n\
                                use of --sort=none (-U) disables grouping\n\
 "), stdout);
       fputs (_("\
-  -G, --no-group             in a long listing, don't print group names\n\
+  -G, --no-group             in a long listing, do not print group names\n\
 "), stdout);
       fputs (_("\
   -h, --human-readable       with -l and -s, print sizes like 1K 234M 2G etc.\n\
@@ -5434,5 +5207,6 @@ Exit status:\n\
 "), stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }

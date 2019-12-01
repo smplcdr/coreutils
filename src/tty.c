@@ -43,15 +43,13 @@ enum
 
 #define AUTHORS proper_name ("David MacKenzie")
 
-/* If true, return an exit status but produce no output. */
+/* If true, return an exit status but produce no output.  */
 static bool silent;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"silent", no_argument, NULL, 's'},
   {"quiet", no_argument, NULL, 's'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -72,6 +70,7 @@ Print the file name of the terminal connected to standard input.\n\
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -91,22 +90,18 @@ main (int argc, char **argv)
 
   silent = false;
 
-  while ((optc = getopt_long (argc, argv, "s", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 's':
-          silent = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (TTY_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "s", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 's':
+        silent = true;
+        break;
+      default:
+        usage (TTY_FAILURE);
+      }
 
   if (optind < argc)
     {
@@ -120,9 +115,9 @@ main (int argc, char **argv)
     return isatty (STDIN_FILENO) ? EXIT_SUCCESS : TTY_STDIN_NOTTY;
 
   int status = EXIT_SUCCESS;
-  char const *tty = ttyname (STDIN_FILENO);
+  const char *tty = ttyname (STDIN_FILENO);
 
-  if (! tty)
+  if (tty == NULL)
     {
       tty = _("not a tty");
       status = TTY_STDIN_NOTTY;

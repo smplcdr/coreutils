@@ -59,6 +59,7 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
   struct tm *tmn;
   double avg[3];
   int loads;
+
 #ifdef HAVE_PROC_UPTIME
   FILE *fp;
 
@@ -80,7 +81,7 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
     }
 #endif /* HAVE_PROC_UPTIME */
 
-#if HAVE_SYSCTL && defined CTL_KERN && defined KERN_BOOTTIME
+#if HAVE_SYSCTL && defined(CTL_KERN) && defined(KERN_BOOTTIME)
   {
     /* FreeBSD specific: fetch sysctl "kern.boottime".  */
     static int request[2] = { CTL_KERN, KERN_BOOTTIME };
@@ -103,13 +104,13 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
 
 #if HAVE_UTMPX_H || HAVE_UTMP_H
   /* Loop through all the utmp entries we just read and count up the valid
-     ones, also in the process possibly gleaning boottime. */
+     ones, also in the process possibly gleaning boottime.  */
   while (n--)
     {
       entries += IS_USER_PROCESS (this);
       if (UT_TYPE_BOOT_TIME (this))
         boot_time = UT_TIME_MEMBER (this);
-      ++this;
+      this++;
     }
 #else
   (void) n;
@@ -122,7 +123,7 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
 #endif
     {
       if (boot_time == 0)
-        die (EXIT_FAILURE, errno, _("couldn't get boot time"));
+        die (EXIT_FAILURE, errno, _("could not get boot time"));
       uptime = time_now - boot_time;
     }
   updays = uptime / 86400;
@@ -130,9 +131,9 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
   upmins = (uptime - (updays * 86400) - (uphours * 3600)) / 60;
   tmn = localtime (&time_now);
   /* procps' version of uptime also prints the seconds field, but
-     previous versions of coreutils don't. */
-  if (tmn)
-    /* TRANSLATORS: This prints the current clock time. */
+     previous versions of coreutils do not.  */
+  if (tmn != 0)
+    /* TRANSLATORS: This prints the current clock time.  */
     fprintftime (stdout, _(" %H:%M:%S  "), tmn, 0, 0);
   else
     printf (_(" ??:????  "));
@@ -140,7 +141,7 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
     printf (_("up ???? days ??:??,  "));
   else
     {
-      if (0 < updays)
+      if (updays > 0)
         printf (ngettext ("up %ld day %2d:%02d,  ",
                           "up %ld days %2d:%02d,  ",
                           select_plural (updays)),
@@ -153,7 +154,7 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
 
   loads = getloadavg (avg, 3);
 
-  if (loads == -1)
+  if (loads < 0)
     putchar ('\n');
   else
     {
@@ -171,7 +172,6 @@ print_uptime (size_t n, const STRUCT_UTMP *this)
 /* Display the system uptime and the number of users on the system,
    according to utmp file FILENAME.  Use read_utmp OPTIONS to read the
    utmp file.  */
-
 static void
 uptime (const char *filename, int options)
 {
@@ -200,7 +200,7 @@ usage (int status)
 Print the current time, the length of time the system has been up,\n\
 the number of users on the system, and the average number of jobs\n\
 in the run queue over the last 1, 5 and 15 minutes."));
-#ifdef __linux__
+#if __linux__
       /* It would be better to introduce a configure test for this,
          but such a test is hard to write.  For the moment then, we
          have a hack which depends on the preprocessor used at compile
@@ -235,19 +235,17 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   switch (argc - optind)
     {
-    case 0:			/* uptime */
+    case 0: /* uptime */
       uptime (UTMP_FILE, READ_UTMP_CHECK_PIDS);
       break;
-
-    case 1:			/* uptime <utmp file> */
+    case 1: /* uptime <utmp file> */
       uptime (argv[optind], 0);
       break;
-
-    default:			/* lose */
+    default: /* Lose.  */
       error (0, 0, _("extra operand %s"), quote (argv[optind + 1]));
       usage (EXIT_FAILURE);
     }

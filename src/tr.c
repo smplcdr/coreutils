@@ -24,6 +24,7 @@
 #include <getopt.h>
 
 #include "system.h"
+
 #include "die.h"
 #include "error.h"
 #include "fadvise.h"
@@ -43,7 +44,7 @@ enum { N_CHARS = UCHAR_MAX + 1 };
    unsigned character.  POSIX requires support for repeat counts as
    high as 2**31 - 1.  Since repeat counts might need to expand to
    match the length of an argument string, we need at least size_t to
-   avoid arbitrary internal limits.  It doesn't cost much to use
+   avoid arbitrary internal limits.  It does not cost much to use
    uintmax_t, though.  */
 typedef uintmax_t count;
 
@@ -68,12 +69,12 @@ typedef uintmax_t count;
 /* The following (but not CC_NO_CLASS) are indices into the array of
    valid character class strings.  */
 enum Char_class
-  {
-    CC_ALNUM = 0, CC_ALPHA = 1, CC_BLANK = 2, CC_CNTRL = 3,
-    CC_DIGIT = 4, CC_GRAPH = 5, CC_LOWER = 6, CC_PRINT = 7,
-    CC_PUNCT = 8, CC_SPACE = 9, CC_UPPER = 10, CC_XDIGIT = 11,
-    CC_NO_CLASS = 9999
-  };
+{
+  CC_ALNUM = 0, CC_ALPHA = 1, CC_BLANK = 2, CC_CNTRL = 3,
+  CC_DIGIT = 4, CC_GRAPH = 5, CC_LOWER = 6, CC_PRINT = 7,
+  CC_PUNCT = 8, CC_SPACE = 9, CC_UPPER = 10, CC_XDIGIT = 11,
+  CC_NO_CLASS = 9999
+};
 
 /* Character class to which a character (returned by get_next) belonged;
    but it is set only if the construct from which the character was obtained
@@ -82,51 +83,48 @@ enum Char_class
    and lower class constructs have the same relative positions in string1
    and string2.  */
 enum Upper_Lower_class
-  {
-    UL_LOWER,
-    UL_UPPER,
-    UL_NONE
-  };
+{
+  UL_LOWER,
+  UL_UPPER,
+  UL_NONE
+};
 
 /* The type of a List_element.  See build_spec_list for more details.  */
 enum Range_element_type
-  {
-    RE_NORMAL_CHAR,
-    RE_RANGE,
-    RE_CHAR_CLASS,
-    RE_EQUIV_CLASS,
-    RE_REPEATED_CHAR
-  };
+{
+  RE_NORMAL_CHAR,
+  RE_RANGE,
+  RE_CHAR_CLASS,
+  RE_EQUIV_CLASS,
+  RE_REPEATED_CHAR
+};
 
 /* One construct in one of tr's argument strings.
    For example, consider the POSIX version of the classic tr command:
-       tr -cs 'a-zA-Z_' '[\n*]'
+     tr -cs 'a-zA-Z_' '[\n*]'
    String1 has 3 constructs, two of which are ranges (a-z and A-Z),
    and a single normal character, '_'.  String2 has one construct.  */
 struct List_element
+{
+  enum Range_element_type type;
+  struct List_element *next;
+  union
   {
-    enum Range_element_type type;
-    struct List_element *next;
-    union
-      {
-        unsigned char normal_char;
-        struct			/* unnamed */
-          {
-            unsigned char first_char;
-            unsigned char last_char;
-          }
-        range;
-        enum Char_class char_class;
-        unsigned char equiv_code;
-        struct			/* unnamed */
-          {
-            unsigned char the_repeated_char;
-            count repeat_count;
-          }
-        repeated_char;
-      }
-    u;
-  };
+    unsigned char normal_char;
+    struct /* Unnamed.  */
+    {
+      unsigned char first_char;
+      unsigned char last_char;
+    } range;
+    enum Char_class char_class;
+    unsigned char equiv_code;
+    struct /* Unnamed.  */
+    {
+      unsigned char the_repeated_char;
+      count repeat_count;
+    } repeated_char;
+  } u;
+};
 
 /* Each of tr's argument strings is parsed into a form that is easier
    to work with: a linked list of constructs (struct List_element).
@@ -138,44 +136,44 @@ struct List_element
    it is used by get_next to save its state when traversing the list.
    The member 'state' serves a similar function.  */
 struct Spec_list
-  {
-    /* Points to the head of the list of range elements.
-       The first struct is a dummy; its members are never used.  */
-    struct List_element *head;
+{
+  /* Points to the head of the list of range elements.
+     The first struct is a dummy; its members are never used.  */
+  struct List_element *head;
 
-    /* When appending, points to the last element.  When traversing via
-       get_next(), points to the element to process next.  Setting
-       Spec_list.state to the value BEGIN_STATE before calling get_next
-       signals get_next to initialize tail to point to head->next.  */
-    struct List_element *tail;
+  /* When appending, points to the last element.  When traversing via
+     get_next(), points to the element to process next.  Setting
+     Spec_list.state to the value BEGIN_STATE before calling get_next
+     signals get_next to initialize tail to point to head->next.  */
+  struct List_element *tail;
 
-    /* Used to save state between calls to get_next.  */
-    count state;
+  /* Used to save state between calls to get_next.  */
+  count state;
 
-    /* Length, in the sense that length ('a-z[:digit:]123abc')
-       is 42 ( = 26 + 10 + 6).  */
-    count length;
+  /* Length, in the sense that length ('a-z[:digit:]123abc')
+     is 42 ( = 26 + 10 + 6).  */
+  count length;
 
-    /* The number of [c*] and [c*0] constructs that appear in this spec.  */
-    size_t n_indefinite_repeats;
+  /* The number of [c*] and [c*0] constructs that appear in this spec.  */
+  size_t n_indefinite_repeats;
 
-    /* If n_indefinite_repeats is nonzero, this points to the List_element
-       corresponding to the last [c*] or [c*0] construct encountered in
-       this spec.  Otherwise it is undefined.  */
-    struct List_element *indefinite_repeat_element;
+  /* If n_indefinite_repeats is nonzero, this points to the List_element
+     corresponding to the last [c*] or [c*0] construct encountered in
+     this spec.  Otherwise it is undefined.  */
+  struct List_element *indefinite_repeat_element;
 
-    /* True if this spec contains at least one equivalence
-       class construct e.g. [=c=].  */
-    bool has_equiv_class;
+  /* True if this spec contains at least one equivalence
+     class construct e.g. [=c=].  */
+  bool has_equiv_class;
 
-    /* True if this spec contains at least one character class
-       construct.  E.g. [:digit:].  */
-    bool has_char_class;
+  /* True if this spec contains at least one character class
+     construct.  E.g. [:digit:].  */
+  bool has_char_class;
 
-    /* True if this spec contains at least one of the character class
-       constructs (all but upper and lower) that aren't allowed in s2.  */
-    bool has_restricted_char_class;
-  };
+  /* True if this spec contains at least one of the character class
+     constructs (all but upper and lower) that are not allowed in s2.  */
+  bool has_restricted_char_class;
+};
 
 /* A representation for escaped string1 or string2.  As a string is parsed,
    any backslash-escaped characters (other than octal or \a, \b, \f, \n,
@@ -231,7 +229,7 @@ static bool complement = false;
    non-alphanumerics, to newlines).
 
    WARNING: This switch does not provide general BSD or System V
-   compatibility.  For example, it doesn't disable the interpretation
+   compatibility.  For example, it does not disable the interpretation
    of the POSIX constructs [:alpha:], [=c=], and [c*10], so if by
    some unfortunate coincidence you use such constructs in scripts
    expecting to use some other version of tr, the scripts will break.  */
@@ -243,7 +241,7 @@ static bool translating;
 
 static char io_buf[BUFSIZ];
 
-static char const *const char_class_name[] =
+static const char *const char_class_name[] =
 {
   "alnum", "alpha", "blank", "cntrl", "digit", "graph",
   "lower", "print", "punct", "space", "upper", "xdigit"
@@ -266,15 +264,13 @@ static bool in_delete_set[N_CHARS];
    two specification strings and the delete switch is not given.  */
 static char xlate[N_CHARS];
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"complement", no_argument, NULL, 'c'},
   {"delete", no_argument, NULL, 'd'},
   {"squeeze-repeats", no_argument, NULL, 's'},
   {"truncate-set1", no_argument, NULL, 't'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 void
@@ -286,8 +282,7 @@ usage (int status)
     {
       printf (_("\
 Usage: %s [OPTION]... SET1 [SET2]\n\
-"),
-              program_name);
+"), program_name);
       fputs (_("\
 Translate, squeeze, and/or delete characters from standard input,\n\
 writing to standard output.\n\
@@ -348,12 +343,12 @@ specified SET, and occurs after translation or deletion.\n\
 "), stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
 /* Return nonzero if the character C is a member of the
    equivalence class containing the character EQUIV_CLASS.  */
-
 static inline bool
 is_equiv_class_member (unsigned char equiv_class, unsigned char c)
 {
@@ -362,7 +357,6 @@ is_equiv_class_member (unsigned char equiv_class, unsigned char c)
 
 /* Return true if the character C is a member of the
    character class CHAR_CLASS.  */
-
 static bool _GL_ATTRIBUTE_PURE
 is_char_class_member (enum Char_class char_class, unsigned char c)
 {
@@ -410,7 +404,7 @@ is_char_class_member (enum Char_class char_class, unsigned char c)
       abort ();
     }
 
-  return !! result;
+  return result != 0;
 }
 
 static void
@@ -427,9 +421,8 @@ es_free (struct E_string *es)
    The resulting array of characters may contain zero-bytes;
    however, on input, S is assumed to be null-terminated, and hence
    cannot contain actual (non-escaped) zero bytes.  */
-
 static bool
-unquote (char const *s, struct E_string *es)
+unquote (const char *s, struct E_string *es)
 {
   size_t len = strlen (s);
 
@@ -437,7 +430,7 @@ unquote (char const *s, struct E_string *es)
   es->escaped = xcalloc (len, sizeof es->escaped[0]);
 
   unsigned int j = 0;
-  for (unsigned int i = 0; s[i]; i++)
+  for (unsigned int i = 0; s[i] != 0; i++)
     {
       unsigned char c;
       int oct_digit;
@@ -500,7 +493,7 @@ unquote (char const *s, struct E_string *es)
                              fit in 8 bits.  So we stop when adding the
                              next digit would put us over the limit and
                              give a warning about the ambiguity.  POSIX
-                             isn't clear on this, and we interpret this
+                             is not clear on this, and we interpret this
                              lack of clarity as meaning the resulting behavior
                              is undefined, which means we're allowed to issue
                              a warning.  */
@@ -524,7 +517,7 @@ unquote (char const *s, struct E_string *es)
               c = s[i + 1];
               break;
             }
-          ++i;
+          i++;
           es->s[j++] = c;
           break;
         default:
@@ -538,9 +531,8 @@ unquote (char const *s, struct E_string *es)
 
 /* If CLASS_STR is a valid character class string, return its index
    in the global char_class_name array.  Otherwise, return CC_NO_CLASS.  */
-
 static enum Char_class _GL_ATTRIBUTE_PURE
-look_up_char_class (char const *class_str, size_t len)
+look_up_char_class (const char *class_str, size_t len)
 {
   enum Char_class i;
 
@@ -553,7 +545,6 @@ look_up_char_class (char const *class_str, size_t len)
 
 /* Return a newly allocated string with a printable version of C.
    This function is used solely for formatting error messages.  */
-
 static char *
 make_printable_char (unsigned char c)
 {
@@ -565,9 +556,7 @@ make_printable_char (unsigned char c)
       buf[1] = '\0';
     }
   else
-    {
-      sprintf (buf, "\\%03o", c);
-    }
+    sprintf (buf, "\\%03o", c);
   return buf;
 }
 
@@ -577,9 +566,8 @@ make_printable_char (unsigned char c)
    3 octal digits.  However, the characters represented by \c escapes
    where c is one of [abfnrtv] are represented by their 2-character \c
    sequences.  This function is used solely for printing error messages.  */
-
 static char *
-make_printable_str (char const *s, size_t len)
+make_printable_str (const char *s, size_t len)
 {
   /* Worst case is that every character expands to a backslash
      followed by a 3-character octal escape sequence.  */
@@ -589,7 +577,7 @@ make_printable_str (char const *s, size_t len)
   for (size_t i = 0; i < len; i++)
     {
       char buf[5];
-      char const *tmp = NULL;
+      const char *tmp = NULL;
       unsigned char c = s[i];
 
       switch (c)
@@ -636,7 +624,6 @@ make_printable_str (char const *s, size_t len)
 
 /* Append a newly allocated structure representing a
    character C to the specification list LIST.  */
-
 static void
 append_normal_char (struct Spec_list *list, unsigned char c)
 {
@@ -653,7 +640,6 @@ append_normal_char (struct Spec_list *list, unsigned char c)
    of characters from FIRST to LAST to the specification list LIST.
    Return false if LAST precedes FIRST in the collating sequence,
    true otherwise.  This means that '[c-c]' is acceptable.  */
-
 static bool
 append_range (struct Spec_list *list, unsigned char first, unsigned char last)
 {
@@ -662,8 +648,7 @@ append_range (struct Spec_list *list, unsigned char first, unsigned char last)
       char *tmp1 = make_printable_char (first);
       char *tmp2 = make_printable_char (last);
 
-      error (0, 0,
-       _("range-endpoints of '%s-%s' are in reverse collating sequence order"),
+      error (0, 0, _("range-endpoints of '%s-%s' are in reverse collating sequence order"),
              tmp1, tmp2);
       free (tmp1);
       free (tmp2);
@@ -684,10 +669,9 @@ append_range (struct Spec_list *list, unsigned char first, unsigned char last)
    newly allocated structure representing that character class to the end
    of the specification list LIST and return true.  If CHAR_CLASS_STR is not
    a valid string return false.  */
-
 static bool
 append_char_class (struct Spec_list *list,
-                   char const *char_class_str, size_t len)
+                   const char *char_class_str, size_t len)
 {
   enum Char_class char_class = look_up_char_class (char_class_str, len);
   if (char_class == CC_NO_CLASS)
@@ -706,7 +690,6 @@ append_char_class (struct Spec_list *list,
    repeated character construct to the specification list LIST.
    THE_CHAR is the single character to be repeated, and REPEAT_COUNT
    is a non-negative repeat count.  */
-
 static void
 append_repeated_char (struct Spec_list *list, unsigned char the_char,
                       count repeat_count)
@@ -726,10 +709,9 @@ append_repeated_char (struct Spec_list *list, unsigned char the_char,
    a newly allocated structure representing the specified
    equivalence class to the specification list, LIST and return true.
    If LEN is not 1, return false.  */
-
 static bool
 append_equiv_class (struct Spec_list *list,
-                    char const *equiv_class_str, size_t len)
+                    const char *equiv_class_str, size_t len)
 {
   if (len != 1)
     return false;
@@ -770,7 +752,7 @@ find_closing_delim (const struct E_string *es, size_t start_idx,
    and return zero. If the second character following
    the opening bracket is not '*' or if no closing bracket can be
    found, return -1.  If a closing bracket is found and the
-   second char is '*', but the string between the '*' and ']' isn't
+   second char is '*', but the string between the '*' and ']' is not
    empty, an octal number, or a decimal number, print an error message
    and return -2.  */
 
@@ -792,14 +774,14 @@ find_bracketed_repeat (const struct E_string *es, size_t start_idx,
           *char_to_repeat = es->s[start_idx];
           if (digit_str_len == 0)
             {
-              /* We've matched [c*] -- no explicit repeat count.  */
+              /* We have matched [c*] -- no explicit repeat count.  */
               *repeat_count = 0;
             }
           else
             {
               /* Here, we have found [c*s] where s should be a string
                  of octal (if it starts with '0') or decimal digits.  */
-              char const *digit_str = &es->s[start_idx + 2];
+              const char *digit_str = &es->s[start_idx + 2];
               char *d_end;
               if ((xstrtoumax (digit_str, &d_end, *digit_str == '0' ? 8 : 10,
                                repeat_count, NULL)
@@ -819,7 +801,7 @@ find_bracketed_repeat (const struct E_string *es, size_t start_idx,
           return 0;
         }
     }
-  return -1;			/* No bracket found.  */
+  return -1;      /* No bracket found.  */
 }
 
 /* Return true if the string at ES->s[IDX] matches the regular
@@ -853,7 +835,7 @@ star_digits_closebracket (const struct E_string *es, size_t idx)
 static bool
 build_spec_list (const struct E_string *es, struct Spec_list *result)
 {
-  char const *p = es->s;
+  const char *p = es->s;
 
   /* The main for-loop below recognizes the 4 multi-character constructs.
      A character that matches (in its context) none of the multi-character
@@ -880,7 +862,7 @@ build_spec_list (const struct E_string *es, struct Spec_list *result)
               if (find_closing_delim (es, i + 2, p[i + 1], &closing_delim_idx))
                 {
                   size_t opnd_str_len = closing_delim_idx - 1 - (i + 2) + 1;
-                  char const *opnd_str = p + i + 2;
+                  const char *opnd_str = p + i + 2;
 
                   if (opnd_str_len == 0)
                     {
@@ -1093,7 +1075,7 @@ get_next (struct Spec_list *s, enum Upper_Lower_class *class)
     case RE_EQUIV_CLASS:
       /* FIXME: this assumes that each character is alone in its own
          equivalence class (which appears to be correct for my
-         LC_COLLATE.  But I don't know of any function that allows
+         LC_COLLATE.  But I do not know of any function that allows
          one to determine a character's equivalence class.  */
 
       return_val = p->u.equiv_code;
@@ -1102,7 +1084,7 @@ get_next (struct Spec_list *s, enum Upper_Lower_class *class)
       break;
 
     case RE_REPEATED_CHAR:
-      /* Here, a repeat count of n == 0 means don't repeat at all.  */
+      /* Here, a repeat count of n == 0 means do not repeat at all.  */
       if (p->u.repeated_char.repeat_count == 0)
         {
           s->tail = p->next;
@@ -1155,7 +1137,7 @@ card_of_complement (struct Spec_list *s)
 
 /* Discard the lengths associated with a case conversion,
    as using the actual number of upper or lower case characters
-   is problematic when they don't match in some locales.
+   is problematic when they do not match in some locales.
    Also ensure the case conversion classes in string2 are
    aligned correctly with those in string1.
    Note POSIX says the behavior of 'tr "[:upper:]" "[:upper:]"'
@@ -1305,7 +1287,7 @@ get_spec_stats (struct Spec_list *s)
          length is later used to compute the repeat count for an
          indefinite element.  */
       new_length = length + len;
-      if (! (length <= new_length && new_length <= REPEAT_COUNT_MAXIMUM))
+      if (!(length <= new_length && new_length <= REPEAT_COUNT_MAXIMUM))
         die (EXIT_FAILURE, 0, _("too many characters in set"));
       length = new_length;
     }
@@ -1348,7 +1330,7 @@ spec_init (struct Spec_list *spec_list)
    of these passes detects an error, this function returns false.  */
 
 static bool
-parse_str (char const *s, struct Spec_list *spec_list)
+parse_str (const char *s, struct Spec_list *spec_list)
 {
   struct E_string es;
   bool ok = unquote (s, &es) && build_spec_list (&es, spec_list);
@@ -1398,7 +1380,7 @@ string2_extend (const struct Spec_list *s1, struct Spec_list *s2)
       break;
 
     case RE_EQUIV_CLASS:
-      /* This shouldn't happen, because validate exits with an error
+      /* This should not happen, because validate exits with an error
          if it finds an equiv class in string2 when translating.  */
       abort ();
 
@@ -1558,7 +1540,7 @@ squeeze_filter (char *buf, size_t size, size_t (*reader) (char *, size_t))
           for (; i < nr && !in_squeeze_set[to_uchar (buf[i])]; i += 2)
             continue;
 
-          /* There is a special case when i == nr and we've just
+          /* There is a special case when i == nr and we have just
              skipped a character (the last one in buf) that is in
              the squeeze set.  */
           if (i == nr && in_squeeze_set[to_uchar (buf[i - 1])])
@@ -1596,7 +1578,7 @@ squeeze_filter (char *buf, size_t size, size_t (*reader) (char *, size_t))
             continue;
           if (i < nr)
             char_to_squeeze = NOT_A_CHAR;
-          /* If (i >= nr) we've squeezed the last character in this buffer.
+          /* If (i >= nr) we have squeezed the last character in this buffer.
              So now we have to read a new buffer and continue comparing
              characters against char_to_squeeze.  */
         }
@@ -1624,7 +1606,7 @@ read_and_delete (char *buf, size_t size)
   size_t n_saved;
 
   /* This enclosing do-while loop is to make sure that
-     we don't return zero (indicating EOF) when we've
+     we do not return zero (indicating EOF) when we have
      just deleted all the characters in a buffer.  */
   do
     {
@@ -1689,7 +1671,7 @@ set_initialize (struct Spec_list *s, bool complement_this_set, bool *in_set)
 int
 main (int argc, char **argv)
 {
-  int c;
+  int optc;
   int non_option_args;
   int min_operands;
   int max_operands;
@@ -1705,42 +1687,34 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((c = getopt_long (argc, argv, "+AcCdst", long_options, NULL)) != -1)
-    {
-      switch (c)
-        {
-        case 'A':
-          /* Undocumented option, for compatibility with AIX.  */
-          setlocale (LC_COLLATE, "C");
-          setlocale (LC_CTYPE, "C");
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'c':
-        case 'C':
-          complement = true;
-          break;
-
-        case 'd':
-          delete = true;
-          break;
-
-        case 's':
-          squeeze_repeats = true;
-          break;
-
-        case 't':
-          truncate_set1 = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-          break;
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "+AcCdst", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case 'A':
+        /* Undocumented option, for compatibility with AIX.  */
+        setlocale (LC_COLLATE, "C");
+        setlocale (LC_CTYPE, "C");
+        break;
+      case 'c':
+      case 'C':
+        complement = true;
+        break;
+      case 'd':
+        delete = true;
+        break;
+      case 's':
+        squeeze_repeats = true;
+        break;
+      case 't':
+        truncate_set1 = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+        break;
+      }
 
   non_option_args = argc - optind;
   translating = (non_option_args == 2 && !delete);
@@ -1874,7 +1848,7 @@ main (int argc, char **argv)
                 }
               else
                 {
-                  /* The following should have been checked by validate...  */
+                  /* The following should have been checked by validate... */
                   if (c1 == -1 || c2 == -1)
                     break;
                   xlate[c1] = c2;

@@ -15,10 +15,12 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
+
 #include <stdio.h>
 #include <sys/types.h>
 
 #include "system.h"
+
 #include "cl-strtod.h"
 #include "die.h"
 #include "error.h"
@@ -49,21 +51,20 @@ Pause for NUMBER seconds.  SUFFIX may be 's' for seconds (the default),\n\
 integer.  Given two or more arguments, pause for the amount of time\n\
 specified by the sum of their values.\n\
 \n\
-"),
-              program_name, program_name);
+"), program_name, program_name);
       fputs (HELP_OPTION_DESCRIPTION, stdout);
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
 /* Given a floating point value *X, and a suffix character, SUFFIX_CHAR,
    scale *X by the multiplier implied by SUFFIX_CHAR.  SUFFIX_CHAR may
    be the NUL byte or 's' to denote seconds, 'm' for minutes, 'h' for
-   hours, or 'd' for days.  If SUFFIX_CHAR is invalid, don't modify *X
+   hours, or 'd' for days.  If SUFFIX_CHAR is invalid, do not modify *X
    and return false.  Otherwise return true.  */
-
 static bool
 apply_suffix (double *x, char suffix_char)
 {
@@ -109,9 +110,9 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
-  if (argc == 1)
+  if (argc <= 1)
     {
       error (0, 0, _("missing operand"));
       usage (EXIT_FAILURE);
@@ -121,13 +122,13 @@ main (int argc, char **argv)
     {
       double s;
       const char *p;
-      if (! (xstrtod (argv[i], &p, &s, cl_strtod) || errno == ERANGE)
+      if (!xstrtod (argv[i], &p, &s, cl_strtod) && errno != ERANGE
           /* Nonnegative interval.  */
-          || ! (0 <= s)
+          || s < 0
           /* No extra chars after the number and an optional s,m,h,d char.  */
-          || (*p && *(p+1))
+          || (*p != '\0' && *(p + 1) != '\0')
           /* Check any suffix char and update S based on the suffix.  */
-          || ! apply_suffix (&s, *p))
+          || !apply_suffix (&s, *p))
         {
           error (0, 0, _("invalid time interval %s"), quote (argv[i]));
           ok = false;
@@ -139,7 +140,7 @@ main (int argc, char **argv)
   if (!ok)
     usage (EXIT_FAILURE);
 
-  if (xnanosleep (seconds))
+  if (xnanosleep (seconds) != 0)
     die (EXIT_FAILURE, errno, _("cannot read realtime clock"));
 
   return EXIT_SUCCESS;

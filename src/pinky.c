@@ -20,14 +20,15 @@
 #include <getopt.h>
 #include <pwd.h>
 #include <stdio.h>
-
 #include <sys/types.h>
+
 #include "system.h"
 
 #include "canon-host.h"
 #include "die.h"
 #include "error.h"
 #include "hard-locale.h"
+#include "long-options.h"
 #include "readutmp.h"
 
 /* The official name of this program (e.g., no 'g' prefix).  */
@@ -40,44 +41,37 @@
 
 /* If true, display the hours:minutes since each user has touched
    the keyboard, or blank if within the last minute, or days followed
-   by a 'd' if not within the last day. */
+   by a 'd' if not within the last day.  */
 static bool include_idle = true;
 
-/* If true, display a line at the top describing each field. */
+/* If true, display a line at the top describing each field.  */
 static bool include_heading = true;
 
-/* if true, display the user's full name from pw_gecos. */
+/* if true, display the user's full name from pw_gecos.  */
 static bool include_fullname = true;
 
-/* if true, display the user's ~/.project file when doing long format. */
+/* if true, display the user's ~/.project file when doing long format.  */
 static bool include_project = true;
 
-/* if true, display the user's ~/.plan file when doing long format. */
+/* if true, display the user's ~/.plan file when doing long format.  */
 static bool include_plan = true;
 
 /* if true, display the user's home directory and shell
-   when doing long format. */
+   when doing long format.  */
 static bool include_home_and_shell = true;
 
-/* if true, use the "short" output format. */
+/* if true, use the "short" output format.  */
 static bool do_short_format = true;
 
-/* if true, display the ut_host field. */
+/* if true, display the ut_host field.  */
 #ifdef HAVE_UT_HOST
 static bool include_where = true;
 #endif
 
 /* The strftime format to use for login times, and its expected
    output width.  */
-static char const *time_format;
+static const char *time_format;
 static int time_format_width;
-
-static struct option const longopts[] =
-{
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
-};
 
 /* Count and return the number of ampersands in STR.  */
 
@@ -141,7 +135,7 @@ create_fullname (const char *gecos_name, const char *user_name)
 }
 
 /* Return a string representing the time between WHEN and the time
-   that this function is first run. */
+   that this function is first run.  */
 
 static const char *
 idle_string (time_t when)
@@ -154,9 +148,9 @@ idle_string (time_t when)
     time (&now);
 
   seconds_idle = now - when;
-  if (seconds_idle < 60)	/* One minute. */
+  if (seconds_idle < 60)  /* One minute.  */
     return "     ";
-  if (seconds_idle < (24 * 60 * 60))	/* One day. */
+  if (seconds_idle < (24 * 60 * 60))  /* One day.  */
     {
       int hours = seconds_idle / (60 * 60);
       int minutes = (seconds_idle % (60 * 60)) / 60;
@@ -176,7 +170,7 @@ time_string (const STRUCT_UTMP *utmp_ent)
 {
   static char buf[INT_STRLEN_BOUND (intmax_t) + sizeof "-%m-%d %H:%M"];
 
-  /* Don't take the address of UT_TIME_MEMBER directly.
+  /* Do not take the address of UT_TIME_MEMBER directly.
      Ulrich Drepper wrote:
      "... GNU libc (and perhaps other libcs as well) have extended
      utmp file formats which do not use a simple time_t ut_time field.
@@ -194,7 +188,7 @@ time_string (const STRUCT_UTMP *utmp_ent)
     return timetostr (t, buf);
 }
 
-/* Display a line of information about UTMP_ENT. */
+/* Display a line of information about UTMP_ENT.  */
 
 static void
 print_entry (const STRUCT_UTMP *utmp_ent)
@@ -214,7 +208,7 @@ print_entry (const STRUCT_UTMP *utmp_ent)
      absolute file name in ut_line.  */
   if ( ! IS_ABSOLUTE_FILE_NAME (utmp_ent->ut_line))
     p = stpcpy (p, DEV_DIR_WITH_TRAILING_SLASH);
-  stzncpy (p, utmp_ent->ut_line, sizeof (utmp_ent->ut_line));
+  strlcpy (p, utmp_ent->ut_line, sizeof (utmp_ent->ut_line));
 
   if (stat (line, &stats) == 0)
     {
@@ -234,10 +228,10 @@ print_entry (const STRUCT_UTMP *utmp_ent)
       struct passwd *pw;
       char name[UT_USER_SIZE + 1];
 
-      stzncpy (name, UT_USER (utmp_ent), UT_USER_SIZE);
+      strlcpy (name, UT_USER (utmp_ent), UT_USER_SIZE);
       pw = getpwnam (name);
       if (pw == NULL)
-        /* TRANSLATORS: Real name is unknown; at most 19 characters. */
+        /* TRANSLATORS: Real name is unknown; at most 19 characters.  */
         printf (" %19s", _("        ???"));
       else
         {
@@ -261,7 +255,7 @@ print_entry (const STRUCT_UTMP *utmp_ent)
       if (last_change)
         printf (" %-6s", idle_string (last_change));
       else
-        /* TRANSLATORS: Idle time is unknown; at most 5 characters. */
+        /* TRANSLATORS: Idle time is unknown; at most 5 characters.  */
         printf (" %-6s", _("?????"));
     }
 
@@ -274,8 +268,8 @@ print_entry (const STRUCT_UTMP *utmp_ent)
       char *host = NULL;
       char *display = NULL;
 
-      /* Copy the host name into UT_HOST, and ensure it's nul terminated. */
-      stzncpy (ut_host, utmp_ent->ut_host, sizeof (utmp_ent->ut_host));
+      /* Copy the host name into UT_HOST, and ensure it is nul terminated.  */
+      strlcpy (ut_host, utmp_ent->ut_host, sizeof (utmp_ent->ut_host));
 
       /* Look for an X display.  */
       display = strchr (ut_host, ':');
@@ -301,7 +295,7 @@ print_entry (const STRUCT_UTMP *utmp_ent)
   putchar ('\n');
 }
 
-/* Display a verbose line of information about UTMP_ENT. */
+/* Display a verbose line of information about UTMP_ENT.  */
 
 static void
 print_long_entry (const char name[])
@@ -316,7 +310,7 @@ print_long_entry (const char name[])
   printf (_("In real life: "));
   if (pw == NULL)
     {
-      /* TRANSLATORS: Real name is unknown; no hard limit. */
+      /* TRANSLATORS: Real name is unknown; no hard limit.  */
       printf (" %s", _("???\n"));
       return;
     }
@@ -396,7 +390,7 @@ print_long_entry (const char name[])
 }
 
 /* Print the username of each valid entry and the number of valid entries
-   in UTMP_BUF, which should have N elements. */
+   in UTMP_BUF, which should have N elements.  */
 
 static void
 print_heading (void)
@@ -415,8 +409,7 @@ print_heading (void)
   putchar ('\n');
 }
 
-/* Display UTMP_BUF, which should have N entries. */
-
+/* Display UTMP_BUF, which should have N entries.  */
 static void
 scan_entries (size_t n, const STRUCT_UTMP *utmp_buf,
               const int argc_names, char *const argv_names[])
@@ -455,7 +448,7 @@ scan_entries (size_t n, const STRUCT_UTMP *utmp_buf,
     }
 }
 
-/* Display a list of who is on the system, according to utmp file FILENAME. */
+/* Display a list of who is on the system, according to utmp file FILENAME.  */
 
 static void
 short_pinky (const char *filename,
@@ -528,33 +521,31 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "sfwiqbhlp", longopts, NULL)) != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt (argc, argv, "sfwiqbhlp")) != -1)
     {
       switch (optc)
         {
         case 's':
           do_short_format = true;
           break;
-
         case 'l':
           do_short_format = false;
           break;
-
         case 'f':
           include_heading = false;
           break;
-
         case 'w':
           include_fullname = false;
           break;
-
         case 'i':
           include_fullname = false;
 #ifdef HAVE_UT_HOST
           include_where = false;
 #endif
           break;
-
         case 'q':
           include_fullname = false;
 #ifdef HAVE_UT_HOST
@@ -562,23 +553,15 @@ main (int argc, char **argv)
 #endif
           include_idle = false;
           break;
-
         case 'h':
           include_project = false;
           break;
-
         case 'p':
           include_plan = false;
           break;
-
         case 'b':
           include_home_and_shell = false;
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_FAILURE);
         }
@@ -588,8 +571,8 @@ main (int argc, char **argv)
 
   if (!do_short_format && n_users == 0)
     {
-      error (0, 0, _("no username specified; at least one must be\
- specified when using -l"));
+      error (0, 0, _("no username specified; at least one must be"
+                     " specified when using -l"));
       usage (EXIT_FAILURE);
     }
 

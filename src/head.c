@@ -47,7 +47,7 @@
   proper_name ("David MacKenzie"), \
   proper_name ("Jim Meyering")
 
-/* Number of lines/chars/blocks to head. */
+/* Number of lines/chars/blocks to head.  */
 #define DEFAULT_NUMBER 10
 
 /* Useful only when eliding tail bytes or lines.
@@ -56,13 +56,13 @@
    more expensive) code unconditionally. Intended solely for testing.  */
 static bool presume_input_pipe;
 
-/* If true, print filename headers. */
+/* If true, print filename headers.  */
 static bool print_headers;
 
-/* Character to split lines by. */
+/* Character to split lines by.  */
 static char line_end;
 
-/* When to print the filename banners. */
+/* When to print the filename banners.  */
 enum header_mode
 {
   multiple_files, always, never
@@ -85,18 +85,15 @@ enum
   PRESUME_INPUT_PIPE_OPTION = CHAR_MAX + 1
 };
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"bytes", required_argument, NULL, 'c'},
   {"lines", required_argument, NULL, 'n'},
-  {"-presume-input-pipe", no_argument, NULL,
-   PRESUME_INPUT_PIPE_OPTION}, /* do not document */
+  {"-presume-input-pipe", no_argument, NULL, PRESUME_INPUT_PIPE_OPTION}, /* Do not document.  */
   {"quiet", no_argument, NULL, 'q'},
   {"silent", no_argument, NULL, 'q'},
   {"verbose", no_argument, NULL, 'v'},
   {"zero-terminated", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -149,7 +146,7 @@ Binary prefixes can be used, too: KiB=K, MiB=M, and so on.\n\
 }
 
 static void
-diagnose_copy_fd_failure (enum Copy_fd_status err, char const *filename)
+diagnose_copy_fd_failure (enum Copy_fd_status err, const char *filename)
 {
   switch (err)
     {
@@ -177,7 +174,7 @@ write_header (const char *filename)
    Exit immediately on error with a single diagnostic.  */
 
 static void
-xwrite_stdout (char const *buffer, size_t n_bytes)
+xwrite_stdout (const char *buffer, size_t n_bytes)
 {
   if (n_bytes > 0 && fwrite (buffer, 1, n_bytes, stdout) < n_bytes)
     {
@@ -221,7 +218,7 @@ copy_fd (int src_fd, uintmax_t n_bytes)
    return -1 if lseek fails.  */
 
 static off_t
-elseek (int fd, off_t offset, int whence, char const *filename)
+elseek (int fd, off_t offset, int whence, const char *filename)
 {
   off_t new_offset = lseek (fd, offset, whence);
   char buf[INT_BUFSIZE_BOUND (offset)];
@@ -257,7 +254,7 @@ elide_tail_bytes_pipe (const char *filename, int fd, uintmax_t n_elide_0,
 #endif
 #define READ_BUFSIZE HEAD_TAIL_PIPE_READ_BUFSIZE
 
-  /* If we're eliding no more than this many bytes, then it's ok to allocate
+  /* If we're eliding no more than this many bytes, then it is ok to allocate
      more memory in order to use a more time-efficient algorithm.
      FIXME: use a fraction of available memory instead, as in sort.
      FIXME: is this even worthwhile?  */
@@ -329,7 +326,7 @@ elide_tail_bytes_pipe (const char *filename, int fd, uintmax_t n_elide_0,
 
           /* Output any (but maybe just part of the) elided data from
              the previous round.  */
-          if (! first)
+          if (!first)
             {
               desired_pos += n_elide - delta;
               xwrite_stdout (b[!i] + READ_BUFSIZE, n_elide - delta);
@@ -347,7 +344,7 @@ elide_tail_bytes_pipe (const char *filename, int fd, uintmax_t n_elide_0,
     }
   else
     {
-      /* Read blocks of size READ_BUFSIZE, until we've read at least n_elide
+      /* Read blocks of size READ_BUFSIZE, until we have read at least n_elide
          bytes.  Then, for each new buffer we read, also write an old one.  */
 
       bool eof = false;
@@ -377,7 +374,7 @@ elide_tail_bytes_pipe (const char *filename, int fd, uintmax_t n_elide_0,
               b = xnrealloc (b, n_array_alloc, sizeof *b);
             }
 
-          if (! buffered_enough)
+          if (!buffered_enough)
             {
               b[i] = xmalloc (READ_BUFSIZE);
               n_alloc = i + 1;
@@ -508,9 +505,9 @@ elide_tail_lines_pipe (const char *filename, int fd, uintmax_t n_elide,
   uintmax_t desired_pos = current_pos;
   typedef struct linebuffer LBUFFER;
   LBUFFER *first, *last, *tmp;
-  size_t total_lines = 0;	/* Total number of newlines in all buffers.  */
+  size_t total_lines = 0; /* Total number of newlines in all buffers.  */
   bool ok = true;
-  size_t n_read;		/* Size in bytes of most recent read */
+  size_t n_read;    /* Size in bytes of most recent read */
 
   first = last = xmalloc (sizeof (LBUFFER));
   first->nbytes = first->nlines = 0;
@@ -518,15 +515,15 @@ elide_tail_lines_pipe (const char *filename, int fd, uintmax_t n_elide,
   tmp = xmalloc (sizeof (LBUFFER));
 
   /* Always read into a fresh buffer.
-     Read, (producing no output) until we've accumulated at least
+     Read, (producing no output) until we have accumulated at least
      n_elide newlines, or until EOF, whichever comes first.  */
-  while (1)
+  while (true)
     {
       n_read = safe_read (fd, tmp->buffer, BUFSIZ);
       if (n_read == 0 || n_read == SAFE_READ_ERROR)
         break;
 
-      if (! n_elide)
+      if (!n_elide)
         {
           desired_pos += n_read;
           xwrite_stdout (tmp->buffer, n_read);
@@ -539,8 +536,8 @@ elide_tail_lines_pipe (const char *filename, int fd, uintmax_t n_elide,
 
       /* Count the number of newlines just read.  */
       {
-        char const *buffer_end = tmp->buffer + n_read;
-        char const *p = tmp->buffer;
+        const char *buffer_end = tmp->buffer + n_read;
+        const char *p = tmp->buffer;
         while ((p = memchr (p, line_end, buffer_end - p)))
           {
             ++p;
@@ -589,7 +586,7 @@ elide_tail_lines_pipe (const char *filename, int fd, uintmax_t n_elide,
     }
 
   /* If we read any bytes at all, count the incomplete line
-     on files that don't end with a newline.  */
+     on files that do not end with a newline.  */
   if (last->nbytes && last->buffer[last->nbytes - 1] != line_end)
     {
       ++last->nlines;
@@ -607,8 +604,8 @@ elide_tail_lines_pipe (const char *filename, int fd, uintmax_t n_elide,
   if (n_elide < total_lines)
     {
       size_t n = total_lines - n_elide;
-      char const *buffer_end = tmp->buffer + tmp->nbytes;
-      char const *p = tmp->buffer;
+      const char *buffer_end = tmp->buffer + tmp->nbytes;
+      const char *p = tmp->buffer;
       while (n && (p = memchr (p, line_end, buffer_end - p)))
         {
           ++p;
@@ -669,14 +666,14 @@ elide_tail_lines_seekable (const char *pretty_filename, int fd,
       return false;
     }
 
-  /* n_lines == 0 case needs special treatment. */
+  /* n_lines == 0 case needs special treatment.  */
   const bool all_lines = !n_lines;
 
-  /* Count the incomplete line on files that don't end with a newline.  */
+  /* Count the incomplete line on files that do not end with a newline.  */
   if (n_lines && bytes_read && buffer[bytes_read - 1] != line_end)
     --n_lines;
 
-  while (1)
+  while (true)
     {
       /* Scan backward, counting the newlines in this bufferfull.  */
 
@@ -687,7 +684,7 @@ elide_tail_lines_seekable (const char *pretty_filename, int fd,
             n -= 1;
           else
             {
-              char const *nl;
+              const char *nl;
               nl = memrchr (buffer, line_end, n);
               if (nl == NULL)
                 break;
@@ -716,7 +713,7 @@ elide_tail_lines_seekable (const char *pretty_filename, int fd,
                  in which we found the desired newline byte.  */
               xwrite_stdout (buffer, n + 1);
 
-              /* Set file pointer to the byte after what we've output.  */
+              /* Set file pointer to the byte after what we have output.  */
               return 0 <= elseek (fd, pos + n + 1, SEEK_SET, pretty_filename);
             }
         }
@@ -739,7 +736,7 @@ elide_tail_lines_seekable (const char *pretty_filename, int fd,
         }
 
       /* FIXME: is this dead code?
-         Consider the test, pos == start_pos, above. */
+         Consider the test, pos == start_pos, above.  */
       if (bytes_read == 0)
         return true;
     }
@@ -849,7 +846,7 @@ head (const char *filename, int fd, uintmax_t n_units, bool count_lines,
                  quoteaf (filename));
           return false;
         }
-      if (! presume_input_pipe && usable_st_size (&st))
+      if (!presume_input_pipe && usable_st_size (&st))
         {
           current_pos = elseek (fd, 0, SEEK_CUR, filename);
           if (current_pos < 0)
@@ -919,10 +916,10 @@ main (int argc, char **argv)
 {
   enum header_mode header_mode = multiple_files;
   bool ok = true;
-  int c;
+  int optc;
   size_t i;
 
-  /* Number of items to print. */
+  /* Number of items to print.  */
   uintmax_t n_units = DEFAULT_NUMBER;
 
   /* If true, interpret the numeric argument as the number of lines.
@@ -935,8 +932,8 @@ main (int argc, char **argv)
 
   /* Initializer for file_list if no file-arguments
      were specified on the command line.  */
-  static char const *const default_file_list[] = {"-", NULL};
-  char const *const *file_list;
+  static const char *const default_file_list[] = {"-", NULL};
+  const char *const *file_list;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -960,14 +957,14 @@ main (int argc, char **argv)
       char multiplier_char = 0;
 
       /* Old option syntax; a dash, one or more digits, and one or
-         more option letters.  Move past the number. */
+         more option letters.  Move past the number.  */
       do ++a;
       while (ISDIGIT (*a));
 
       /* Pointer to the byte after the last digit.  */
       end_n_string = a;
 
-      /* Parse any appended option letters. */
+      /* Parse any appended option letters.  */
       for (; *a; a++)
         {
           switch (*a)
@@ -1014,59 +1011,49 @@ main (int argc, char **argv)
 
       n_units = string_to_integer (count_lines, n_string);
 
-      /* Make the options we just parsed invisible to getopt. */
+      /* Make the options we just parsed invisible to getopt.  */
       argv[1] = argv[0];
       argv++;
       argc--;
     }
 
-  while ((c = getopt_long (argc, argv, "c:n:qvz0123456789", long_options, NULL))
-         != -1)
-    {
-      switch (c)
-        {
-        case PRESUME_INPUT_PIPE_OPTION:
-          presume_input_pipe = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'c':
-          count_lines = false;
-          elide_from_end = (*optarg == '-');
-          if (elide_from_end)
-            ++optarg;
-          n_units = string_to_integer (count_lines, optarg);
-          break;
-
-        case 'n':
-          count_lines = true;
-          elide_from_end = (*optarg == '-');
-          if (elide_from_end)
-            ++optarg;
-          n_units = string_to_integer (count_lines, optarg);
-          break;
-
-        case 'q':
-          header_mode = never;
-          break;
-
-        case 'v':
-          header_mode = always;
-          break;
-
-        case 'z':
-          line_end = '\0';
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          if (ISDIGIT (c))
-            error (0, 0, _("invalid trailing option -- %c"), c);
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "c:n:qvz0123456789", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case PRESUME_INPUT_PIPE_OPTION:
+        presume_input_pipe = true;
+        break;
+      case 'c':
+        count_lines = false;
+        elide_from_end = (*optarg == '-');
+        if (elide_from_end)
+          optarg++;
+        n_units = string_to_integer (count_lines, optarg);
+        break;
+      case 'n':
+        count_lines = true;
+        elide_from_end = (*optarg == '-');
+        if (elide_from_end)
+          optarg++;
+        n_units = string_to_integer (count_lines, optarg);
+        break;
+      case 'q':
+        header_mode = never;
+        break;
+      case 'v':
+        header_mode = always;
+        break;
+      case 'z':
+        line_end = '\0';
+        break;
+      default:
+        if (ISDIGIT (optc))
+          error (0, 0, _("invalid trailing option -- %c"), optc);
+        usage (EXIT_FAILURE);
+      }
 
   if (header_mode == always
       || (header_mode == multiple_files && optind < argc - 1))
@@ -1080,7 +1067,7 @@ main (int argc, char **argv)
     }
 
   file_list = (optind < argc
-               ? (char const *const *) &argv[optind]
+               ? (const char *const *) &argv[optind]
                : default_file_list);
 
   xset_binary_mode (STDOUT_FILENO, O_BINARY);

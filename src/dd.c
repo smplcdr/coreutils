@@ -14,7 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Written by Paul Rubin, David MacKenzie, and Stuart Kemp. */
+/* Written by Paul Rubin, David MacKenzie, and Stuart Kemp.  */
 
 #include <config.h>
 
@@ -66,7 +66,7 @@
 #endif
 
 /* This may belong in GNULIB's fcntl module instead.
-   Define O_CIO to 0 if it is not supported by this OS. */
+   Define O_CIO to 0 if it is not supported by this OS.  */
 #ifndef O_CIO
 # define O_CIO 0
 #endif
@@ -88,7 +88,7 @@
     }						\
   while (0)
 
-/* Default input and output blocksize. */
+/* Default input and output blocksize.  */
 #define DEFAULT_BLOCKSIZE 512
 
 /* How many bytes to add to the input and output block sizes before invoking
@@ -104,7 +104,7 @@
    OFF_T_MAX, for the benefit of the large-offset seek code.  */
 #define MAX_BLOCKSIZE(slop) MIN (SIZE_MAX - (slop), MIN (SSIZE_MAX, OFF_T_MAX))
 
-/* Conversions bit masks. */
+/* Conversions bit masks.  */
 enum
   {
     C_ASCII = 01,
@@ -121,7 +121,7 @@ enum
     C_SYNC = 02000,
 
     /* Use separate input and output buffers, and combine partial
-       input blocks. */
+       input blocks.  */
     C_TWOBUFS = 04000,
 
     C_NOCREAT = 010000,
@@ -141,32 +141,32 @@ enum
     STATUS_PROGRESS = 4
   };
 
-/* The name of the input file, or NULL for the standard input. */
-static char const *input_file = NULL;
+/* The name of the input file, or NULL for the standard input.  */
+static const char *input_file = NULL;
 
-/* The name of the output file, or NULL for the standard output. */
-static char const *output_file = NULL;
+/* The name of the output file, or NULL for the standard output.  */
+static const char *output_file = NULL;
 
 /* The page size on this host.  */
 static size_t page_size;
 
-/* The number of bytes in which atomic reads are done. */
+/* The number of bytes in which atomic reads are done.  */
 static size_t input_blocksize = 0;
 
-/* The number of bytes in which atomic writes are done. */
+/* The number of bytes in which atomic writes are done.  */
 static size_t output_blocksize = 0;
 
-/* Conversion buffer size, in bytes.  0 prevents conversions. */
+/* Conversion buffer size, in bytes.  0 prevents conversions.  */
 static size_t conversion_blocksize = 0;
 
-/* Skip this many records of 'input_blocksize' bytes before input. */
+/* Skip this many records of 'input_blocksize' bytes before input.  */
 static uintmax_t skip_records = 0;
 
 /* Skip this many bytes before input in addition of 'skip_records'
    records.  */
 static size_t skip_bytes = 0;
 
-/* Skip this many records of 'output_blocksize' bytes before output. */
+/* Skip this many records of 'output_blocksize' bytes before output.  */
 static uintmax_t seek_records = 0;
 
 /* Skip this many bytes in addition to 'seek_records' records before
@@ -182,7 +182,7 @@ static uintmax_t max_records = (uintmax_t) -1;
 /* Copy this many bytes in addition to 'max_records' records.  */
 static size_t max_bytes = 0;
 
-/* Bit vector of conversions to apply. */
+/* Bit vector of conversions to apply.  */
 static int conversions_mask = 0;
 
 /* Open flags for the input and output files.  */
@@ -195,16 +195,16 @@ static int status_level = STATUS_DEFAULT;
 /* If nonzero, filter characters through the translation table.  */
 static bool translation_needed = false;
 
-/* Number of partial blocks written. */
+/* Number of partial blocks written.  */
 static uintmax_t w_partial = 0;
 
-/* Number of full blocks written. */
+/* Number of full blocks written.  */
 static uintmax_t w_full = 0;
 
-/* Number of partial blocks read. */
+/* Number of partial blocks read.  */
 static uintmax_t r_partial = 0;
 
-/* Number of full blocks read. */
+/* Number of full blocks read.  */
 static uintmax_t r_full = 0;
 
 /* Number of bytes written.  */
@@ -234,7 +234,7 @@ static bool input_offset_overflow;
 /* True if a partial read should be diagnosed.  */
 static bool warn_partial_read;
 
-/* Records truncated by conv=block. */
+/* Records truncated by conv=block.  */
 static uintmax_t r_truncate = 0;
 
 /* Output representation of newline and space characters.
@@ -242,13 +242,13 @@ static uintmax_t r_truncate = 0;
 static char newline_character = '\n';
 static char space_character = ' ';
 
-/* Input buffer. */
+/* Input buffer.  */
 static char *ibuf;
 
-/* Output buffer. */
+/* Output buffer.  */
 static char *obuf;
 
-/* Current index into 'obuf'. */
+/* Current index into 'obuf'.  */
 static size_t oc = 0;
 
 /* Index into current line, for 'conv=block' and 'conv=unblock'.  */
@@ -285,20 +285,20 @@ struct symbol_value
 /* Conversion symbols, for conv="...".  */
 static struct symbol_value const conversions[] =
 {
-  {"ascii", C_ASCII | C_UNBLOCK | C_TWOBUFS},	/* EBCDIC to ASCII. */
-  {"ebcdic", C_EBCDIC | C_BLOCK | C_TWOBUFS},	/* ASCII to EBCDIC. */
-  {"ibm", C_IBM | C_BLOCK | C_TWOBUFS},	/* Different ASCII to EBCDIC. */
-  {"block", C_BLOCK | C_TWOBUFS},	/* Variable to fixed length records. */
-  {"unblock", C_UNBLOCK | C_TWOBUFS},	/* Fixed to variable length records. */
-  {"lcase", C_LCASE | C_TWOBUFS},	/* Translate upper to lower case. */
-  {"ucase", C_UCASE | C_TWOBUFS},	/* Translate lower to upper case. */
-  {"sparse", C_SPARSE},		/* Try to sparsely write output. */
-  {"swab", C_SWAB | C_TWOBUFS},	/* Swap bytes of input. */
-  {"noerror", C_NOERROR},	/* Ignore i/o errors. */
+  {"ascii", C_ASCII | C_UNBLOCK | C_TWOBUFS},	/* EBCDIC to ASCII.  */
+  {"ebcdic", C_EBCDIC | C_BLOCK | C_TWOBUFS},	/* ASCII to EBCDIC.  */
+  {"ibm", C_IBM | C_BLOCK | C_TWOBUFS},	/* Different ASCII to EBCDIC.  */
+  {"block", C_BLOCK | C_TWOBUFS},	/* Variable to fixed length records.  */
+  {"unblock", C_UNBLOCK | C_TWOBUFS},	/* Fixed to variable length records.  */
+  {"lcase", C_LCASE | C_TWOBUFS},	/* Translate upper to lower case.  */
+  {"ucase", C_UCASE | C_TWOBUFS},	/* Translate lower to upper case.  */
+  {"sparse", C_SPARSE},		/* Try to sparsely write output.  */
+  {"swab", C_SWAB | C_TWOBUFS},	/* Swap bytes of input.  */
+  {"noerror", C_NOERROR},	/* Ignore i/o errors.  */
   {"nocreat", C_NOCREAT},	/* Do not create output file.  */
   {"excl", C_EXCL},		/* Fail if the output file already exists.  */
-  {"notrunc", C_NOTRUNC},	/* Do not truncate output file. */
-  {"sync", C_SYNC},		/* Pad input records to ibs with NULs. */
+  {"notrunc", C_NOTRUNC},	/* Do not truncate output file.  */
+  {"sync", C_SYNC},		/* Pad input records to ibs with NULs.  */
   {"fdatasync", C_FDATASYNC},	/* Synchronize output data before finishing.  */
   {"fsync", C_FSYNC},		/* Also synchronize output metadata.  */
   {"", 0}
@@ -390,7 +390,7 @@ static struct symbol_value const statuses[] =
   {"",		0}
 };
 
-/* Translation table formed by applying successive transformations. */
+/* Translation table formed by applying successive transformations.  */
 static unsigned char trans_table[256];
 
 /* Standard translation tables, taken from POSIX 1003.1-2013.
@@ -398,7 +398,7 @@ static unsigned char trans_table[256];
    floating around the net, perhaps valid for some applications but
    not correct here.  */
 
-static char const ascii_to_ebcdic[] =
+static const char ascii_to_ebcdic[] =
 {
   '\000', '\001', '\002', '\003', '\067', '\055', '\056', '\057',
   '\026', '\005', '\045', '\013', '\014', '\015', '\016', '\017',
@@ -434,7 +434,7 @@ static char const ascii_to_ebcdic[] =
   '\356', '\357', '\372', '\373', '\374', '\375', '\376', '\377'
 };
 
-static char const ascii_to_ibm[] =
+static const char ascii_to_ibm[] =
 {
   '\000', '\001', '\002', '\003', '\067', '\055', '\056', '\057',
   '\026', '\005', '\045', '\013', '\014', '\015', '\016', '\017',
@@ -470,7 +470,7 @@ static char const ascii_to_ibm[] =
   '\356', '\357', '\372', '\373', '\374', '\375', '\376', '\377'
 };
 
-static char const ebcdic_to_ascii[] =
+static const char ebcdic_to_ascii[] =
 {
   '\000', '\001', '\002', '\003', '\234', '\011', '\206', '\177',
   '\227', '\215', '\216', '\013', '\014', '\015', '\016', '\017',
@@ -743,7 +743,7 @@ alloc_obuf (void)
 }
 
 static void
-translate_charset (char const *new_trans)
+translate_charset (const char *new_trans)
 {
   for (int i = 0; i < 256; i++)
     trans_table[i] = new_trans[trans_table[i]];
@@ -759,7 +759,7 @@ multiple_bits_set (int i)
 }
 
 static bool
-abbreviation_lacks_prefix (char const *message)
+abbreviation_lacks_prefix (const char *message)
 {
   return message[strlen (message) - 2] == ' ';
 }
@@ -770,12 +770,12 @@ static void
 print_xfer_stats (xtime_t progress_time)
 {
   xtime_t now = progress_time ? progress_time : gethrxtime ();
-  static char const slash_s[] = "/s";
+  static const char slash_s[] = "/s";
   char hbuf[3][LONGEST_HUMAN_READABLE + sizeof slash_s];
   double delta_s;
-  char const *bytes_per_second;
-  char const *si = human_readable (w_bytes, hbuf[0], human_opts, 1, 1);
-  char const *iec = human_readable (w_bytes, hbuf[1],
+  const char *bytes_per_second;
+  const char *si = human_readable (w_bytes, hbuf[0], human_opts, 1, 1);
+  const char *iec = human_readable (w_bytes, hbuf[1],
                                     human_opts | human_base_1024, 1, 1);
 
   /* Use integer arithmetic to compute the transfer rate,
@@ -877,7 +877,7 @@ print_stats (void)
 static void
 interrupt_handler (int sig)
 {
-  if (! SA_RESETHAND)
+  if (!SA_RESETHAND)
     signal (sig, SIG_DFL);
   interrupt_signal = sig;
 }
@@ -887,7 +887,7 @@ interrupt_handler (int sig)
 static void
 siginfo_handler (int sig)
 {
-  if (! SA_NOCLDSTOP)
+  if (!SA_NOCLDSTOP)
     signal (sig, siginfo_handler);
   info_signal_count++;
 }
@@ -913,7 +913,7 @@ install_signal_handlers (void)
   if (sigismember (&caught_signals, SIGINFO))
     {
       act.sa_handler = siginfo_handler;
-      /* Note we don't use SA_RESTART here and instead
+      /* Note we do not use SA_RESTART here and instead
          handle EINTR explicitly in iftruncate etc.
          to avoid blocking on noncommitted read/write calls.  */
       act.sa_flags = 0;
@@ -965,7 +965,7 @@ cleanup (void)
   if (iclose (STDIN_FILENO) != 0)
     die (EXIT_FAILURE, errno, _("closing input file %s"), quoteaf (input_file));
 
-  /* Don't remove this call to close, even though close_stdout
+  /* Do not remove this call to close, even though close_stdout
      closes standard output.  This close is necessary when cleanup
      is called as a consequence of signal handling.  */
   if (iclose (STDOUT_FILENO) != 0)
@@ -1062,8 +1062,8 @@ invalidate_cache (int fd, off_t len)
   /* Minimize syscalls.  */
   off_t clen = cache_round (fd, len);
   if (len && !clen)
-    return true; /* Don't advise this time.  */
-  else if (! len && ! clen && ! nocache_eof)
+    return true; /* Do not advise this time.  */
+  else if (!len && ! clen && ! nocache_eof)
     return true;
   off_t pending = len ? cache_round (fd, 0) : 0;
 
@@ -1094,14 +1094,14 @@ invalidate_cache (int fd, off_t len)
 
   if (0 <= offset)
    {
-     if (! len && clen && nocache_eof)
+     if (!len && clen && nocache_eof)
        {
          pending = clen;
          clen = 0;
        }
 
      /* Note we're being careful here to only invalidate what
-        we've read, so as not to dump any read ahead cache.
+        we have read, so as not to dump any read ahead cache.
         Note also the kernel is conservative and only invalidates
         full pages in the specified range.  */
 #if HAVE_POSIX_FADVISE
@@ -1195,7 +1195,7 @@ iread_fullblock (int fd, char *buf, size_t size)
    writes.  */
 
 static size_t
-iwrite (int fd, char const *buf, size_t size)
+iwrite (int fd, const char *buf, size_t size)
 {
   size_t total_written = 0;
 
@@ -1235,7 +1235,7 @@ iwrite (int fd, char const *buf, size_t size)
           if (lseek (fd, size, SEEK_CUR) < 0)
             {
               conversions_mask &= ~C_SPARSE;
-              /* Don't warn about the advisory sparse request.  */
+              /* Do not warn about the advisory sparse request.  */
             }
           else
             {
@@ -1270,7 +1270,7 @@ iwrite (int fd, char const *buf, size_t size)
   return total_written;
 }
 
-/* Write, then empty, the output buffer 'obuf'. */
+/* Write, then empty, the output buffer 'obuf'.  */
 
 static void
 write_output (void)
@@ -1309,7 +1309,7 @@ ifdatasync (int fd)
 /* Restart on EINTR from fd_reopen.  */
 
 static int
-ifd_reopen (int desired_fd, char const *file, int flag, mode_t mode)
+ifd_reopen (int desired_fd, const char *file, int flag, mode_t mode)
 {
   int ret;
 
@@ -1377,7 +1377,7 @@ iftruncate (int fd, off_t length)
 /* Return true if STR is of the form "PATTERN" or "PATTERNDELIM...".  */
 
 static bool _GL_ATTRIBUTE_PURE
-operand_matches (char const *str, char const *pattern, char delim)
+operand_matches (const char *str, const char *pattern, char delim)
 {
   while (*pattern)
     if (*str++ != *pattern++)
@@ -1390,21 +1390,21 @@ operand_matches (char const *str, char const *pattern, char delim)
    cannot be parsed, use ERROR_MSGID to generate a diagnostic.  */
 
 static int
-parse_symbols (char const *str, struct symbol_value const *table,
-               bool exclusive, char const *error_msgid)
+parse_symbols (const char *str, struct symbol_value const *table,
+               bool exclusive, const char *error_msgid)
 {
   int value = 0;
 
   while (true)
     {
-      char const *strcomma = strchr (str, ',');
+      const char *strcomma = strchr (str, ',');
       struct symbol_value const *entry;
 
       for (entry = table;
            ! (operand_matches (str, entry->symbol, ',') && entry->value);
            entry++)
         {
-          if (! entry->symbol[0])
+          if (!entry->symbol[0])
             {
               size_t slen = strcomma ? strcomma - str : strlen (str);
               error (0, 0, "%s: %s", _(error_msgid),
@@ -1467,7 +1467,7 @@ parse_integer (const char *str, strtol_error *invalid)
 /* OPERAND is of the form "X=...".  Return true if X is NAME.  */
 
 static bool _GL_ATTRIBUTE_PURE
-operand_is (char const *operand, char const *name)
+operand_is (const char *operand, const char *name)
 {
   return operand_matches (operand, name, '=');
 }
@@ -1482,8 +1482,8 @@ scanargs (int argc, char *const *argv)
 
   for (int i = optind; i < argc; i++)
     {
-      char const *name = argv[i];
-      char const *val = strchr (name, '=');
+      const char *name = argv[i];
+      const char *val = strchr (name, '=');
 
       if (val == NULL)
         {
@@ -1632,7 +1632,7 @@ scanargs (int argc, char *const *argv)
      This helps to avoid confusion with miscounts, and to avoid issues
      with direct I/O on GNU/Linux.  */
   warn_partial_read =
-    (! (conversions_mask & C_TWOBUFS) && ! (input_flags & O_FULLBLOCK)
+    (!(conversions_mask & C_TWOBUFS) && ! (input_flags & O_FULLBLOCK)
      && (skip_records
          || (0 < max_records && max_records < (uintmax_t) -1)
          || (input_flags | output_flags) & O_DIRECT));
@@ -1668,7 +1668,7 @@ scanargs (int argc, char *const *argv)
     }
 }
 
-/* Fix up translation table. */
+/* Fix up translation table.  */
 
 static void
 apply_translations (void)
@@ -1794,7 +1794,7 @@ advance_input_offset (uintmax_t offset)
     && (P).mt_blkno == (Q).mt_blkno)
 
 static off_t
-skip_via_lseek (char const *filename, int fdesc, off_t offset, int whence)
+skip_via_lseek (const char *filename, int fdesc, off_t offset, int whence)
 {
   struct mtget s1;
   struct mtget s2;
@@ -1833,7 +1833,7 @@ skip_via_lseek (char const *filename, int fdesc, off_t offset, int whence)
    remaining bytes in addition to the remaining records.  */
 
 static uintmax_t
-skip (int fdesc, char const *file, uintmax_t records, size_t blocksize,
+skip (int fdesc, const char *file, uintmax_t records, size_t blocksize,
       size_t *bytes)
 {
   uintmax_t offset = records * blocksize + *bytes;
@@ -1887,7 +1887,7 @@ skip (int fdesc, char const *file, uintmax_t records, size_t blocksize,
           if (!lseek_errno)
             {
               /* The original seek was not attempted as offset > OFF_T_MAX.
-                 We should error for write as can't get to the desired
+                 We should error for write as cannot get to the desired
                  location, even if OFF_T_MAX < max file size.
                  For read we're not going to read any data anyway,
                  so we should error for consistency.
@@ -1900,7 +1900,7 @@ skip (int fdesc, char const *file, uintmax_t records, size_t blocksize,
             error (0, lseek_errno, _("%s: cannot skip"), quotef (file));
           else
             error (0, lseek_errno, _("%s: cannot seek"), quotef (file));
-          /* If the file has a specific size and we've asked
+          /* If the file has a specific size and we have asked
              to skip/seek beyond the max allowable, then quit.  */
           quit (EXIT_FAILURE);
         }
@@ -1958,7 +1958,7 @@ skip (int fdesc, char const *file, uintmax_t records, size_t blocksize,
 static bool
 advance_input_after_read_error (size_t nbytes)
 {
-  if (! input_seekable)
+  if (!input_seekable)
     {
       if (input_seek_errno == ESPIPE)
         return true;
@@ -1982,7 +1982,7 @@ advance_input_after_read_error (size_t nbytes)
           if (offset == input_offset)
             return true;
           diff = input_offset - offset;
-          if (! (0 <= diff && diff <= nbytes) && status_level != STATUS_NONE)
+          if (!(0 <= diff && diff <= nbytes) && status_level != STATUS_NONE)
             error (0, 0, _("warning: invalid file offset after failed read"));
           if (0 <= skip_via_lseek (input_file, STDIN_FILENO, diff, SEEK_CUR))
             return true;
@@ -1998,7 +1998,7 @@ advance_input_after_read_error (size_t nbytes)
 /* Copy NREAD bytes of BUF, with no conversions.  */
 
 static void
-copy_simple (char const *buf, size_t nread)
+copy_simple (const char *buf, size_t nread)
 {
   const char *start = buf;	/* First uncopied char in BUF.  */
 
@@ -2008,7 +2008,7 @@ copy_simple (char const *buf, size_t nread)
 
       memcpy (obuf + oc, start, nfree);
 
-      nread -= nfree;		/* Update the number of bytes left to copy. */
+      nread -= nfree;		/* Update the number of bytes left to copy.  */
       start += nfree;
       oc += nfree;
       if (oc >= output_blocksize)
@@ -2022,7 +2022,7 @@ copy_simple (char const *buf, size_t nread)
    replacing the newline with trailing spaces).  */
 
 static void
-copy_with_block (char const *buf, size_t nread)
+copy_with_block (const char *buf, size_t nread)
 {
   for (size_t i = nread; i; i--, buf++)
     {
@@ -2052,7 +2052,7 @@ copy_with_block (char const *buf, size_t nread)
    with a newline).  */
 
 static void
-copy_with_unblock (char const *buf, size_t nread)
+copy_with_unblock (const char *buf, size_t nread)
 {
   static size_t pending_spaces = 0;
 
@@ -2063,7 +2063,7 @@ copy_with_unblock (char const *buf, size_t nread)
       if (col++ >= conversion_blocksize)
         {
           col = pending_spaces = 0; /* Wipe out any pending spaces.  */
-          i--;			/* Push the char back; get it later. */
+          i--;			/* Push the char back; get it later.  */
           output_char (newline_character);
         }
       else if (c == space_character)
@@ -2086,7 +2086,7 @@ copy_with_unblock (char const *buf, size_t nread)
    in ADD_FLAGS.  The file's name is NAME.  */
 
 static void
-set_fd_flags (int fd, int add_flags, char const *name)
+set_fd_flags (int fd, int add_flags, const char *name)
 {
   /* Ignore file creation flags that are no-ops on file descriptors.  */
   add_flags &= ~ (O_NOCTTY | O_NOFOLLOW);
@@ -2135,7 +2135,7 @@ set_fd_flags (int fd, int add_flags, char const *name)
 static int
 dd_copy (void)
 {
-  char *bufstart;		/* Input buffer. */
+  char *bufstart;		/* Input buffer.  */
   ssize_t nread;		/* Bytes read in the current block.  */
 
   /* If nonzero, then the previously read block was partial and
@@ -2155,7 +2155,7 @@ dd_copy (void)
      page boundary to cover all bases.  Note that due to the swab
      algorithm, we must have at least one byte in the page before
      the input buffer;  thus we allocate 2 pages of slop in the
-     real buffer.  8k above the blocksize shouldn't bother anyone.
+     real buffer.  8k above the blocksize should not bother anyone.
 
      The page alignment is necessary on any Linux kernel that supports
      either the SGI raw I/O patch or Steven Tweedies raw I/O patch.
@@ -2170,8 +2170,8 @@ dd_copy (void)
                                   skip_records, input_blocksize, &skip_bytes);
       us_bytes -= input_offset;
 
-      /* POSIX doesn't say what to do when dd detects it has been
-         asked to skip past EOF, so I assume it's non-fatal.
+      /* POSIX does not say what to do when dd detects it has been
+         asked to skip past EOF, so I assume it is non-fatal.
          There are 3 reasons why there might be unskipped blocks/bytes:
              1. file is too small
              2. pipe has not enough data
@@ -2218,7 +2218,7 @@ dd_copy (void)
   alloc_ibuf ();
   alloc_obuf ();
 
-  while (1)
+  while (true)
     {
       if (status_level == STATUS_PROGRESS)
         {
@@ -2235,7 +2235,7 @@ dd_copy (void)
 
       /* Zero the buffer before reading, so that if we get a read error,
          whatever data we are able to read is followed by zeros.
-         This minimizes data loss. */
+         This minimizes data loss.  */
       if ((conversions_mask & C_SYNC) && (conversions_mask & C_NOERROR))
         memset (ibuf,
                 (conversions_mask & (C_BLOCK | C_UNBLOCK)) ? ' ' : '\0',
@@ -2272,7 +2272,7 @@ dd_copy (void)
                  but call this so that correct offsets are maintained.  */
               invalidate_cache (STDIN_FILENO, bad_portion);
 
-              /* Seek past the bad block if possible. */
+              /* Seek past the bad block if possible.  */
               if (!advance_input_after_read_error (bad_portion))
                 {
                   exit_status = EXIT_FAILURE;
@@ -2290,7 +2290,7 @@ dd_copy (void)
             }
           else
             {
-              /* Write any partial block. */
+              /* Write any partial block.  */
               exit_status = EXIT_FAILURE;
               break;
             }
@@ -2305,7 +2305,7 @@ dd_copy (void)
           if (conversions_mask & C_SYNC)
             {
               if (!(conversions_mask & C_NOERROR))
-                /* If C_NOERROR, we zeroed the block before reading. */
+                /* If C_NOERROR, we zeroed the block before reading.  */
                 memset (ibuf + n_bytes_read,
                         (conversions_mask & (C_BLOCK | C_UNBLOCK)) ? ' ' : '\0',
                         input_blocksize - n_bytes_read);
@@ -2318,7 +2318,7 @@ dd_copy (void)
           partread = 0;
         }
 
-      if (ibuf == obuf)		/* If not C_TWOBUFS. */
+      if (ibuf == obuf)		/* If not C_TWOBUFS.  */
         {
           size_t nwritten = iwrite (STDOUT_FILENO, obuf, n_bytes_read);
           w_bytes += nwritten;
@@ -2377,7 +2377,7 @@ dd_copy (void)
       output_char (newline_character);
     }
 
-  /* Write out the last block. */
+  /* Write out the last block.  */
   if (oc != 0)
     {
       size_t nwritten = iwrite (STDOUT_FILENO, obuf, oc);
@@ -2458,14 +2458,14 @@ main (int argc, char **argv)
   page_size = getpagesize ();
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE, Version,
-                                   true, usage, AUTHORS, (char const *) NULL);
+                                   true, usage, AUTHORS, (const char *) NULL);
   close_stdout_required = false;
 
-  /* Initialize translation table to identity translation. */
+  /* Initialize translation table to identity translation.  */
   for (i = 0; i < 256; i++)
     trans_table[i] = i;
 
-  /* Decode arguments. */
+  /* Decode arguments.  */
   scanargs (argc, argv);
 
   apply_translations ();
@@ -2502,9 +2502,9 @@ main (int argc, char **argv)
            | (seek_records || (conversions_mask & C_NOTRUNC) ? 0 : O_TRUNC));
 
       /* Open the output file with *read* access only if we might
-         need to read to satisfy a 'seek=' request.  If we can't read
+         need to read to satisfy a 'seek=' request.  If we cannot read
          the file, go ahead with write-only access; it might work.  */
-      if ((! seek_records
+      if ((!seek_records
            || ifd_reopen (STDOUT_FILENO, output_file, O_RDWR | opts, perms) < 0)
           && (ifd_reopen (STDOUT_FILENO, output_file, O_WRONLY | opts, perms)
               < 0))

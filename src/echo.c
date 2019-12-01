@@ -101,8 +101,8 @@ hextobin (unsigned char c)
 }
 
 /* Print the words in LIST to standard output.  If the first word is
-   '-n', then don't print a trailing newline.  We also support the
-   echo syntax from Version 9 unix systems. */
+   '-n', then do not print a trailing newline.  We also support the
+   echo syntax from Version 9 unix systems.  */
 
 int
 main (int argc, char **argv)
@@ -110,8 +110,8 @@ main (int argc, char **argv)
   bool display_return = true;
   bool posixly_correct = getenv ("POSIXLY_CORRECT");
   bool allow_options =
-    (! posixly_correct
-     || (! DEFAULT_ECHO_TO_XPG && 1 < argc && STREQ (argv[1], "-n")));
+    (!posixly_correct
+     || (!DEFAULT_ECHO_TO_XPG && 1 < argc && STREQ (argv[1], "-n")));
 
   /* System V machines already have a /bin/sh with a v9 behavior.
      Use the identical behavior for these machines so that the
@@ -141,13 +141,13 @@ main (int argc, char **argv)
         }
     }
 
-  --argc;
-  ++argv;
+  argc--;
+  argv++;
 
   if (allow_options)
     while (argc > 0 && *argv[0] == '-')
       {
-        char const *temp = argv[0] + 1;
+        const char *temp = argv[0] + 1;
         size_t i;
 
         /* If it appears that we are handling options, then make sure that
@@ -167,7 +167,7 @@ main (int argc, char **argv)
           goto just_echo;
 
         /* All of the options in TEMP are valid options to ECHO.
-           Handle them. */
+           Handle them.  */
         while (*temp)
           switch (*temp++)
             {
@@ -189,12 +189,11 @@ main (int argc, char **argv)
       }
 
 just_echo:
-
   if (do_v9 || posixly_correct)
     {
       while (argc > 0)
         {
-          char const *s = argv[0];
+          const char *s = argv[0];
           unsigned char c;
 
           while ((c = *s++))
@@ -215,7 +214,7 @@ just_echo:
                     case 'x':
                       {
                         unsigned char ch = *s;
-                        if (! isxdigit (ch))
+                        if (!isxdigit (ch))
                           goto not_an_escape;
                         s++;
                         c = hextobin (ch);
@@ -229,7 +228,7 @@ just_echo:
                       break;
                     case '0':
                       c = 0;
-                      if (! ('0' <= *s && *s <= '7'))
+                      if (!('0' <= *s && *s <= '7'))
                         break;
                       c = *s++;
                       FALLTHROUGH;
@@ -244,7 +243,7 @@ just_echo:
                     case '\\': break;
 
                     not_an_escape:
-                    default:  putchar ('\\'); break;
+                    default: putchar ('\\'); break;
                     }
                 }
               putchar (c);

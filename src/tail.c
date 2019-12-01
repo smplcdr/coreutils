@@ -91,7 +91,7 @@
 enum Follow_mode
 {
   /* Follow the name of each file: if the file is renamed, try to reopen
-     that name and track the end of the new file if/when it's recreated.
+     that name and track the end of the new file if/when it is recreated.
      This is useful for tracking logs that are occasionally rotated.  */
   Follow_name = 1,
 
@@ -105,7 +105,7 @@ enum Follow_mode
 #define IS_TAILABLE_FILE_TYPE(Mode) \
   (S_ISREG (Mode) || S_ISFIFO (Mode) || S_ISSOCK (Mode) || S_ISCHR (Mode))
 
-static char const *const follow_mode_string[] =
+static const char *const follow_mode_string[] =
 {
   "descriptor", "name", NULL
 };
@@ -128,7 +128,7 @@ struct File_spec
   mode_t mode;
 
   /* The specified name initially referred to a directory or some other
-     type for which tail isn't meaningful.  Unlike for a permission problem
+     type for which tail is not meaningful.  Unlike for a permission problem
      (tailable, below) once this is set, the name is not checked ever again.  */
   bool ignore;
 
@@ -139,7 +139,7 @@ struct File_spec
      IS_TAILABLE_FILE_TYPE.  */
   bool tailable;
 
-  /* File descriptor on which the file is open; -1 if it's not open.  */
+  /* File descriptor on which the file is open; -1 if it is not open.  */
   int fd;
 
   /* The value of errno seen last time we checked this file.  */
@@ -188,7 +188,7 @@ static bool from_start;
 /* If true, print filename headers.  */
 static bool print_headers;
 
-/* Character to split lines by. */
+/* Character to split lines by.  */
 static char line_end;
 
 /* When to print the filename banners.  */
@@ -218,7 +218,7 @@ static bool have_read_stdin;
    more expensive) code unconditionally. Intended solely for testing.  */
 static bool presume_input_pipe;
 
-/* If nonzero then don't use inotify even if available.  */
+/* If nonzero then do not use inotify even if available.  */
 static bool disable_inotify;
 
 /* For long options that have no equivalent short option, use a
@@ -233,25 +233,21 @@ enum
   DISABLE_INOTIFY_OPTION
 };
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"bytes", required_argument, NULL, 'c'},
   {"follow", optional_argument, NULL, LONG_FOLLOW_OPTION},
   {"lines", required_argument, NULL, 'n'},
   {"max-unchanged-stats", required_argument, NULL, MAX_UNCHANGED_STATS_OPTION},
-  {"-disable-inotify", no_argument, NULL,
-   DISABLE_INOTIFY_OPTION}, /* do not document */
+  {"-disable-inotify", no_argument, NULL, DISABLE_INOTIFY_OPTION}, /* Do not document.  */
   {"pid", required_argument, NULL, PID_OPTION},
-  {"-presume-input-pipe", no_argument, NULL,
-   PRESUME_INPUT_PIPE_OPTION}, /* do not document */
+  {"-presume-input-pipe", no_argument, NULL, PRESUME_INPUT_PIPE_OPTION}, /* Do not document.  */
   {"quiet", no_argument, NULL, 'q'},
   {"retry", no_argument, NULL, RETRY_OPTION},
   {"silent", no_argument, NULL, 'q'},
   {"sleep-interval", required_argument, NULL, 's'},
   {"verbose", no_argument, NULL, 'v'},
   {"zero-terminated", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -348,7 +344,7 @@ die_pipe (void)
 static void
 check_output_alive (void)
 {
-  if (! monitor_output)
+  if (!monitor_output)
     return;
 
 #ifdef _AIX
@@ -377,11 +373,11 @@ check_output_alive (void)
 static bool
 valid_file_spec (struct File_spec const *f)
 {
-  /* Exactly one of the following subexpressions must be true. */
+  /* Exactly one of the following subexpressions must be true.  */
   return ((f->fd == -1) ^ (f->errnum == 0));
 }
 
-static char const *
+static const char *
 pretty_name (struct File_spec const *f)
 {
   return (STREQ (f->name, "-") ? _("standard input") : f->name);
@@ -430,7 +426,7 @@ write_header (const char *pretty_filename)
    Exit immediately on error with a single diagnostic.  */
 
 static void
-xwrite_stdout (char const *buffer, size_t n_bytes)
+xwrite_stdout (const char *buffer, size_t n_bytes)
 {
   if (n_bytes > 0 && fwrite (buffer, 1, n_bytes, stdout) < n_bytes)
     {
@@ -453,7 +449,7 @@ dump_remainder (bool want_header, const char *pretty_filename, int fd,
   uintmax_t n_remaining = n_bytes;
 
   n_written = 0;
-  while (1)
+  while (true)
     {
       char buffer[BUFSIZ];
       size_t n = MIN (n_remaining, BUFSIZ);
@@ -491,7 +487,7 @@ dump_remainder (bool want_header, const char *pretty_filename, int fd,
    Otherwise, return the resulting offset.  */
 
 static off_t
-xlseek (int fd, off_t offset, int whence, char const *filename)
+xlseek (int fd, off_t offset, int whence, const char *filename)
 {
   off_t new_offset = lseek (fd, offset, whence);
   char buf[INT_BUFSIZE_BOUND (offset)];
@@ -559,7 +555,7 @@ file_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
     }
   *read_pos = pos + bytes_read;
 
-  /* Count the incomplete line on files that don't end with a newline.  */
+  /* Count the incomplete line on files that do not end with a newline.  */
   if (bytes_read && buffer[bytes_read - 1] != line_end)
     --n_lines;
 
@@ -570,14 +566,14 @@ file_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
       size_t n = bytes_read;
       while (n)
         {
-          char const *nl;
+          const char *nl;
           nl = memrchr (buffer, line_end, n);
           if (nl == NULL)
             break;
           n = nl - buffer;
           if (n_lines-- == 0)
             {
-              /* If this newline isn't the last character in the buffer,
+              /* If this newline is not the last character in the buffer,
                  output the part that is after it.  */
               if (n != bytes_read - 1)
                 xwrite_stdout (nl + 1, bytes_read - (n + 1));
@@ -632,9 +628,9 @@ pipe_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
   };
   typedef struct linebuffer LBUFFER;
   LBUFFER *first, *last, *tmp;
-  size_t total_lines = 0;	/* Total number of newlines in all buffers.  */
+  size_t total_lines = 0; /* Total number of newlines in all buffers.  */
   bool ok = true;
-  size_t n_read;		/* Size in bytes of most recent read */
+  size_t n_read;    /* Size in bytes of most recent read */
 
   first = last = xmalloc (sizeof (LBUFFER));
   first->nbytes = first->nlines = 0;
@@ -642,7 +638,7 @@ pipe_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
   tmp = xmalloc (sizeof (LBUFFER));
 
   /* Input is always read into a fresh buffer.  */
-  while (1)
+  while (true)
     {
       n_read = safe_read (fd, tmp->buffer, BUFSIZ);
       if (n_read == 0 || n_read == SAFE_READ_ERROR)
@@ -654,8 +650,8 @@ pipe_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
 
       /* Count the number of newlines just read.  */
       {
-        char const *buffer_end = tmp->buffer + n_read;
-        char const *p = tmp->buffer;
+        const char *buffer_end = tmp->buffer + n_read;
+        const char *p = tmp->buffer;
         while ((p = memchr (p, line_end, buffer_end - p)))
           {
             ++p;
@@ -709,7 +705,7 @@ pipe_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
   if (n_lines == 0)
     goto free_lbuffers;
 
-  /* Count the incomplete line on files that don't end with a newline.  */
+  /* Count the incomplete line on files that do not end with a newline.  */
   if (last->buffer[last->nbytes - 1] != line_end)
     {
       ++last->nlines;
@@ -723,8 +719,8 @@ pipe_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
 
   /* Find the correct beginning, then print the rest of the file.  */
   {
-    char const *beg = tmp->buffer;
-    char const *buffer_end = tmp->buffer + tmp->nbytes;
+    const char *beg = tmp->buffer;
+    const char *buffer_end = tmp->buffer + tmp->nbytes;
     if (total_lines > n_lines)
       {
         /* Skip 'total_lines' - 'n_lines' newlines.  We made sure that
@@ -770,8 +766,8 @@ pipe_bytes (const char *pretty_filename, int fd, uintmax_t n_bytes,
   };
   typedef struct charbuffer CBUFFER;
   CBUFFER *first, *last, *tmp;
-  size_t i;			/* Index into buffers.  */
-  size_t total_bytes = 0;	/* Total characters in all buffers.  */
+  size_t i;     /* Index into buffers.  */
+  size_t total_bytes = 0; /* Total characters in all buffers.  */
   bool ok = true;
   size_t n_read;
 
@@ -781,7 +777,7 @@ pipe_bytes (const char *pretty_filename, int fd, uintmax_t n_bytes,
   tmp = xmalloc (sizeof (CBUFFER));
 
   /* Input is always read into a fresh buffer.  */
-  while (1)
+  while (true)
     {
       n_read = safe_read (fd, tmp->buffer, BUFSIZ);
       if (n_read == 0 || n_read == SAFE_READ_ERROR)
@@ -901,7 +897,7 @@ start_lines (const char *pretty_filename, int fd, uintmax_t n_lines,
   if (n_lines == 0)
     return 0;
 
-  while (1)
+  while (true)
     {
       char buffer[BUFSIZ];
       size_t bytes_read = safe_read (fd, buffer, BUFSIZ);
@@ -990,16 +986,16 @@ recheck (struct File_spec *f, bool blocking)
 
   assert (valid_file_spec (f));
 
-  /* If the open fails because the file doesn't exist,
+  /* If the open fails because the file does not exist,
      then mark the file as not tailable.  */
   f->tailable = !(reopen_inaccessible_files && fd == -1);
 
-  if (! disable_inotify && ! lstat (f->name, &new_stats)
+  if (!disable_inotify && ! lstat (f->name, &new_stats)
       && S_ISLNK (new_stats.st_mode))
     {
       /* Diagnose the edge case where a regular file is changed
          to a symlink.  We avoid inotify with symlinks since
-         it's awkward to match between symlink name and target.  */
+         it is awkward to match between symlink name and target.  */
       ok = false;
       f->errnum = -1;
       f->ignore = true;
@@ -1024,7 +1020,7 @@ recheck (struct File_spec *f, bool blocking)
             }
           else
             {
-              /* say nothing... it's still not tailable */
+              /* say nothing... it is still not tailable */
             }
         }
       else if (prev_errnum != errno)
@@ -1135,7 +1131,7 @@ any_live_files (const struct File_spec *f, size_t n_files)
         return true;
       else
         {
-          if (! f[i].ignore && reopen_inaccessible_files)
+          if (!f[i].ignore && reopen_inaccessible_files)
             return true;
         }
     }
@@ -1153,7 +1149,7 @@ any_live_files (const struct File_spec *f, size_t n_files)
 static void
 tail_forever (struct File_spec *f, size_t n_files, double sleep_interval)
 {
-  /* Use blocking I/O as an optimization, when it's easy.  */
+  /* Use blocking I/O as an optimization, when it is easy.  */
   bool blocking = (pid == 0 && follow_mode == Follow_descriptor
                    && n_files == 1 && f[0].fd != -1 && ! S_ISREG (f[0].mode));
   size_t last;
@@ -1161,7 +1157,7 @@ tail_forever (struct File_spec *f, size_t n_files, double sleep_interval)
 
   last = n_files - 1;
 
-  while (1)
+  while (true)
     {
       size_t i;
       bool any_input = false;
@@ -1169,7 +1165,7 @@ tail_forever (struct File_spec *f, size_t n_files, double sleep_interval)
       for (i = 0; i < n_files; i++)
         {
           int fd;
-          char const *name;
+          const char *name;
           mode_t mode;
           struct stat stats;
           uintmax_t bytes_read;
@@ -1195,7 +1191,7 @@ tail_forever (struct File_spec *f, size_t n_files, double sleep_interval)
                   || (new_flags != old_flags
                       && fcntl (fd, F_SETFL, new_flags) == -1))
                 {
-                  /* Don't update f[i].blocking if fcntl fails.  */
+                  /* Do not update f[i].blocking if fcntl fails.  */
                   if (S_ISREG (f[i].mode) && errno == EPERM)
                     {
                       /* This happens when using tail -f on a file with
@@ -1222,7 +1218,7 @@ tail_forever (struct File_spec *f, size_t n_files, double sleep_interval)
                 }
 
               if (f[i].mode == stats.st_mode
-                  && (! S_ISREG (stats.st_mode) || f[i].size == stats.st_size)
+                  && (!S_ISREG (stats.st_mode) || f[i].size == stats.st_size)
                   && timespec_cmp (f[i].mtime, get_stat_mtime (&stats)) == 0)
                 {
                   if ((max_n_unchanged_stats_between_opens
@@ -1264,7 +1260,7 @@ tail_forever (struct File_spec *f, size_t n_files, double sleep_interval)
                 }
             }
 
-          /* Don't read more than st_size on networked file systems
+          /* Do not read more than st_size on networked file systems
              because it was seen on glusterfs at least, that st_size
              may be smaller than the data read on a _subsequent_ stat call.  */
           uintmax_t bytes_to_read;
@@ -1281,7 +1277,7 @@ tail_forever (struct File_spec *f, size_t n_files, double sleep_interval)
           f[i].size += bytes_read;
         }
 
-      if (! any_live_files (f, n_files))
+      if (!any_live_files (f, n_files))
         {
           error (0, 0, _("no files remaining"));
           break;
@@ -1341,7 +1337,7 @@ any_non_remote_file (const struct File_spec *f, size_t n_files)
 }
 
 /* Return true if any of the N_FILES files in F is a symlink.
-   Note we don't worry about the edge case where "-" exists,
+   Note we do not worry about the edge case where "-" exists,
    since that will have the same consequences for inotify,
    which is the only context this function is currently used.  */
 
@@ -1402,7 +1398,7 @@ static void
 check_fspec (struct File_spec *fspec, struct File_spec **prev_fspec)
 {
   struct stat stats;
-  char const *name;
+  const char *name;
 
   if (fspec->fd == -1)
     return;
@@ -1420,7 +1416,7 @@ check_fspec (struct File_spec *fspec, struct File_spec **prev_fspec)
   /* XXX: This is only a heuristic, as the file may have also
      been truncated and written to if st_size >= size
      (in which case we ignore new data <= size).
-     Though in the inotify case it's more likely we'll get
+     Though in the inotify case it is more likely we'll get
      separate events for truncate() and write().  */
   if (S_ISREG (fspec->mode) && stats.st_size < fspec->size)
     {
@@ -1460,7 +1456,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
 # endif
   unsigned int max_realloc = 3;
 
-  /* Map an inotify watch descriptor to the name of the file it's watching.  */
+  /* Map an inotify watch descriptor to the name of the file it is watching.  */
   Hash_table *wd_to_name;
 
   bool found_watchable_file = false;
@@ -1475,7 +1471,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
   size_t len = 0;
 
   wd_to_name = hash_initialize (n_files, NULL, wd_hasher, wd_comparator, NULL);
-  if (! wd_to_name)
+  if (!wd_to_name)
     xalloc_die ();
 
   /* The events mask used with inotify on files (not directories).  */
@@ -1576,7 +1572,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
      checked and before they are watched by inotify.  */
   for (i = 0; i < n_files; i++)
     {
-      if (! f[i].ignore)
+      if (!f[i].ignore)
         {
           /* check for new files.  */
           if (follow_mode == Follow_name)
@@ -1585,7 +1581,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
             {
               /* If the file was replaced in the small window since we tailed,
                  then assume the watch is on the wrong item (different to
-                 that we've already produced output for), and so revert to
+                 that we have already produced output for), and so revert to
                  polling the original descriptor.  */
               struct stat stats;
 
@@ -1613,7 +1609,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
      ensure that watched files can be re-added when following by name.
      This loop blocks on the 'safe_read' call until a new event is notified.
      But when --pid=P is specified, tail usually waits via the select.  */
-  while (1)
+  while (true)
     {
       struct File_spec *fspec;
       struct inotify_event *ev;
@@ -1712,7 +1708,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
                   hash_free (wd_to_name);
                   error (0, 0,
                       _("directory containing watched file was removed"));
-                  errno = 0;  /* we've already diagnosed enough errno detail. */
+                  errno = 0;  /* we have already diagnosed enough errno detail.  */
                   return true;
                 }
             }
@@ -1739,13 +1735,13 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
           int new_wd = -1;
           bool deleting = !! (ev->mask & IN_DELETE);
 
-          if (! deleting)
+          if (!deleting)
             {
               /* Adding the same inode again will look up any existing wd.  */
               new_wd = inotify_add_watch (wd, f[j].name, inotify_wd_mask);
             }
 
-          if (! deleting && new_wd < 0)
+          if (!deleting && new_wd < 0)
             {
               if (errno == ENOSPC || errno == ENOMEM)
                 {
@@ -1764,7 +1760,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
 
           /* This will be false if only attributes of file change.  */
           bool new_watch;
-          new_watch = (! deleting) && (fspec->wd < 0 || new_wd != fspec->wd);
+          new_watch = (!deleting) && (fspec->wd < 0 || new_wd != fspec->wd);
 
           if (new_watch)
             {
@@ -1805,7 +1801,7 @@ tail_forever_inotify (int wd, struct File_spec *f, size_t n_files,
           fspec = hash_lookup (wd_to_name, &key);
         }
 
-      if (! fspec)
+      if (!fspec)
         continue;
 
       if (ev->mask & (IN_ATTRIB | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF))
@@ -1854,7 +1850,7 @@ tail_bytes (const char *pretty_filename, int fd, uintmax_t n_bytes,
 
   if (from_start)
     {
-      if (! presume_input_pipe && n_bytes <= OFF_T_MAX
+      if (!presume_input_pipe && n_bytes <= OFF_T_MAX
           && ((S_ISREG (stats.st_mode)
                && xlseek (fd, n_bytes, SEEK_CUR, pretty_filename) >= 0)
               || lseek (fd, n_bytes, SEEK_CUR) != -1))
@@ -1872,7 +1868,7 @@ tail_bytes (const char *pretty_filename, int fd, uintmax_t n_bytes,
       off_t end_pos = -1;
       off_t current_pos = -1;
 
-      if (! presume_input_pipe && n_bytes <= OFF_T_MAX)
+      if (!presume_input_pipe && n_bytes <= OFF_T_MAX)
         {
           if (usable_st_size (&stats))
             end_pos = stats.st_size;
@@ -2083,7 +2079,7 @@ tail_file (struct File_spec *f, uintmax_t n_units)
    return true.  If the command line arguments are obviously incorrect
    (e.g., because obsolete usage is not allowed and the arguments are
    incorrect for non-obsolete usage), report an error and exit.
-   Otherwise, return false and don't modify any parameter or global
+   Otherwise, return false and do not modify any parameter or global
    variable.  */
 
 static bool
@@ -2099,7 +2095,7 @@ parse_obsolete_option (int argc, char * const *argv, uintmax_t *n_units)
 
   /* With the obsolete form, there is one option string and at most
      one file argument.  Watch out for "-" and "--", though.  */
-  if (! (argc == 2
+  if (!(argc == 2
          || (argc == 3 && ! (argv[2][0] == '-' && argv[2][1]))
          || (3 <= argc && argc <= 4 && STREQ (argv[2], "--"))))
     return false;
@@ -2126,7 +2122,7 @@ parse_obsolete_option (int argc, char * const *argv, uintmax_t *n_units)
       /* In the non-obsolete form, "-" is standard input and "-c"
          requires an option-argument.  The obsolete multidigit options
          are supported as a GNU extension even when conforming to
-         POSIX 1003.1-2001 or later, so don't complain about them.  */
+         POSIX 1003.1-2001 or later, so do not complain about them.  */
       if (!obsolete_usage && !p[p[0] == 'c'])
         return false;
 
@@ -2178,101 +2174,82 @@ parse_options (int argc, char **argv,
                uintmax_t *n_units, enum header_mode *header_mode,
                double *sleep_interval)
 {
-  int c;
+  int optc;
 
-  while ((c = getopt_long (argc, argv, "c:n:fFqs:vz0123456789",
-                           long_options, NULL))
-         != -1)
-    {
-      switch (c)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "c:n:fFqs:vz0123456789", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case 'F':
+        forever = true;
+        follow_mode = Follow_name;
+        reopen_inaccessible_files = true;
+        break;
+      case 'c':
+      case 'n':
+        count_lines = (optc == 'n');
+        if (*optarg == '+')
+          from_start = true;
+        else if (*optarg == '-')
+          optarg++;
+
+        *n_units = xdectoumax (optarg, 0, UINTMAX_MAX, "bkKmMGTPEZY0",
+                               count_lines
+                               ? _("invalid number of lines")
+                               : _("invalid number of bytes"), 0);
+        break;
+      case 'f':
+      case LONG_FOLLOW_OPTION:
+        forever = true;
+        if (optarg == NULL)
+          follow_mode = DEFAULT_FOLLOW_MODE;
+        else
+          follow_mode = XARGMATCH ("--follow", optarg,
+                                   follow_mode_string, follow_mode_map);
+        break;
+      case RETRY_OPTION:
+        reopen_inaccessible_files = true;
+        break;
+      case MAX_UNCHANGED_STATS_OPTION:
+        /* --max-unchanged-stats=N */
+        max_n_unchanged_stats_between_opens =
+          xdectoumax (optarg, 0, UINTMAX_MAX, "",
+                      _("invalid maximum number of unchanged stats between opens"), 0);
+        break;
+      case DISABLE_INOTIFY_OPTION:
+        disable_inotify = true;
+        break;
+      case PID_OPTION:
+        pid = xdectoumax (optarg, 0, PID_T_MAX, "", _("invalid PID"), 0);
+        break;
+      case PRESUME_INPUT_PIPE_OPTION:
+        presume_input_pipe = true;
+        break;
+      case 'q':
+        *header_mode = never;
+        break;
+      case 's':
         {
-        case 'F':
-          forever = true;
-          follow_mode = Follow_name;
-          reopen_inaccessible_files = true;
-          break;
-
-        case 'c':
-        case 'n':
-          count_lines = (c == 'n');
-          if (*optarg == '+')
-            from_start = true;
-          else if (*optarg == '-')
-            ++optarg;
-
-          *n_units = xdectoumax (optarg, 0, UINTMAX_MAX, "bkKmMGTPEZY0",
-                                 count_lines
-                                 ? _("invalid number of lines")
-                                 : _("invalid number of bytes"), 0);
-          break;
-
-        case 'f':
-        case LONG_FOLLOW_OPTION:
-          forever = true;
-          if (optarg == NULL)
-            follow_mode = DEFAULT_FOLLOW_MODE;
-          else
-            follow_mode = XARGMATCH ("--follow", optarg,
-                                     follow_mode_string, follow_mode_map);
-          break;
-
-        case RETRY_OPTION:
-          reopen_inaccessible_files = true;
-          break;
-
-        case MAX_UNCHANGED_STATS_OPTION:
-          /* --max-unchanged-stats=N */
-          max_n_unchanged_stats_between_opens =
-            xdectoumax (optarg, 0, UINTMAX_MAX, "",
-              _("invalid maximum number of unchanged stats between opens"), 0);
-          break;
-
-        case DISABLE_INOTIFY_OPTION:
-          disable_inotify = true;
-          break;
-
-        case PID_OPTION:
-          pid = xdectoumax (optarg, 0, PID_T_MAX, "", _("invalid PID"), 0);
-          break;
-
-        case PRESUME_INPUT_PIPE_OPTION:
-          presume_input_pipe = true;
-          break;
-
-        case 'q':
-          *header_mode = never;
-          break;
-
-        case 's':
-          {
-            double s;
-            if (! (xstrtod (optarg, NULL, &s, cl_strtod) && 0 <= s))
-              die (EXIT_FAILURE, 0,
-                   _("invalid number of seconds: %s"), quote (optarg));
-            *sleep_interval = s;
-          }
-          break;
-
-        case 'v':
-          *header_mode = always;
-          break;
-
-        case 'z':
-          line_end = '\0';
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        case '0': case '1': case '2': case '3': case '4':
-        case '5': case '6': case '7': case '8': case '9':
-          die (EXIT_FAILURE, 0, _("option used in invalid context -- %c"), c);
-
-        default:
-          usage (EXIT_FAILURE);
+          double s;
+          if (!(xstrtod (optarg, NULL, &s, cl_strtod) && s >= 0))
+            die (EXIT_FAILURE, 0, _("invalid number of seconds: %s"), quote (optarg));
+          *sleep_interval = s;
         }
-    }
+        break;
+      case 'v':
+        *header_mode = always;
+        break;
+      case 'z':
+        line_end = '\0';
+        break;
+      case '0': case '1': case '2': case '3': case '4':
+      case '5': case '6': case '7': case '8': case '9':
+        die (EXIT_FAILURE, 0, _("option used in invalid context -- %c"), optc);
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (reopen_inaccessible_files)
     {
@@ -2367,14 +2344,14 @@ main (int argc, char **argv)
 
   /* To start printing with item N_UNITS from the start of the file, skip
      N_UNITS - 1 items.  'tail -n +0' is actually meaningless, but for Unix
-     compatibility it's treated the same as 'tail -n +1'.  */
+     compatibility it is treated the same as 'tail -n +1'.  */
   if (from_start)
     {
-      if (n_units)
-        --n_units;
+      if (n_units != 0)
+        n_units--;
     }
 
-  IF_LINT (assert (0 <= argc));
+  IF_LINT (assert (argc >= 0));
 
   if (optind < argc)
     {
@@ -2411,14 +2388,14 @@ main (int argc, char **argv)
                           && n_files == 1 && ! fstat (STDIN_FILENO, &in_stat)
                           && ! S_ISREG (in_stat.st_mode));
 
-        if (! blocking_stdin && isatty (STDIN_FILENO))
+        if (!blocking_stdin && isatty (STDIN_FILENO))
           error (0, 0, _("warning: following standard input"
                          " indefinitely is ineffective"));
       }
   }
 
-  /* Don't read anything if we'll never output anything.  */
-  if (! n_units && ! forever && ! from_start)
+  /* Do not read anything if we'll never output anything.  */
+  if (n_units == 0 && !forever && !from_start)
     return EXIT_SUCCESS;
 
   F = xnmalloc (n_files, sizeof *F);
@@ -2449,7 +2426,7 @@ main (int argc, char **argv)
       /* tailable_stdin() checks if the user specifies stdin via  "-",
          or implicitly by providing no arguments. If so, we won't use inotify.
          Technically, on systems with a working /dev/stdin, we *could*,
-         but would it be worth it?  Verifying that it's a real device
+         but would it be worth it?  Verifying that it is a real device
          and hooked up to stdin is not trivial, while reverting to
          non-inotify-based tail_forever is easy and portable.
 
@@ -2459,8 +2436,8 @@ main (int argc, char **argv)
          that were not initiated from the local system.
 
          any_non_remote_file() checks if the user has specified any
-         files that don't reside on remote file systems.  inotify is not used
-         if there are no open files, as we can't determine if those file
+         files that do not reside on remote file systems.  inotify is not used
+         if there are no open files, as we cannot determine if those file
          will be on a remote file system.
 
          any_symlinks() checks if the user has specified any symbolic links.
@@ -2472,7 +2449,7 @@ main (int argc, char **argv)
          reading.  In this case and when following by descriptor,
          tail_forever_inotify() cannot be used (in its current implementation).
 
-         FIXME: inotify doesn't give any notification when a new
+         FIXME: inotify does not give any notification when a new
          (remote) file or directory is mounted on top a watched file.
          When follow_mode == Follow_name we would ideally like to detect that.
          Note if there is a change to the original file then we'll
@@ -2480,7 +2457,7 @@ main (int argc, char **argv)
          file has changed to being remote.
 
          FIXME: when using inotify, and a directory for a watched file
-         is recreated, then we don't recheck any new file when
+         is recreated, then we do not recheck any new file when
          follow_mode == Follow_name.
 
          FIXME-maybe: inotify has a watch descriptor per inode, and hence with
@@ -2506,7 +2483,7 @@ main (int argc, char **argv)
               if (fflush (stdout) != 0)
                 die (EXIT_FAILURE, errno, _("write error"));
 
-              if (! tail_forever_inotify (wd, F, n_files, sleep_interval))
+              if (!tail_forever_inotify (wd, F, n_files, sleep_interval))
                 return EXIT_FAILURE;
             }
           error (0, errno, _("inotify cannot be used, reverting to polling"));

@@ -1,0 +1,24 @@
+Description:
+Report an error and exit.
+
+Files:
+lib/die.h
+
+Depends-on:
+error
+stdbool
+verify
+
+configure.ac:
+
+Makefile.am:
+lib_SOURCES += die.h
+
+Include:
+"die.h"
+
+License:
+GPL
+
+Maintainer:
+all

@@ -34,7 +34,7 @@
 #ifdef SINGLE_BINARY
 /* Declare the main function on each one of the selected tools.  This name
    needs to match the one passed as CFLAGS on single-binary.mk (generated
-   by gen-single-binary.sh). */
+   by gen-single-binary.sh).  */
 # define SINGLE_BINARY_PROGRAM(prog_name_str, main_name) \
   int single_binary_main_##main_name (int, char **);
 # include "coreutils.h"
@@ -46,14 +46,6 @@
 
 #define AUTHORS \
   proper_name ("Alex Deymo")
-
-static struct option const long_options[] =
-{
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
-};
-
 
 void
 usage (int status)
@@ -73,7 +65,7 @@ Execute the PROGRAM_NAME built-in program with the given PARAMETERS.\n\
 
 #ifdef SINGLE_BINARY
 /* XXX: Ideally we'd like to present "install" here, not "ginstall".  */
-      char const *prog_name_list =
+      const char *prog_name_list =
 # define SINGLE_BINARY_PROGRAM(prog_name_str, main_name) " " prog_name_str
 # include "coreutils.h"
 # undef SINGLE_BINARY_PROGRAM
@@ -111,7 +103,7 @@ launch_program (const char *prog_name, int prog_argc, char **prog_argv)
 # undef SINGLE_BINARY_PROGRAM
 #endif
 
-  if (! prog_main)
+  if (!prog_main)
     return;
 
 #if HAVE_PRCTL && defined PR_SET_NAME
@@ -154,7 +146,7 @@ main (int argc, char **argv)
       size_t nskip = 0;
       char *arg_name = NULL;
 
-      /* If calling coreutils directly, the "script" name isn't passed.
+      /* If calling coreutils directly, the "script" name is not passed.
          Distinguish the two cases with a -shebang suffix.  */
       if (STRPREFIX (argv[1], "--coreutils-prog="))
         {
@@ -189,13 +181,9 @@ main (int argc, char **argv)
   textdomain (PACKAGE);
   atexit (close_stdout);
 
-  if ((optc = getopt_long (argc, argv, "", long_options, NULL)) != -1)
-    switch (optc)
-      {
-      case_GETOPT_HELP_CHAR;
-
-      case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-      }
+  parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
+                                   Version, false, usage, AUTHORS,
+                                   (const char *) NULL);
 
   /* Only print the error message when no options have been passed
      to coreutils.  */

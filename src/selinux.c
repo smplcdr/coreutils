@@ -17,29 +17,29 @@
 /* Written by Daniel Walsh <dwalsh@redhat.com> */
 
 #include <config.h>
+
 #include <selinux/selinux.h>
 #include <selinux/context.h>
 #include <sys/types.h>
 
+#include "system.h"
+
 #include "die.h"
 #include "error.h"
-#include "system.h"
 #include "canonicalize.h"
 #include "dosname.h"
-#include "xfts.h"
 #include "selinux.h"
+#include "xfts.h"
 
 #if HAVE_SELINUX_SELINUX_H
 
-# if ! HAVE_MODE_TO_SECURITY_CLASS
-/*
-  This function has been added to libselinux-2.1.12-5, but is here
-  for support with older versions of SELinux
+# if !HAVE_MODE_TO_SECURITY_CLASS
+/* This function has been added to libselinux-2.1.12-5, but is here
+   for support with older versions of SELinux
 
-  Translates a mode into an Internal SELinux security_class definition.
-  Returns 0 on failure, with errno set to EINVAL.
-*/
-static security_class_t
+   Translates a mode into an Internal SELinux security_class definition.
+   Returns 0 on failure, with errno set to EINVAL.  */
+security_class_t
 mode_to_security_class (mode_t m)
 {
 
@@ -63,16 +63,13 @@ mode_to_security_class (mode_t m)
 }
 # endif
 
-/*
-  This function takes a PATH and a MODE and then asks SELinux what the label
-  of the path object would be if the current process label created it.
-  It then returns the label.
+/* This function takes a PATH and a MODE and then asks SELinux what the label
+   of the path object would be if the current process label created it.
+   It then returns the label.
 
-  Returns -1 on failure.  errno will be set appropriately.
-*/
-
+   Returns -1 on failure.  errno will be set appropriately.  */
 static int
-computecon (char const *path, mode_t mode, char **con)
+computecon (const char *path, mode_t mode, char **con)
 {
   char *scon = NULL;
   char *tcon = NULL;
@@ -98,17 +95,15 @@ quit:
   return rc;
 }
 
-/*
-  This function takes a path and a mode, it calls computecon to get the
-  label of the path object if the current process created it, then it calls
-  matchpathcon to get the default type for the object.  It substitutes the
-  default type into label.  It tells the SELinux Kernel to label all new file
-  system objects created by the current process with this label.
+/* This function takes a path and a mode, it calls computecon to get the
+   label of the path object if the current process created it, then it calls
+   matchpathcon to get the default type for the object.  It substitutes the
+   default type into label.  It tells the SELinux Kernel to label all new file
+   system objects created by the current process with this label.
 
-  Returns -1 on failure.  errno will be set appropriately.
-*/
+   Returns -1 on failure.  errno will be set appropriately.  */
 int
-defaultcon (char const *path, mode_t mode)
+defaultcon (const char *path, mode_t mode)
 {
   int rc = -1;
   char *scon = NULL;
@@ -118,12 +113,12 @@ defaultcon (char const *path, mode_t mode)
   char *constr;
   char *newpath = NULL;
 
-  if (! IS_ABSOLUTE_FILE_NAME (path))
+  if (!IS_ABSOLUTE_FILE_NAME (path))
     {
       /* Generate absolute path as required by subsequent matchpathcon(),
          with libselinux < 2.1.5 2011-0826.  */
       newpath = canonicalize_filename_mode (path, CAN_MISSING);
-      if (! newpath)
+      if (!newpath)
         die (EXIT_FAILURE, errno, _("error canonicalizing %s"),
              quoteaf (path));
       path = newpath;
@@ -135,7 +130,7 @@ defaultcon (char const *path, mode_t mode)
          when processing files, when in fact it was the
          associated default context that was not found.
          Therefore map the error to something more appropriate
-         to the context in which we're using matchpathcon().  */
+         to the context in which we are using matchpathcon().  */
       if (errno == ENOENT)
         errno = ENODATA;
       goto quit;
@@ -165,21 +160,19 @@ quit:
   return rc;
 }
 
-/*
-  This function takes a PATH of an existing file system object, and a LOCAL
-  boolean that indicates whether the function should set the object's label
-  to the default for the local process, or one using system wide settings.
-  If LOCAL == true, it will ask the SELinux Kernel what the default label
-  for all objects created should be and then sets the label on the object.
-  Otherwise it calls matchpathcon on the object to ask the system what the
-  default label should be, extracts the type field and then modifies the file
-  system object.  Note only the type field is updated, thus preserving MLS
-  levels and user identity etc. of the PATH.
+/* This function takes a PATH of an existing file system object, and a LOCAL
+   boolean that indicates whether the function should set the object's label
+   to the default for the local process, or one using system wide settings.
+   If LOCAL == true, it will ask the SELinux Kernel what the default label
+   for all objects created should be and then sets the label on the object.
+   Otherwise it calls matchpathcon on the object to ask the system what the
+   default label should be, extracts the type field and then modifies the file
+   system object.  Note only the type field is updated, thus preserving MLS
+   levels and user identity etc. of the PATH.
 
-  Returns -1 on failure.  errno will be set appropriately.
-*/
+   Returns -1 on failure.  errno will be set appropriately.  */
 static int
-restorecon_private (char const *path, bool local)
+restorecon_private (const char *path, bool local)
 {
   int rc = -1;
   struct stat sb;
@@ -194,7 +187,7 @@ restorecon_private (char const *path, bool local)
     {
       if (getfscreatecon (&tcon) < 0)
         return rc;
-      if (!tcon)
+      if (tcon == NULL)
         {
           errno = ENODATA;
           return rc;
@@ -205,10 +198,10 @@ restorecon_private (char const *path, bool local)
     }
 
   fd = open (path, O_RDONLY | O_NOFOLLOW);
-  if (fd == -1 && (errno != ELOOP))
+  if (fd < 0 && (errno != ELOOP))
     goto quit;
 
-  if (fd != -1)
+  if (fd >= 0)
     {
       if (fstat (fd, &sb) < 0)
         goto quit;
@@ -233,34 +226,27 @@ restorecon_private (char const *path, bool local)
   if (!(scontext = context_new (scon)))
     goto quit;
 
-  if (fd != -1)
+  if (fd >= 0)
     {
       if (fgetfilecon (fd, &tcon) < 0)
         goto quit;
     }
-  else
-    {
-      if (lgetfilecon (path, &tcon) < 0)
-        goto quit;
-    }
-
-  if (!(tcontext = context_new (tcon)))
+  else if (lgetfilecon (path, &tcon) < 0)
     goto quit;
 
-  if (!(contype = context_type_get (scontext)))
-    goto quit;
-  if (context_type_set (tcontext, contype))
-    goto quit;
-  if (!(constr = context_str (tcontext)))
+  if ((!(tcontext = context_new (tcon)))
+   || (!(contype = context_type_get (scontext)))
+   || (context_type_set (tcontext, contype))
+   || (!(constr = context_str (tcontext))))
     goto quit;
 
-  if (fd != -1)
+  if (fd >= 0)
     rc = fsetfilecon (fd, constr);
   else
     rc = lsetfilecon (path, constr);
 
 quit:
-  if (fd != -1)
+  if (fd >= 0)
     close (fd);
   context_free (scontext);
   context_free (tcontext);
@@ -269,41 +255,39 @@ quit:
   return rc;
 }
 
-/*
-  This function takes three parameters:
+/* This function takes three parameters:
 
-  PATH of an existing file system object.
+   PATH of an existing file system object.
 
-  A RECURSE boolean which if the file system object is a directory, will
-  call restorecon_private on every file system object in the directory.
+   A RECURSE boolean which if the file system object is a directory, will
+   call restorecon_private on every file system object in the directory.
 
-  A LOCAL boolean that indicates whether the function should set object labels
-  to the default for the local process, or use system wide settings.
+   A LOCAL boolean that indicates whether the function should set object labels
+   to the default for the local process, or use system wide settings.
 
-  Returns false on failure.  errno will be set appropriately.
-*/
+   Returns false on failure.  errno will be set appropriately.  */
 bool
-restorecon (char const *path, bool recurse, bool local)
+restorecon (const char *path, bool recurse, bool local)
 {
   char *newpath = NULL;
   FTS *fts;
   bool ok = true;
 
-  if (! IS_ABSOLUTE_FILE_NAME (path) && ! local)
+  if (!IS_ABSOLUTE_FILE_NAME (path) && !local)
     {
       /* Generate absolute path as required by subsequent matchpathcon(),
          with libselinux < 2.1.5 2011-0826.  Also generating the absolute
          path before the fts walk, will generate absolute paths in the
          fts entries, which may be quicker to process in any case.  */
       newpath = canonicalize_filename_mode (path, CAN_MISSING);
-      if (! newpath)
+      if (newpath == NULL)
         die (EXIT_FAILURE, errno, _("error canonicalizing %s"),
              quoteaf (path));
     }
 
-  const char *ftspath[2] = { newpath ? newpath : path, NULL };
+  const char *ftspath[2] = { newpath != NULL ? newpath : path, NULL };
 
-  if (! recurse)
+  if (!recurse)
     {
       ok = restorecon_private (*ftspath, local) != -1;
       free (newpath);
@@ -311,12 +295,13 @@ restorecon (char const *path, bool recurse, bool local)
     }
 
   fts = xfts_open ((char *const *) ftspath, FTS_PHYSICAL, NULL);
-  while (1)
+
+  while (true)
     {
       FTSENT *ent;
 
       ent = fts_read (fts);
-      if (ent == NULL)
+      if (unlikely (ent == NULL))
         {
           if (errno != 0)
             {

@@ -22,11 +22,10 @@
 #include "system.h"
 #include "relpath.h"
 
-
 /* Return the length of the longest common prefix
    of canonical PATH1 and PATH2, ensuring only full path components
    are matched.  Return 0 on no match.  */
-static int _GL_ATTRIBUTE_PURE
+static _GL_ATTRIBUTE_PURE int
 path_common_prefix (const char *path1, const char *path2)
 {
   int i = 0;
@@ -38,7 +37,7 @@ path_common_prefix (const char *path1, const char *path2)
   if ((path1[1] == '/') != (path2[1] == '/'))
     return 0;
 
-  while (*path1 && *path2)
+  while (*path1 != '\0' && *path2 != '\0')
     {
       if (*path1 != *path2)
         break;
@@ -49,7 +48,7 @@ path_common_prefix (const char *path1, const char *path2)
       i++;
     }
 
-  if ((!*path1 && !*path2)
+  if ((*path1 == '\0' && *path2 == '\0')
       || (!*path1 && *path2 == '/')
       || (!*path2 && *path1 == '/'))
     ret = i;
@@ -63,9 +62,9 @@ path_common_prefix (const char *path1, const char *path2)
    and adjust *PLEN to reflect the remaining space.
    Return TRUE on failure.  */
 static bool
-buffer_or_output (const char* str, char **pbuf, size_t *plen)
+buffer_or_output (const char *str, char **pbuf, size_t *plen)
 {
-  if (*pbuf)
+  if (*pbuf != NULL)
     {
       size_t slen = strlen (str);
       if (slen >= *plen)
@@ -75,9 +74,7 @@ buffer_or_output (const char* str, char **pbuf, size_t *plen)
       *plen -= slen;
     }
   else
-    {
-      fputs (str, stdout);
-    }
+    fputs (str, stdout);
 
   return false;
 }
@@ -91,7 +88,7 @@ relpath (const char *can_fname, const char *can_reldir, char *buf, size_t len)
 
   /* Skip the prefix common to --relative-to and path.  */
   int common_index = path_common_prefix (can_reldir, can_fname);
-  if (!common_index)
+  if (common_index == 0)
     return false;
 
   const char *relto_suffix = can_reldir + common_index;
@@ -105,10 +102,10 @@ relpath (const char *can_fname, const char *can_reldir, char *buf, size_t len)
 
   /* Replace remaining components of --relative-to with '..', to get
      to a common directory.  Then output the remainder of fname.  */
-  if (*relto_suffix)
+  if (*relto_suffix != '\0')
     {
       buf_err |= buffer_or_output ("..", &buf, &len);
-      for (; *relto_suffix; ++relto_suffix)
+      for (; *relto_suffix != '\0'; ++relto_suffix)
         {
           if (*relto_suffix == '/')
             buf_err |= buffer_or_output ("/..", &buf, &len);
@@ -121,10 +118,8 @@ relpath (const char *can_fname, const char *can_reldir, char *buf, size_t len)
         }
     }
   else
-    {
-        buf_err |= buffer_or_output (*fname_suffix ? fname_suffix : ".",
-                                     &buf, &len);
-    }
+    buf_err |= buffer_or_output (*fname_suffix ? fname_suffix : ".",
+                                 &buf, &len);
 
   if (buf_err)
     error (0, ENAMETOOLONG, "%s", _("generating relative path"));

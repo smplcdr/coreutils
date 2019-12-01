@@ -15,7 +15,7 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* Written by Arnold Robbins.
-   Major rewrite by David MacKenzie, djm@gnu.ai.mit.edu. */
+   Major rewrite by David MacKenzie, djm@gnu.ai.mit.edu.  */
 
 #include <config.h>
 #include <stdio.h>
@@ -55,12 +55,12 @@ static bool use_real = false;
 static bool just_user = false;
 /* True unless errors have been encountered.  */
 static bool ok = true;
-/* If true, we are using multiple users. Terminate -G with double NUL. */
+/* If true, we are using multiple users. Terminate -G with double NUL.  */
 static bool multiple_users = false;
 /* If true, output user/group name instead of ID number. -n */
 static bool use_name = false;
 
-/* The real and effective IDs of the user to print. */
+/* The real and effective IDs of the user to print.  */
 static uid_t ruid, euid;
 static gid_t rgid, egid;
 
@@ -72,7 +72,7 @@ static void print_user (uid_t uid);
 static void print_full_info (const char *username);
 static void print_stuff (const char *pw_name);
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"context", no_argument, NULL, 'Z'},
   {"group", no_argument, NULL, 'g'},
@@ -81,8 +81,6 @@ static struct option const longopts[] =
   {"real", no_argument, NULL, 'r'},
   {"user", no_argument, NULL, 'u'},
   {"zero", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -137,53 +135,50 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "agnruzGZ", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'a':
-          /* Ignore -a, for compatibility with SVR4.  */
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'Z':
-          /* politely decline if we're not on a SELinux/SMACK-enabled kernel. */
+  while ((optc = getopt_long (argc, argv, "agnruzGZ", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'a':
+        /* Ignore -a, for compatibility with SVR4.  */
+        break;
+      case 'Z':
+        /* politely decline if we're not on a SELinux/SMACK-enabled kernel.  */
 #ifdef HAVE_SMACK
-          if (!selinux_enabled && !smack_enabled)
-            die (EXIT_FAILURE, 0,
-                 _("--context (-Z) works only on "
-                   "an SELinux/SMACK-enabled kernel"));
+        if (!selinux_enabled && !smack_enabled)
+          die (EXIT_FAILURE, 0,
+               _("--context (-Z) works only on "
+                 "an SELinux/SMACK-enabled kernel"));
 #else
-          if (!selinux_enabled)
-            die (EXIT_FAILURE, 0,
-                 _("--context (-Z) works only on an SELinux-enabled kernel"));
+        if (!selinux_enabled)
+          die (EXIT_FAILURE, 0,
+               _("--context (-Z) works only on an SELinux-enabled kernel"));
 #endif
-          just_context = true;
-          break;
-
-        case 'g':
-          just_group = true;
-          break;
-        case 'n':
-          use_name = true;
-          break;
-        case 'r':
-          use_real = true;
-          break;
-        case 'u':
-          just_user = true;
-          break;
-        case 'z':
-          opt_zero = true;
-          break;
-        case 'G':
-          just_group_list = true;
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+        just_context = true;
+        break;
+      case 'g':
+        just_group = true;
+        break;
+      case 'n':
+        use_name = true;
+        break;
+      case 'r':
+        use_real = true;
+        break;
+      case 'u':
+        just_user = true;
+        break;
+      case 'z':
+        opt_zero = true;
+        break;
+      case 'G':
+        just_group_list = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   size_t n_ids = argc - optind;
 
@@ -221,14 +216,14 @@ main (int argc, char **argv)
           || (smack_enabled
               && smack_new_label_from_self (&context) < 0
               && just_context))
-        die (EXIT_FAILURE, 0, _("can't get process context"));
+        die (EXIT_FAILURE, 0, _("cannot get process context"));
     }
 
   if (n_ids >= 1)
     {
       multiple_users = n_ids > 1 ? true : false;
       /* Changing the value of n_ids to the last index in the array where we
-         have the last possible user id. This helps us because we don't have
+         have the last possible user id. This helps us because we do not have
          to declare a different variable to keep a track of where the
          last username lies in argv[].  */
       n_ids += optind;
@@ -237,8 +232,8 @@ main (int argc, char **argv)
         {
           struct passwd *pwd = NULL;
           const char *spec = argv[optind];
-          /* Disallow an empty spec here as parse_user_spec() doesn't
-             give an error for that as it seems it's a valid way to
+          /* Disallow an empty spec here as parse_user_spec() does not
+             give an error for that as it seems it is a valid way to
              specify a noop or "reset special bits" depending on the system.  */
           if (*spec)
             {
@@ -329,7 +324,7 @@ uidtostr_ptr (uid_t const *uid)
 }
 #define uidtostr(u) uidtostr_ptr (&(u))
 
-/* Print the name or value of user ID UID. */
+/* Print the name or value of user ID UID.  */
 
 static void
 print_user (uid_t uid)
@@ -351,7 +346,7 @@ print_user (uid_t uid)
   fputs (s, stdout);
 }
 
-/* Print all of the info about the user's user and group IDs. */
+/* Print all of the info about the user's user and group IDs.  */
 
 static void
 print_full_info (const char *username)
@@ -426,7 +421,7 @@ print_full_info (const char *username)
     printf (_(" context=%s"), context);
 }
 
-/* Print information about the user based on the arguments passed. */
+/* Print information about the user based on the arguments passed.  */
 
 static void
 print_stuff (const char *pw_name)
@@ -438,7 +433,7 @@ print_stuff (const char *pw_name)
      execution but false if something goes wrong. We then AND this value with
      the current value of 'ok' because we want to know if one of the previous
      users faced a problem in these functions. This value of 'ok' is later used
-     to understand what status program should exit with. */
+     to understand what status program should exit with.  */
   else if (just_group)
     ok &= print_group (use_real ? rgid : egid, use_name);
   else if (just_group_list)
@@ -451,7 +446,7 @@ print_stuff (const char *pw_name)
 
   /* When printing records for more than 1 user, at the end of groups
      of each user terminate the record with two consequent NUL characters
-     to make parsing and distinguishing between two records possible. */
+     to make parsing and distinguishing between two records possible.  */
   if (opt_zero && just_group_list && multiple_users)
     {
       putchar ('\0');

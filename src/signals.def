@@ -1,0 +1,55 @@
+/* Target signal numbers.
+   Copyright (C) 2010-2019 Free Software Foundation, Inc.
+
+   This file is part of coreutils.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+
+/* Adapted from GDB.  */
+
+/* Used some places (e.g. stop_signal) to record the concept that
+   there is no signal.  */
+ SET (0,         "0",         "Signal 0"),
+ SET (SIGHUP,    "SIGHUP",    "Hangup"),
+ SET (SIGINT,    "SIGINT",    "Interrupt"),
+ SET (SIGQUIT,   "SIGQUIT",   "Quit"),
+ SET (SIGILL,    "SIGILL",    "Illegal instruction"),
+ SET (SIGTRAP,   "SIGTRAP",   "Trace/breakpoint trap"),
+ SET (SIGABRT,   "SIGABRT",   "Aborted"),
+ SET (SIGFPE,    "SIGFPE",    "Arithmetic exception"),
+ SET (SIGKILL,   "SIGKILL",   "Killed"),
+ SET (SIGBUS,    "SIGBUS",    "Bus error"),
+ SET (SIGSEGV,   "SIGSEGV",   "Segmentation fault"),
+ SET (SIGSYS,    "SIGSYS",    "Bad system call"),
+ SET (SIGPIPE,   "SIGPIPE",   "Broken pipe"),
+ SET (SIGALRM,   "SIGALRM",   "Alarm clock"),
+ SET (SIGTERM,   "SIGTERM",   "Terminated"),
+ SET (SIGURG,    "SIGURG",    "Urgent I/O condition"),
+ SET (SIGSTOP,   "SIGSTOP",   "Stopped (signal)"),
+ SET (SIGTSTP,   "SIGTSTP",   "Stopped (user)"),
+ SET (SIGCONT,   "SIGCONT",   "Continued"),
+ SET (SIGCHLD,   "SIGCHLD",   "Child status changed"),
+ SET (SIGTTIN,   "SIGTTIN",   "Stopped (tty input)"),
+ SET (SIGTTOU,   "SIGTTOU",   "Stopped (tty output)"),
+ SET (SIGIO,     "SIGIO",     "I/O possible"),
+ SET (SIGXCPU,   "SIGXCPU",   "CPU time limit exceeded"),
+ SET (SIGXFSZ,   "SIGXFSZ",   "File size limit exceeded"),
+ SET (SIGVTALRM, "SIGVTALRM", "Virtual timer expired"),
+ SET (SIGPROF,   "SIGPROF",   "Profiling timer expired"),
+ SET (SIGWINCH,  "SIGWINCH",  "Window size changed"),
+ SET (SIGUSR1,   "SIGUSR1",   "User defined signal 1"),
+ SET (SIGUSR2,   "SIGUSR2",   "User defined signal 2"),
+ SET (SIGPWR,    "SIGPWR",    "Power fail/restart"),
+ /* Similar to SIGIO.  Perhaps they should have the same number.  */
+ SET (SIGPOLL,   "SIGPOLL",   "Pollable event occurred"),

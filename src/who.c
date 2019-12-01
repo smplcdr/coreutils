@@ -14,7 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Written by jla; revised by djm; revised again by mstone */
+/* Written by jla; revised by djm; revised again by mstone.  */
 
 /* Output format:
    name [state] line time [activity] [pid] [comment] [exit]
@@ -24,11 +24,12 @@
 */
 
 #include <config.h>
+
+#include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <assert.h>
-
 #include <sys/types.h>
+
 #include "system.h"
 
 #include "c-ctype.h"
@@ -37,6 +38,7 @@
 #include "die.h"
 #include "error.h"
 #include "hard-locale.h"
+#include "long-options.h"
 #include "quote.h"
 
 #ifdef TTY_GROUP_NAME
@@ -98,7 +100,7 @@
 # define UT_ID(U) "??"
 #endif
 
-/* If true, attempt to canonicalize hostnames via a DNS lookup. */
+/* If true, attempt to canonicalize hostnames via a DNS lookup.  */
 static bool do_lookup;
 
 /* If true, display only a list of usernames and count of
@@ -118,7 +120,7 @@ static bool include_idle;
 static bool include_heading;
 
 /* If true, display a '+' for each user if mesg y, a '-' if mesg n,
-   or a '?' if their tty cannot be statted. */
+   or a '?' if their tty cannot be statted.  */
 static bool include_mesg;
 
 /* If true, display process termination & exit status.  */
@@ -150,7 +152,7 @@ static bool my_line_only;
 
 /* The strftime format to use for login times, and its expected
    output width.  */
-static char const *time_format;
+static const char *time_format;
 static int time_format_width;
 
 /* for long options with no corresponding short option, use enum */
@@ -159,7 +161,7 @@ enum
   LOOKUP_OPTION = CHAR_MAX + 1
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"all", no_argument, NULL, 'a'},
   {"boot", no_argument, NULL, 'b'},
@@ -176,8 +178,6 @@ static struct option const longopts[] =
   {"time", no_argument, NULL, 't'},
   {"users", no_argument, NULL, 'u'},
   {"writable", no_argument, NULL, 'T'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -219,7 +219,7 @@ time_string (const STRUCT_UTMP *utmp_ent)
 {
   static char buf[INT_STRLEN_BOUND (intmax_t) + sizeof "-%m-%d %H:%M"];
 
-  /* Don't take the address of UT_TIME_MEMBER directly.
+  /* Do not take the address of UT_TIME_MEMBER directly.
      Ulrich Drepper wrote:
      "... GNU libc (and perhaps other libcs as well) have extended
      utmp file formats which do not use a simple time_t ut_time field.
@@ -239,7 +239,7 @@ time_string (const STRUCT_UTMP *utmp_ent)
 
 /* Print formatted output line. Uses mostly arbitrary field sizes, probably
    will need tweaking if any of the localization stuff is done, or for 64 bit
-   pids, etc. */
+   pids, etc.  */
 static void
 print_line (int userlen, const char *user, const char state,
             int linelen, const char *line,
@@ -288,10 +288,10 @@ print_line (int userlen, const char *user, const char state,
                   time_str,
                   x_idle,
                   x_pid,
-                  /* FIXME: it's not really clear whether the following
+                  /* FIXME: it is not really clear whether the following
                      field should be in the short_output.  A strict reading
                      of SUSv2 would suggest not, but I haven't seen any
-                     implementations that actually work that way... */
+                     implementations that actually work that way...  */
                   comment,
                   x_exitstr
                   );
@@ -328,7 +328,7 @@ is_tty_writable (struct stat const *pstat)
 }
 
 /* Send properly parsed USER_PROCESS info to print_line.  The most
-   recent boot time is BOOTTIME. */
+   recent boot time is BOOTTIME.  */
 static void
 print_user (const STRUCT_UTMP *utmp_ent, time_t boottime)
 {
@@ -351,9 +351,9 @@ print_user (const STRUCT_UTMP *utmp_ent, time_t boottime)
   /* Copy ut_line into LINE, prepending '/dev/' if ut_line is not
      already an absolute file name.  Some systems may put the full,
      absolute file name in ut_line.  */
-  if ( ! IS_ABSOLUTE_FILE_NAME (utmp_ent->ut_line))
+  if (!IS_ABSOLUTE_FILE_NAME (utmp_ent->ut_line))
     p = stpcpy (p, DEV_DIR_WITH_TRAILING_SLASH);
-  stzncpy (p, utmp_ent->ut_line, sizeof (utmp_ent->ut_line));
+  strlcpy (p, utmp_ent->ut_line, sizeof (utmp_ent->ut_line));
 
   if (stat (line, &stats) == 0)
     {
@@ -378,8 +378,8 @@ print_user (const STRUCT_UTMP *utmp_ent, time_t boottime)
       char *host = NULL;
       char *display = NULL;
 
-      /* Copy the host name into UT_HOST, and ensure it's nul terminated. */
-      stzncpy (ut_host, utmp_ent->ut_host, sizeof (utmp_ent->ut_host));
+      /* Copy the host name into UT_HOST, and ensure it is nul terminated.  */
+      strlcpy (ut_host, utmp_ent->ut_host, sizeof (utmp_ent->ut_host));
 
       /* Look for an X display.  */
       display = strchr (ut_host, ':');
@@ -392,7 +392,7 @@ print_user (const STRUCT_UTMP *utmp_ent, time_t boottime)
           host = canon_host (ut_host);
         }
 
-      if (! host)
+      if (!host)
         host = ut_host;
 
       if (display)
@@ -532,12 +532,12 @@ print_runlevel (const STRUCT_UTMP *utmp_ent)
 }
 
 /* Print the username of each valid entry and the number of valid entries
-   in UTMP_BUF, which should have N elements. */
+   in UTMP_BUF, which should have N elements.  */
 static void
 list_entries_who (size_t n, const STRUCT_UTMP *utmp_buf)
 {
   unsigned long int entries = 0;
-  char const *separator = "";
+  const char *separator = "";
 
   while (n--)
     {
@@ -564,7 +564,7 @@ print_heading (void)
               _("PID"), _("COMMENT"), _("EXIT"));
 }
 
-/* Display UTMP_BUF, which should have N entries. */
+/* Display UTMP_BUF, which should have N entries.  */
 static void
 scan_entries (size_t n, const STRUCT_UTMP *utmp_buf)
 {
@@ -580,7 +580,7 @@ scan_entries (size_t n, const STRUCT_UTMP *utmp_buf)
       if (!ttyname_b)
         return;
       if (STRNCMP_LIT (ttyname_b, DEV_DIR_WITH_TRAILING_SLASH) == 0)
-        ttyname_b += DEV_DIR_LEN;	/* Discard /dev/ prefix.  */
+        ttyname_b += DEV_DIR_LEN; /* Discard /dev/ prefix.  */
     }
 
   while (n--)
@@ -595,7 +595,7 @@ scan_entries (size_t n, const STRUCT_UTMP *utmp_buf)
             print_runlevel (utmp_buf);
           else if (need_boottime && UT_TYPE_BOOT_TIME (utmp_buf))
             print_boottime (utmp_buf);
-          /* I've never seen one of these, so I don't know what it should
+          /* I've never seen one of these, so I do not know what it should
              look like :^)
              FIXME: handle OLD_TIME also, perhaps show the delta? */
           else if (need_clockchange && UT_TYPE_NEW_TIME (utmp_buf))
@@ -698,8 +698,10 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "abdlmpqrstuwHT", longopts, NULL))
-         != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "abdlmpqrstuwHT", long_options, NULL)) != -1)
     {
       switch (optc)
         {
@@ -716,76 +718,58 @@ main (int argc, char **argv)
           include_exit = true;
           assumptions = false;
           break;
-
         case 'b':
           need_boottime = true;
           assumptions = false;
           break;
-
         case 'd':
           need_deadprocs = true;
           include_idle = true;
           include_exit = true;
           assumptions = false;
           break;
-
         case 'H':
           include_heading = true;
           break;
-
         case 'l':
           need_login = true;
           include_idle = true;
           assumptions = false;
           break;
-
         case 'm':
           my_line_only = true;
           break;
-
         case 'p':
           need_initspawn = true;
           assumptions = false;
           break;
-
         case 'q':
           short_list = true;
           break;
-
         case 'r':
           need_runlevel = true;
           include_idle = true;
           assumptions = false;
           break;
-
         case 's':
           short_output = true;
           break;
-
         case 't':
           need_clockchange = true;
           assumptions = false;
           break;
-
         case 'T':
         case 'w':
           include_mesg = true;
           break;
-
         case 'u':
           need_users = true;
           include_idle = true;
           assumptions = false;
           break;
-
         case LOOKUP_OPTION:
           do_lookup = true;
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_FAILURE);
         }
@@ -815,19 +799,19 @@ main (int argc, char **argv)
 
   switch (argc - optind)
     {
-    case 2:			/* who <blurf> <glop> */
+    case 2:     /* who <blurf> <glop> */
       my_line_only = true;
       FALLTHROUGH;
     case -1:
-    case 0:			/* who */
+    case 0:     /* who */
       who (UTMP_FILE, READ_UTMP_CHECK_PIDS);
       break;
 
-    case 1:			/* who <utmp file> */
+    case 1:     /* who <utmp file> */
       who (argv[optind], 0);
       break;
 
-    default:			/* lose */
+    default:      /* lose */
       error (0, 0, _("extra operand %s"), quote (argv[optind + 2]));
       usage (EXIT_FAILURE);
     }

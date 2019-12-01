@@ -100,7 +100,7 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, false, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   if (argc <= optind)
     {
@@ -132,7 +132,7 @@ main (int argc, char **argv)
   if (redirecting_stdout || (redirecting_stderr && stdout_is_closed))
     {
       char *in_home = NULL;
-      char const *file = "nohup.out";
+      const char *file = "nohup.out";
       int flags = O_CREAT | O_WRONLY | O_APPEND;
       mode_t mode = S_IRUSR | S_IWUSR;
       mode_t umask_value = umask (~mode);
@@ -143,7 +143,7 @@ main (int argc, char **argv)
       if (out_fd < 0)
         {
           int saved_errno = errno;
-          char const *home = getenv ("HOME");
+          const char *home = getenv ("HOME");
           if (home)
             {
               in_home = file_name_concat (home, file, NULL);

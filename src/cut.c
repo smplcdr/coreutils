@@ -24,19 +24,19 @@
 
 #include <config.h>
 
-#include <stdio.h>
 #include <assert.h>
 #include <getopt.h>
+#include <stdio.h>
 #include <sys/types.h>
+
 #include "system.h"
 
 #include "error.h"
 #include "fadvise.h"
 #include "getndelim2.h"
 #include "hash.h"
-#include "xstrndup.h"
-
 #include "set-fields.h"
+#include "xstrndup.h"
 
 /* The official name of this program (e.g., no 'g' prefix).  */
 #define PROGRAM_NAME "cut"
@@ -46,19 +46,19 @@
   proper_name ("David MacKenzie"), \
   proper_name ("Jim Meyering")
 
-#define FATAL_ERROR(Message)						\
-  do									\
-    {									\
-      error (0, 0, (Message));						\
-      usage (EXIT_FAILURE);						\
-    }									\
+#define FATAL_ERROR(Message)            \
+  do                  \
+    {                 \
+      error (0, 0, (Message));            \
+      usage (EXIT_FAILURE);           \
+    }                 \
   while (0)
 
 
 /* Pointer inside RP.  When checking if a byte or field is selected
    by a finite range, we check if it is between CURRENT_RP.LO
    and CURRENT_RP.HI.  If the byte or field index is greater than
-   CURRENT_RP.HI then we make CURRENT_RP to point to the next range pair. */
+   CURRENT_RP.HI then we make CURRENT_RP to point to the next range pair.  */
 static struct field_range_pair *current_rp;
 
 /* This buffer is used to support the semantics of the -s option
@@ -77,10 +77,10 @@ enum operating_mode
   {
     undefined_mode,
 
-    /* Output characters that are in the given bytes. */
+    /* Output characters that are in the given bytes.  */
     byte_mode,
 
-    /* Output the given delimiter-separated fields. */
+    /* Output the given delimiter-separated fields.  */
     field_mode
   };
 
@@ -95,10 +95,10 @@ static bool suppress_non_delimited;
    those that were specified.  */
 static bool complement;
 
-/* The delimiter character for field mode. */
+/* The delimiter character for field mode.  */
 static unsigned char delim;
 
-/* The delimiter for each line/record. */
+/* The delimiter for each line/record.  */
 static unsigned char line_delim = '\n';
 
 /* True if the --output-delimiter=STRING option was specified.  */
@@ -111,7 +111,7 @@ static size_t output_delimiter_length;
    string consisting of the input delimiter.  */
 static char *output_delimiter_string;
 
-/* True if we have ever read standard input. */
+/* True if we have ever read standard input.  */
 static bool have_read_stdin;
 
 /* For long options that have no equivalent short option, use a
@@ -122,7 +122,7 @@ enum
   COMPLEMENT_OPTION
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"bytes", required_argument, NULL, 'b'},
   {"characters", required_argument, NULL, 'c'},
@@ -132,8 +132,6 @@ static struct option const longopts[] =
   {"output-delimiter", required_argument, NULL, OUTPUT_DELIMITER_OPTION},
   {"complement", no_argument, NULL, COMPLEMENT_OPTION},
   {"zero-terminated", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -211,7 +209,7 @@ next_item (uintmax_t *item_idx)
     current_rp++;
 }
 
-/* Return nonzero if the K'th field or byte is printable. */
+/* Return nonzero if the K'th field or byte is printable.  */
 
 static inline bool
 print_kth (uintmax_t k)
@@ -219,7 +217,7 @@ print_kth (uintmax_t k)
   return current_rp->lo <= k;
 }
 
-/* Return nonzero if K'th byte is the beginning of a range. */
+/* Return nonzero if K'th byte is the beginning of a range.  */
 
 static inline bool
 is_range_start_index (uintmax_t k)
@@ -232,9 +230,9 @@ is_range_start_index (uintmax_t k)
 static void
 cut_bytes (FILE *stream)
 {
-  uintmax_t byte_idx;	/* Number of bytes in the line so far. */
+  uintmax_t byte_idx; /* Number of bytes in the line so far.  */
   /* Whether to begin printing delimiters between ranges for the current line.
-     Set after we've begun printing data corresponding to the first range.  */
+     Set after we have begun printing data corresponding to the first range.  */
   bool print_delimiter;
 
   byte_idx = 0;
@@ -242,7 +240,7 @@ cut_bytes (FILE *stream)
   current_rp = frp;
   while (true)
     {
-      int c;		/* Each character from the file. */
+      int c;    /* Each character from the file.  */
 
       c = getc (stream);
 
@@ -281,7 +279,6 @@ cut_bytes (FILE *stream)
 }
 
 /* Read from stream STREAM, printing to standard output any selected fields.  */
-
 static void
 cut_fields (FILE *stream)
 {
@@ -307,7 +304,7 @@ cut_fields (FILE *stream)
      That is because a non-delimited line has exactly one field.  */
   buffer_first_field = (suppress_non_delimited ^ !print_kth (1));
 
-  while (1)
+  while (true)
     {
       if (field_idx == 1 && buffer_first_field)
         {
@@ -354,7 +351,7 @@ cut_fields (FILE *stream)
               /* Print the field, but not the trailing delimiter.  */
               fwrite (field_1_buffer, sizeof (char), n_bytes - 1, stdout);
 
-              /* With -d$'\n' don't treat the last '\n' as a delimiter.  */
+              /* With -d$'\n' do not treat the last '\n' as a delimiter.  */
               if (delim == line_delim)
                 {
                   int last_c = getc (stream);
@@ -395,7 +392,7 @@ cut_fields (FILE *stream)
             }
         }
 
-      /* With -d$'\n' don't treat the last '\n' as a delimiter.  */
+      /* With -d$'\n' do not treat the last '\n' as a delimiter.  */
       if (delim == line_delim && c == delim)
         {
           int last_c = getc (stream);
@@ -438,7 +435,7 @@ cut_stream (FILE *stream)
    Return true if successful.  */
 
 static bool
-cut_file (char const *file)
+cut_file (const char *file)
 {
   FILE *stream;
 
@@ -467,7 +464,7 @@ cut_file (char const *file)
       return false;
     }
   if (STREQ (file, "-"))
-    clearerr (stream);		/* Also clear EOF. */
+    clearerr (stream);    /* Also clear EOF.  */
   else if (fclose (stream) == EOF)
     {
       error (0, errno, "%s", quotef (file));
@@ -500,68 +497,57 @@ main (int argc, char **argv)
   delim = '\0';
   have_read_stdin = false;
 
-  while ((optc = getopt_long (argc, argv, "b:c:d:f:nsz", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'b':
-        case 'c':
-          /* Build the byte list. */
-          if (operating_mode != undefined_mode)
-            FATAL_ERROR (_("only one type of list may be specified"));
-          operating_mode = byte_mode;
-          spec_list_string = optarg;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'f':
-          /* Build the field list. */
-          if (operating_mode != undefined_mode)
-            FATAL_ERROR (_("only one type of list may be specified"));
-          operating_mode = field_mode;
-          spec_list_string = optarg;
-          break;
-
-        case 'd':
-          /* New delimiter. */
-          /* Interpret -d '' to mean 'use the NUL byte as the delimiter.'  */
-          if (optarg[0] != '\0' && optarg[1] != '\0')
-            FATAL_ERROR (_("the delimiter must be a single character"));
-          delim = optarg[0];
-          delim_specified = true;
-          break;
-
-        case OUTPUT_DELIMITER_OPTION:
-          output_delimiter_specified = true;
-          /* Interpret --output-delimiter='' to mean
-             'use the NUL byte as the delimiter.'  */
-          output_delimiter_length = (optarg[0] == '\0'
-                                     ? 1 : strlen (optarg));
-          output_delimiter_string = xstrdup (optarg);
-          break;
-
-        case 'n':
-          break;
-
-        case 's':
-          suppress_non_delimited = true;
-          break;
-
-        case 'z':
-          line_delim = '\0';
-          break;
-
-        case COMPLEMENT_OPTION:
-          complement = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "b:c:d:f:nsz", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'b':
+      case 'c':
+        /* Build the byte list.  */
+        if (operating_mode != undefined_mode)
+          FATAL_ERROR (_("only one type of list may be specified"));
+        operating_mode = byte_mode;
+        spec_list_string = optarg;
+        break;
+      case 'f':
+        /* Build the field list.  */
+        if (operating_mode != undefined_mode)
+          FATAL_ERROR (_("only one type of list may be specified"));
+        operating_mode = field_mode;
+        spec_list_string = optarg;
+        break;
+      case 'd':
+        /* New delimiter.  */
+        /* Interpret -d '' to mean 'use the NUL byte as the delimiter.'  */
+        if (optarg[0] != '\0' && optarg[1] != '\0')
+          FATAL_ERROR (_("the delimiter must be a single character"));
+        delim = optarg[0];
+        delim_specified = true;
+        break;
+      case OUTPUT_DELIMITER_OPTION:
+        output_delimiter_specified = true;
+        /* Interpret --output-delimiter='' to mean
+           'use the NUL byte as the delimiter.'  */
+        output_delimiter_length = (optarg[0] == '\0'
+                                   ? 1 : strlen (optarg));
+        output_delimiter_string = xstrdup (optarg);
+        break;
+      case 'n':
+        break;
+      case 's':
+        suppress_non_delimited = true;
+        break;
+      case 'z':
+        line_delim = '\0';
+        break;
+      case COMPLEMENT_OPTION:
+        complement = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (operating_mode == undefined_mode)
     FATAL_ERROR (_("you must specify a list of bytes, characters, or fields"));

@@ -16,13 +16,15 @@
 
 /* Written by Pádraig Brady  */
 
-#include <config.h>             /* sets _FILE_OFFSET_BITS=64 etc. */
+#include <config.h>             /* sets _FILE_OFFSET_BITS=64 etc.  */
+
+#include <float.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include <float.h>
+
+#include "system.h"
 
 #include "ftoastr.h"
-#include "system.h"
 #include "long-options.h"
 
 #define PROGRAM_NAME "getlimits"
@@ -48,13 +50,13 @@
 /* These are not interesting to print.
  * Instead of these defines it would be nice to be able to do
  * #ifdef (TYPE##_MIN) in function macro below.  */
-#define SIZE_MIN 0
-#define UCHAR_MIN 0
-#define UINT_MIN 0
-#define ULONG_MIN 0
+#define SIZE_MIN    0
+#define UCHAR_MIN   0
+#define UINT_MIN    0
+#define ULONG_MIN   0
 #define UINTMAX_MIN 0
-#define UID_T_MIN 0
-#define GID_T_MIN 0
+#define UID_T_MIN   0
+#define GID_T_MIN   0
 
 void
 usage (int status)
@@ -82,30 +84,30 @@ Output platform dependent limits in a format useful for shell scripts.\n\
    representation is BUF + 1.  Do this in-place, in the buffer.
    Return a pointer to the result, which is normally BUF + 1, but is
    BUF if the representation grew in size.  */
-static char const *
+static const char *
 decimal_absval_add_one (char *buf)
 {
   bool negative = (buf[1] == '-');
-  char *absnum = buf + 1 + negative;
-  char *p = absnum + strlen (absnum);
+  char *absnum = buf + 1 + (negative ? 1 : 0);
+  char *p = absnum + strlen (absnum) - 1;
   absnum[-1] = '0';
-  while (*--p == '9')
-    *p = '0';
-  ++*p;
-  char *result = MIN (absnum, p);
+  while (*p == '9')
+    *p-- = '0';
+  (*p)++;
+  char *result = MIN (absnum, p) - 1;
   if (negative)
-    *--result = '-';
+    *result-- = '-';
   return result;
 }
 
 #define PRINT_FLOATTYPE(N, T, FTOASTR, BUFSIZE)                         \
-static void                                                             \
-N (T x)                                                                 \
-{                                                                       \
-  char buf[BUFSIZE];                                                    \
-  FTOASTR (buf, sizeof buf, FTOASTR_LEFT_JUSTIFY, 0, x);                \
-  puts (buf);                                                           \
-}
+  static void                                                           \
+  N (T x)                                                               \
+  {                                                                     \
+    char buf[BUFSIZE];                                                  \
+    FTOASTR (buf, sizeof buf, FTOASTR_LEFT_JUSTIFY, 0, x);              \
+    puts (buf);                                                         \
+  }
 
 PRINT_FLOATTYPE (print_FLT, float, ftoastr, FLT_BUFSIZE_BOUND)
 PRINT_FLOATTYPE (print_DBL, double, dtoastr, DBL_BUFSIZE_BOUND)
@@ -127,7 +129,7 @@ main (int argc, char **argv)
   atexit (close_stdout);
 
   parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, VERSION,
-                      usage, AUTHORS, (char const *) NULL);
+                      usage, AUTHORS, (const char *) NULL);
 
 #define print_int(TYPE)                                                  \
   sprintf (limit + 1, "%"PRIuMAX, (uintmax_t) TYPE##_MAX);               \
@@ -144,7 +146,7 @@ main (int argc, char **argv)
   printf (#TYPE"_MIN="); print_##TYPE (TYPE##_MIN);                      \
   printf (#TYPE"_MAX="); print_##TYPE (TYPE##_MAX);
 
-  /* Variable sized ints */
+  /* Variable sized ints.  */
   print_int (CHAR);
   print_int (SCHAR);
   print_int (UCHAR);
@@ -163,7 +165,7 @@ main (int argc, char **argv)
   print_int (INTMAX);
   print_int (UINTMAX);
 
-  /* Variable sized floats */
+  /* Variable sized floats.  */
   print_float (FLT);
   print_float (DBL);
   print_float (LDBL);

@@ -16,11 +16,11 @@
 
 /* Extracted from cp.c and librarified by Jim Meyering.  */
 
-#ifndef COPY_H
-# define COPY_H
+#ifndef _COPY_H
+#define _COPY_H 1
 
-# include <stdbool.h>
-# include "hash.h"
+#include <stdbool.h>
+#include "hash.h"
 
 /* Control creation of sparse files (files with holes).  */
 enum Sparse_type
@@ -81,15 +81,15 @@ enum Dereference_symlink
   DEREF_ALWAYS
 };
 
-# define VALID_SPARSE_MODE(Mode)	\
-  ((Mode) == SPARSE_NEVER		\
-   || (Mode) == SPARSE_AUTO		\
-   || (Mode) == SPARSE_ALWAYS)
+#define VALID_SPARSE_MODE(Mode) \
+  ((Mode) == SPARSE_NEVER \
+|| (Mode) == SPARSE_AUTO \
+|| (Mode) == SPARSE_ALWAYS)
 
-# define VALID_REFLINK_MODE(Mode)	\
-  ((Mode) == REFLINK_NEVER		\
-   || (Mode) == REFLINK_AUTO		\
-   || (Mode) == REFLINK_ALWAYS)
+#define VALID_REFLINK_MODE(Mode) \
+  ((Mode) == REFLINK_NEVER \
+|| (Mode) == REFLINK_AUTO \
+|| (Mode) == REFLINK_ALWAYS)
 
 /* These options control how files are copied by at least the
    following programs: mv (when rename doesn't work), cp, install.
@@ -130,7 +130,7 @@ struct cp_options
   bool unlink_dest_after_failed_open;
 
   /* If true, create hard links instead of copying files.
-     Create destination directories as usual. */
+     Create destination directories as usual.  */
   bool hard_link;
 
   /* If true, rather than copying, first attempt to use rename.
@@ -156,7 +156,7 @@ struct cp_options
   bool one_file_system;
 
   /* If true, attempt to give the copies the original files' permissions,
-     owner, group, and timestamps. */
+     owner, group, and timestamps.  */
   bool preserve_ownership;
   bool preserve_mode;
   bool preserve_timestamps;
@@ -177,7 +177,7 @@ struct cp_options
      will be hard links to the same file (a copy of F).  */
   bool preserve_links;
 
-  /* Optionally don't copy the data, either with CoW reflink files or
+  /* Optionally do not copy the data, either with CoW reflink files or
      explicitly with the --attributes-only option.  */
   bool data_copy_required;
 
@@ -197,11 +197,11 @@ struct cp_options
      If false, a failure to preserve file's security context does not
      change the invoking application's exit status, but may output diagnostics.
      For example, with 'cp --preserve=context' this flag is "true",
-     while with 'cp --preserve=all' or 'cp -a', it is "false". */
+     while with 'cp --preserve=all' or 'cp -a', it is "false".  */
   bool require_preserve_context;
 
   /* If true, attempt to preserve extended attributes using libattr.
-     Ignored if coreutils are compiled without xattr support. */
+     Ignored if coreutils are compiled without xattr support.  */
   bool preserve_xattr;
 
   /* Useful only when preserve_xattr is true.
@@ -210,7 +210,7 @@ struct cp_options
      If false, a failure to preserve file's extended attributes does not
      change the invoking application's exit status, but may output diagnostics.
      For example, with 'cp --preserve=xattr' this flag is "true",
-     while with 'cp --preserve=all' or 'cp -a', it is "false". */
+     while with 'cp --preserve=all' or 'cp -a', it is "false".  */
   bool require_preserve_xattr;
 
   /* This allows us to output warnings in cases 2 and 4 below,
@@ -223,7 +223,7 @@ struct cp_options
   bool reduce_diagnostics;
 
   /* If true, copy directories recursively and copy special files
-     as themselves rather than copying their contents. */
+     as themselves rather than copying their contents.  */
   bool recursive;
 
   /* If true, set file mode to value of MODE.  Otherwise,
@@ -231,14 +231,14 @@ struct cp_options
   bool set_mode;
 
   /* If true, create symbolic links instead of copying files.
-     Create destination directories as usual. */
+     Create destination directories as usual.  */
   bool symbolic_link;
 
   /* If true, do not copy a nondirectory that has an existing destination
-     with the same or newer modification time. */
+     with the same or newer modification time.  */
   bool update;
 
-  /* If true, display the names of the files before copying them. */
+  /* If true, display the names of the files before copying them.  */
   bool verbose;
 
   /* If true, stdin is a tty.  */
@@ -279,29 +279,29 @@ struct cp_options
 /* Arrange to make rename calls go through the wrapper function
    on systems with a rename function that fails for a source file name
    specified with a trailing slash.  */
-# if RENAME_TRAILING_SLASH_BUG
+#if RENAME_TRAILING_SLASH_BUG
 int rpl_rename (const char *, const char *);
-#  undef rename
-#  define rename rpl_rename
-# endif
+# undef rename
+# define rename rpl_rename
+#endif
 
-bool copy (char const *src_name, char const *dst_name,
+bool copy (const char *src_name, const char *dst_name,
            bool nonexistent_dst, const struct cp_options *options,
            bool *copy_into_self, bool *rename_succeeded);
 
-extern bool set_process_security_ctx (char const *src_name,
-                                      char const *dst_name,
+extern bool set_process_security_ctx (const char *src_name,
+                                      const char *dst_name,
                                       mode_t mode, bool new_dst,
                                       const struct cp_options *x);
 
-extern bool set_file_security_ctx (char const *dst_name, bool process_local,
+extern bool set_file_security_ctx (const char *dst_name, bool process_local,
                                    bool recurse, const struct cp_options *x);
 
 void dest_info_init (struct cp_options *);
 void src_info_init (struct cp_options *);
 
 void cp_options_default (struct cp_options *);
-bool chown_failure_ok (struct cp_options const *) _GL_ATTRIBUTE_PURE;
+bool chown_failure_ok (const struct cp_options *) _GL_ATTRIBUTE_PURE;
 mode_t cached_umask (void);
 
-#endif
+#endif /* _COPY_H */

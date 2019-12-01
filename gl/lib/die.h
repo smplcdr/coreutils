@@ -16,16 +16,17 @@
    Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA
    02110-1301, USA.  */
 
-#ifndef DIE_H
-# define DIE_H
+#ifndef _DIE_H
+#define _DIE_H 1
 
-# include <error.h>
-# include <stdbool.h>
-# include <verify.h>
+#include <error.h>
+#include <stdbool.h>
 
-/* Like 'error (STATUS, ...)', except STATUS must be a nonzero constant.
+#include "verify.h"
+
+/* Like 'error(STATUS, ...)', except STATUS must be a nonzero constant.
    This may pacify the compiler or help it generate better code.  */
-# define die(status, ...) \
+#define die(status, ...) \
   verify_expr (status, (error (status, __VA_ARGS__), assume (false)))
 
-#endif /* DIE_H */
+#endif /* _DIE_H */

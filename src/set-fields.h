@@ -23,10 +23,10 @@ struct field_range_pair
     uintmax_t hi;
   };
 
-/* Array of `struct range_pair' holding all the finite ranges. */
+/* Array of `struct range_pair' holding all the finite ranges.  */
 extern struct field_range_pair *frp;
 
-/* Number of finite ranges specified by the user. */
+/* Number of finite ranges specified by the user.  */
 extern size_t n_frp;
 
 /* field list parsing options */

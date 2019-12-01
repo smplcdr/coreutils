@@ -44,7 +44,7 @@ static bool use_nuls;
 static const char *can_relative_to;
 static const char *can_relative_base;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"canonicalize-existing", no_argument, NULL, 'e'},
   {"canonicalize-missing", no_argument, NULL, 'm'},
@@ -56,8 +56,6 @@ static struct option const longopts[] =
   {"zero", no_argument, NULL, 'z'},
   {"logical", no_argument, NULL, 'L'},
   {"physical", no_argument, NULL, 'P'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -83,7 +81,7 @@ all but the last component must exist\n\
   -q, --quiet                  suppress most error messages\n\
       --relative-to=DIR        print the resolved path relative to DIR\n\
       --relative-base=DIR      print absolute paths unless paths below DIR\n\
-  -s, --strip, --no-symlinks   don't expand symlinks\n\
+  -s, --strip, --no-symlinks   do not expand symlinks\n\
   -z, --zero                   end each output line with NUL, not newline\n\
 \n\
 "), stdout);
@@ -91,6 +89,7 @@ all but the last component must exist\n\
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -173,6 +172,7 @@ process_path (const char *fname, int can_mode)
 int
 main (int argc, char **argv)
 {
+  int optc;
   bool ok = true;
   int can_mode = CAN_ALL_BUT_LAST;
   const char *relative_to = NULL;
@@ -186,51 +186,47 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while (1)
-    {
-      int c = getopt_long (argc, argv, "eLmPqsz", longopts, NULL);
-      if (c == -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "eLmPqsz", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case 'e':
+        can_mode &= ~CAN_MODE_MASK;
+        can_mode |= CAN_EXISTING;
         break;
-      switch (c)
-        {
-        case 'e':
-          can_mode &= ~CAN_MODE_MASK;
-          can_mode |= CAN_EXISTING;
-          break;
-        case 'm':
-          can_mode &= ~CAN_MODE_MASK;
-          can_mode |= CAN_MISSING;
-          break;
-        case 'L':
-          can_mode |= CAN_NOLINKS;
-          logical = true;
-          break;
-        case 's':
-          can_mode |= CAN_NOLINKS;
-          logical = false;
-          break;
-        case 'P':
-          can_mode &= ~CAN_NOLINKS;
-          logical = false;
-          break;
-        case 'q':
-          verbose = false;
-          break;
-        case 'z':
-          use_nuls = true;
-          break;
-        case RELATIVE_TO_OPTION:
-          relative_to = optarg;
-          break;
-        case RELATIVE_BASE_OPTION:
-          relative_base = optarg;
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+      case 'm':
+        can_mode &= ~CAN_MODE_MASK;
+        can_mode |= CAN_MISSING;
+        break;
+      case 'L':
+        can_mode |= CAN_NOLINKS;
+        logical = true;
+        break;
+      case 's':
+        can_mode |= CAN_NOLINKS;
+        logical = false;
+        break;
+      case 'P':
+        can_mode &= ~CAN_NOLINKS;
+        logical = false;
+        break;
+      case 'q':
+        verbose = false;
+        break;
+      case 'z':
+        use_nuls = true;
+        break;
+      case RELATIVE_TO_OPTION:
+        relative_to = optarg;
+        break;
+      case RELATIVE_BASE_OPTION:
+        relative_base = optarg;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (optind >= argc)
     {
@@ -260,7 +256,7 @@ main (int argc, char **argv)
       if (need_dir && !isdir (base))
         die (EXIT_FAILURE, ENOTDIR, "%s", quotef (relative_base));
       /* --relative-to is a no-op if it does not have --relative-base
-           as a prefix */
+         as a prefix */
       if (path_prefix (base, can_relative_to))
         can_relative_base = base;
       else
@@ -271,8 +267,8 @@ main (int argc, char **argv)
         }
     }
 
-  for (; optind < argc; ++optind)
-    ok &= process_path (argv[optind], can_mode);
+  while (optind < argc)
+    ok &= process_path (argv[optind++], can_mode);
 
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -28,14 +28,12 @@
 
 #define AUTHORS proper_name ("David MacKenzie")
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"multiple", no_argument, NULL, 'a'},
   {"suffix", required_argument, NULL, 's'},
   {"zero", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 void
@@ -48,8 +46,7 @@ usage (int status)
       printf (_("\
 Usage: %s NAME [SUFFIX]\n\
   or:  %s OPTION... NAME...\n\
-"),
-              program_name, program_name);
+"), program_name, program_name);
       fputs (_("\
 Print NAME with any leading directory components removed.\n\
 If specified, also remove a trailing SUFFIX.\n\
@@ -71,8 +68,7 @@ Examples:\n\
   %s include/stdio.h .h     -> \"stdio\"\n\
   %s -s .h include/stdio.h  -> \"stdio\"\n\
   %s -a any/str1 any/str2   -> \"str1\" followed by \"str2\"\n\
-"),
-              program_name, program_name, program_name, program_name);
+"), program_name, program_name, program_name, program_name);
       emit_ancillary_info (PROGRAM_NAME);
     }
   exit (status);
@@ -80,7 +76,6 @@ Examples:\n\
 
 /* Remove SUFFIX from the end of NAME if it is there, unless NAME
    consists entirely of SUFFIX.  */
-
 static void
 remove_suffix (char *name, const char *suffix)
 {
@@ -123,6 +118,7 @@ perform_basename (const char *string, const char *suffix, bool use_nuls)
 int
 main (int argc, char **argv)
 {
+  int optc;
   bool multiple_names = false;
   bool use_nuls = false;
   const char *suffix = NULL;
@@ -135,35 +131,25 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while (true)
-    {
-      int c = getopt_long (argc, argv, "+as:z", longopts, NULL);
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-      if (c == -1)
+  while ((optc = getopt_long (argc, argv, "+as:z", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 's':
+        suffix = optarg;
+        /* -s implies -a, so... */
+        FALLTHROUGH;
+      case 'a':
+        multiple_names = true;
         break;
-
-      switch (c)
-        {
-        case 's':
-          suffix = optarg;
-          /* -s implies -a, so...  */
-          FALLTHROUGH;
-
-        case 'a':
-          multiple_names = true;
-          break;
-
-        case 'z':
-          use_nuls = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+      case 'z':
+        use_nuls = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (argc < optind + 1)
     {

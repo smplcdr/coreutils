@@ -36,12 +36,10 @@
 
 #define AUTHORS proper_name ("David MacKenzie")
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
-  {GETOPT_SELINUX_CONTEXT_OPTION_DECL},
+  {SELINUX_CONTEXT_OPTION_DECL},
   {"mode", required_argument, NULL, 'm'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -93,11 +91,11 @@ int
 main (int argc, char **argv)
 {
   mode_t newmode;
-  char const *specified_mode = NULL;
+  const char *specified_mode = NULL;
   int optc;
   size_t expected_operands;
   mode_t node_type;
-  char const *scontext = NULL;
+  const char *scontext = NULL;
   bool set_security_context = false;
 
   initialize_main (&argc, &argv);
@@ -108,46 +106,40 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "m:Z", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'm':
-          specified_mode = optarg;
-          break;
-        case 'Z':
-          if (is_smack_enabled ())
-            {
-              /* We don't yet support -Z to restore context with SMACK.  */
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "m:Z", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'm':
+        specified_mode = optarg;
+        break;
+      case 'Z':
+        if (is_smack_enabled ())
+          /* We do not yet support -Z to restore context with SMACK.  */
+          scontext = optarg;
+        else if (is_selinux_enabled () > 0)
+          {
+            if (optarg != NULL)
               scontext = optarg;
-            }
-          else if (is_selinux_enabled () > 0)
-            {
-              if (optarg)
-                scontext = optarg;
-              else
-                set_security_context = true;
-            }
-          else if (optarg)
-            {
-              error (0, 0,
-                     _("warning: ignoring --context; "
-                       "it requires an SELinux/SMACK-enabled kernel"));
-            }
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+            else
+              set_security_context = true;
+          }
+        else if (optarg != NULL)
+          error (0, 0,
+                 _("warning: ignoring --context; it requires an SELinux/SMACK-enabled kernel"));
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   newmode = MODE_RW_UGO;
   if (specified_mode)
     {
       mode_t umask_value;
       struct mode_change *change = mode_compile (specified_mode);
-      if (!change)
+      if (change == NULL)
         die (EXIT_FAILURE, 0, _("invalid mode"));
       umask_value = umask (0);
       umask (umask_value);
@@ -159,7 +151,7 @@ main (int argc, char **argv)
     }
 
   /* If the number of arguments is 0 or 1,
-     or (if it's 2 or more and the second one starts with 'p'), then there
+     or (if it is 2 or more and the second one starts with 'p'), then there
      must be exactly two operands.  Otherwise, there must be four.  */
   expected_operands = (argc <= optind
                        || (optind + 1 < argc && argv[optind + 1][0] == 'p')
@@ -187,7 +179,7 @@ main (int argc, char **argv)
       usage (EXIT_FAILURE);
     }
 
-  if (scontext)
+  if (scontext != 0)
     {
       int ret = 0;
       if (is_smack_enabled ())
@@ -202,31 +194,28 @@ main (int argc, char **argv)
     }
 
   /* Only check the first character, to allow mnemonic usage like
-     'mknod /dev/rst0 character 18 0'. */
-
+     'mknod /dev/rst0 character 18 0'.  */
   switch (argv[optind + 1][0])
     {
-    case 'b':			/* 'block' or 'buffered' */
+    case 'b': /* 'block' or 'buffered' */
 #ifndef S_IFBLK
       die (EXIT_FAILURE, 0, _("block special files not supported"));
 #else
       node_type = S_IFBLK;
 #endif
       goto block_or_character;
-
-    case 'c':			/* 'character' */
-    case 'u':			/* 'unbuffered' */
+    case 'c': /* 'character' */
+    case 'u': /* 'unbuffered' */
 #ifndef S_IFCHR
       die (EXIT_FAILURE, 0, _("character special files not supported"));
 #else
       node_type = S_IFCHR;
 #endif
       goto block_or_character;
-
     block_or_character:
       {
-        char const *s_major = argv[optind + 2];
-        char const *s_minor = argv[optind + 3];
+        const char *s_major = argv[optind + 2];
+        const char *s_minor = argv[optind + 3];
         uintmax_t i_major, i_minor;
         dev_t device;
 
@@ -246,22 +235,18 @@ main (int argc, char **argv)
           die (EXIT_FAILURE, 0, _("invalid device %s %s"),
                s_major, s_minor);
 #endif
-
         if (set_security_context)
           defaultcon (argv[optind], node_type);
-
         if (mknod (argv[optind], newmode | node_type, device) != 0)
           die (EXIT_FAILURE, errno, "%s", quotef (argv[optind]));
       }
       break;
-
-    case 'p':			/* 'pipe' */
+    case 'p': /* 'pipe' */
       if (set_security_context)
         defaultcon (argv[optind], S_IFIFO);
       if (mkfifo (argv[optind], newmode) != 0)
         die (EXIT_FAILURE, errno, "%s", quotef (argv[optind]));
       break;
-
     default:
       error (0, 0, _("invalid device type %s"), quote (argv[optind + 1]));
       usage (EXIT_FAILURE);

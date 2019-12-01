@@ -14,7 +14,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Written by David MacKenzie, djm@gnu.ai.mit.edu. */
+/* Written by David MacKenzie, djm@gnu.ai.mit.edu.  */
 
 #include <config.h>
 
@@ -35,24 +35,22 @@
 
 #define AUTHORS proper_name ("David MacKenzie")
 
-/* If nonzero, try to break on whitespace. */
+/* If nonzero, try to break on whitespace.  */
 static bool break_spaces;
 
-/* If nonzero, count bytes, not column positions. */
+/* If nonzero, count bytes, not column positions.  */
 static bool count_bytes;
 
-/* If nonzero, at least one of the files we read was standard input. */
+/* If nonzero, at least one of the files we read was standard input.  */
 static bool have_read_stdin;
 
-static char const shortopts[] = "bsw:0::1::2::3::4::5::6::7::8::9::";
+static const char short_options[] = "bsw:0::1::2::3::4::5::6::7::8::9::";
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"bytes", no_argument, NULL, 'b'},
   {"spaces", no_argument, NULL, 's'},
   {"width", required_argument, NULL, 'w'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -88,7 +86,7 @@ Wrap input lines in each FILE, writing to standard output.\n\
 
 /* Assuming the current column is COLUMN, return the column that
    printing C will move the cursor to.
-   The first column is 0. */
+   The first column is 0.  */
 
 static size_t
 adjust_column (size_t column, char c)
@@ -117,12 +115,12 @@ adjust_column (size_t column, char c)
    Return true if successful.  */
 
 static bool
-fold_file (char const *filename, size_t width)
+fold_file (const char *filename, size_t width)
 {
   FILE *istream;
   int c;
-  size_t column = 0;		/* Screen column where next char will go. */
-  size_t offset_out = 0;	/* Index in 'line_out' for next char. */
+  size_t column = 0;    /* Screen column where next char will go.  */
+  size_t offset_out = 0;  /* Index in 'line_out' for next char.  */
   static char *line_out = NULL;
   static size_t allocated_out = 0;
   int saved_errno;
@@ -163,13 +161,13 @@ fold_file (char const *filename, size_t width)
         {
           /* This character would make the line too long.
              Print the line plus a newline, and make this character
-             start the next line. */
+             start the next line.  */
           if (break_spaces)
             {
               bool found_blank = false;
               size_t logical_end = offset_out;
 
-              /* Look for the last blank. */
+              /* Look for the last blank.  */
               while (logical_end)
                 {
                   --logical_end;
@@ -184,13 +182,13 @@ fold_file (char const *filename, size_t width)
                 {
                   size_t i;
 
-                  /* Found a blank.  Don't output the part after it. */
+                  /* Found a blank.  Do not output the part after it.  */
                   logical_end++;
                   fwrite (line_out, sizeof (char), (size_t) logical_end,
                           stdout);
                   putchar ('\n');
                   /* Move the remainder to the beginning of the next line.
-                     The areas being copied here might overlap. */
+                     The areas being copied here might overlap.  */
                   memmove (line_out, line_out + logical_end,
                            offset_out - logical_end);
                   offset_out -= logical_end;
@@ -240,7 +238,6 @@ int
 main (int argc, char **argv)
 {
   size_t width = 80;
-  int i;
   int optc;
   bool ok;
 
@@ -254,23 +251,24 @@ main (int argc, char **argv)
 
   break_spaces = count_bytes = have_read_stdin = false;
 
-  while ((optc = getopt_long (argc, argv, shortopts, longopts, NULL)) != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL)) != -1)
     {
       char optargbuf[2];
 
       switch (optc)
         {
-        case 'b':		/* Count bytes rather than columns. */
+        case 'b': /* Count bytes rather than columns.  */
           count_bytes = true;
           break;
-
-        case 's':		/* Break at word boundaries. */
+        case 's': /* Break at word boundaries.  */
           break_spaces = true;
           break;
-
         case '0': case '1': case '2': case '3': case '4':
         case '5': case '6': case '7': case '8': case '9':
-          if (optarg)
+          if (optarg != NULL)
             optarg--;
           else
             {
@@ -279,15 +277,10 @@ main (int argc, char **argv)
               optarg = optargbuf;
             }
           FALLTHROUGH;
-        case 'w':		/* Line width. */
+        case 'w': /* Line width.  */
           width = xdectoumax (optarg, 1, SIZE_MAX - TAB_WIDTH - 1, "",
                               _("invalid number of columns"), 0);
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_FAILURE);
         }
@@ -298,7 +291,7 @@ main (int argc, char **argv)
   else
     {
       ok = true;
-      for (i = optind; i < argc; i++)
+      for (int i = optind; i < argc; i++)
         ok &= fold_file (argv[i], width);
     }
 

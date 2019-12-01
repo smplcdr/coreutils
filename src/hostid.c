@@ -65,7 +65,7 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   if (optind < argc)
     {
@@ -76,7 +76,7 @@ main (int argc, char **argv)
   id = gethostid ();
 
   /* POSIX says gethostid returns a "32-bit identifier" but is silent
-     whether it's sign-extended.  Turn off any sign-extension.  This
+     whether it is sign-extended.  Turn off any sign-extension.  This
      is a no-op unless unsigned int is wider than 32 bits.  */
   id &= 0xffffffff;
 

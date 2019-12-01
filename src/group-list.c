@@ -16,7 +16,7 @@
 
 /* Written by Arnold Robbins.
    Major rewrite by David MacKenzie, djm@gnu.ai.mit.edu.
-   Extracted from id.c by James Youngman. */
+   Extracted from id.c by James Youngman.  */
 
 #include <config.h>
 #include <stdio.h>
@@ -31,7 +31,7 @@
 #include "group-list.h"
 
 
-/* Print all of the distinct groups the user is in. */
+/* Print all of the distinct groups the user is in.  */
 extern bool
 print_group_list (const char *username,
                   uid_t ruid, gid_t rgid, gid_t egid,
@@ -98,7 +98,7 @@ gidtostr_ptr (gid_t const *gid)
 }
 #define gidtostr(g) gidtostr_ptr (&(g))
 
-/* Print the name or value of group ID GID. */
+/* Print the name or value of group ID GID.  */
 extern bool
 print_group (gid_t gid, bool use_name)
 {

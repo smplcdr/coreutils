@@ -316,7 +316,7 @@ scan_zeros (struct item *k)
    that is part of a graph that contains a cycle we traverse the graph
    in backwards direction.  In general there is no unique way to do
    this, but that is no problem.  If we encounter an item that we have
-   encountered before, we know that we've found a cycle.  All we have
+   encountered before, we know that we have found a cycle.  All we have
    to do now is retrace our steps, printing out the items until we
    encounter that item again.  (This is not necessarily the item that
    we started from originally.)  Since the order in which the items
@@ -451,7 +451,7 @@ tsort (const char *file)
 
   init_tokenbuffer (&tokenbuffer);
 
-  while (1)
+  while (true)
     {
       /* T2. Next Relation.  */
       size_t len = readtoken (stdin, DELIM, sizeof (DELIM) - 1, &tokenbuffer);
@@ -552,7 +552,7 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   if (1 < argc - optind)
     {

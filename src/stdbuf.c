@@ -26,6 +26,7 @@
 #include "die.h"
 #include "error.h"
 #include "filenamecat.h"
+#include "long-options.h"
 #include "quote.h"
 #include "xreadlink.h"
 #include "xstrtol.h"
@@ -33,9 +34,10 @@
 
 /* The official name of this program (e.g., no 'g' prefix).  */
 #define PROGRAM_NAME "stdbuf"
-#define LIB_NAME "libstdbuf.so" /* FIXME: don't hardcode  */
+#define LIB_NAME "libstdbuf.so" /* FIXME: do not hardcode  */
 
-#define AUTHORS proper_name ("Padraig Brady")
+#define AUTHORS \
+  proper_name ("Padraig Brady")
 
 static char *program_path;
 
@@ -46,14 +48,12 @@ static struct
   char *optarg;
 } stdbuf[3];
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"input", required_argument, NULL, 'i'},
   {"output", required_argument, NULL, 'o'},
   {"error", required_argument, NULL, 'e'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 /* Set size to the value of STR, interpreted as a decimal integer,
@@ -61,9 +61,9 @@ static struct option const longopts[] =
    Return -1 on error, 0 on success.
 
    This supports dd BLOCK size suffixes.
-   Note we don't support dd's b=512, c=1, w=2 or 21x512MiB formats.  */
+   Note we do not support dd's b=512, c=1, w=2 or 21x512MiB formats.  */
 static int
-parse_size (char const *str, size_t *size)
+parse_size (const char *str, size_t *size)
 {
   uintmax_t tmp_size;
   enum strtol_error e = xstrtoumax (str, NULL, 10, &tmp_size, "EGkKMPTYZ0");
@@ -118,11 +118,12 @@ size set to MODE bytes.\n\
       fputs (_("\n\
 NOTE: If COMMAND adjusts the buffering of its standard streams ('tee' does\n\
 for example) then that will override corresponding changes by 'stdbuf'.\n\
-Also some filters (like 'dd' and 'cat' etc.) don't use streams for I/O,\n\
+Also some filters (like 'dd' and 'cat' etc.) do not use streams for I/O,\n\
 and are thus unaffected by 'stdbuf' settings.\n\
 "), stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -131,18 +132,15 @@ and are thus unaffected by 'stdbuf' settings.\n\
    using $PATH. In the latter case to get the path we can:
    search getenv("PATH"), readlink("/prof/self/exe"), getenv("_"),
    dladdr(), pstat_getpathname(), etc.  */
-
 static void
 set_program_path (const char *arg)
 {
-  if (strchr (arg, '/'))        /* Use absolute or relative paths directly.  */
-    {
-      program_path = dir_name (arg);
-    }
+  if (strchr (arg, '/')) /* Use absolute or relative paths directly.  */
+    program_path = dir_name (arg);
   else
     {
       char *path = xreadlink ("/proc/self/exe");
-      if (path)
+      if (path != NULL)
         program_path = dir_name (path);
       else if ((path = getenv ("PATH")))
         {
@@ -190,9 +188,9 @@ set_LD_PRELOAD (void)
 {
   int ret;
 #ifdef __APPLE__
-  char const *preload_env = "DYLD_INSERT_LIBRARIES";
+  const char *preload_env = "DYLD_INSERT_LIBRARIES";
 #else
-  char const *preload_env = "LD_PRELOAD";
+  const char *preload_env = "LD_PRELOAD";
 #endif
   char *old_libs = getenv (preload_env);
   char *LD_PRELOAD;
@@ -201,7 +199,7 @@ set_LD_PRELOAD (void)
      gcc stdbuf.c -Wl,-rpath,'$ORIGIN' -Wl,-rpath,$PKGLIBEXECDIR
      However we want the lookup done for the exec'd command not stdbuf.
 
-     Since we don't link against libstdbuf.so add it to PKGLIBEXECDIR
+     Since we do not link against libstdbuf.so add it to PKGLIBEXECDIR
      rather than to LIBDIR.
 
      Note we could add "" as the penultimate item in the following list
@@ -213,20 +211,21 @@ set_LD_PRELOAD (void)
      not supported due to the unusual need for controlling the stdio buffering
      of programs that are a different architecture to the default on the
      system (and that of stdbuf itself).  */
-  char const *const search_path[] = {
+  const char *const search_path[] =
+  {
     program_path,
     PKGLIBEXECDIR,
     NULL
   };
 
-  char const *const *path = search_path;
+  const char *const *path = search_path;
   char *libstdbuf;
 
   while (true)
     {
       struct stat sb;
 
-      if (!**path)              /* system default  */
+      if (**path == '\0') /* System default.  */
         {
           libstdbuf = xstrdup (LIB_NAME);
           break;
@@ -234,12 +233,12 @@ set_LD_PRELOAD (void)
       ret = asprintf (&libstdbuf, "%s/%s", *path, LIB_NAME);
       if (ret < 0)
         xalloc_die ();
-      if (stat (libstdbuf, &sb) == 0)   /* file_exists  */
+      if (stat (libstdbuf, &sb) == 0) /* File_exists.  */
         break;
       free (libstdbuf);
 
-      ++path;
-      if ( ! *path)
+      path++;
+      if (*path == NULL)
         die (EXIT_CANCELED, 0, _("failed to find %s"), quote (LIB_NAME));
     }
 
@@ -271,7 +270,6 @@ set_LD_PRELOAD (void)
 
 /* Populate environ with _STDBUF_I=$MODE _STDBUF_O=$MODE _STDBUF_E=$MODE.
    Return TRUE if any environment variables set.   */
-
 static bool
 set_libstdbuf_options (void)
 {
@@ -311,7 +309,7 @@ set_libstdbuf_options (void)
 int
 main (int argc, char **argv)
 {
-  int c;
+  int optc;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -322,23 +320,26 @@ main (int argc, char **argv)
   initialize_exit_failure (EXIT_CANCELED);
   atexit (close_stdout);
 
-  while ((c = getopt_long (argc, argv, "+i:o:e:", longopts, NULL)) != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "+i:o:e:", long_options, NULL)) != -1)
     {
       int opt_fileno;
 
-      switch (c)
+      switch (optc)
         {
-        /* Old McDonald had a farm ei...  */
+        /* Old McDonald had a farm ei... */
         case 'e':
         case 'i':
         case 'o':
-          opt_fileno = optc_to_fileno (c);
+          opt_fileno = optc_to_fileno (optc);
           assert (0 <= opt_fileno && opt_fileno < ARRAY_CARDINALITY (stdbuf));
-          stdbuf[opt_fileno].optc = c;
+          stdbuf[opt_fileno].optc = optc;
           while (c_isspace (*optarg))
             optarg++;
           stdbuf[opt_fileno].optarg = optarg;
-          if (c == 'i' && *optarg == 'L')
+          if (optc == 'i' && *optarg == 'L')
             {
               /* -oL will be by far the most common use of this utility,
                  but one could easily think -iL might have the same affect,
@@ -350,13 +351,7 @@ main (int argc, char **argv)
           if (!STREQ (optarg, "L")
               && parse_size (optarg, &stdbuf[opt_fileno].size) == -1)
             die (EXIT_CANCELED, errno, _("invalid mode %s"), quote (optarg));
-
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_CANCELED);
         }
@@ -365,14 +360,14 @@ main (int argc, char **argv)
   argv += optind;
   argc -= optind;
 
-  /* must specify at least 1 command.  */
+  /* Must specify at least 1 command.  */
   if (argc < 1)
     {
       error (0, 0, _("missing operand"));
       usage (EXIT_CANCELED);
     }
 
-  if (! set_libstdbuf_options ())
+  if (!set_libstdbuf_options ())
     {
       error (0, 0, _("you must specify a buffering mode option"));
       usage (EXIT_CANCELED);

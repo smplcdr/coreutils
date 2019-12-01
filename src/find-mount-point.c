@@ -29,11 +29,11 @@
    Give a diagnostic and return NULL if unable to determine the mount point.
    Exit if unable to restore current working directory.  */
 extern char *
-find_mount_point (char const *file, struct stat const *file_stat)
+find_mount_point (const char *file, const struct stat *file_stat)
 {
   struct saved_cwd cwd;
   struct stat last_stat;
-  char *mp = NULL;		/* The malloc'd mount point.  */
+  char *mp = NULL;    /* The malloc'd mount point.  */
 
   if (save_cwd (&cwd) != 0)
     {
@@ -95,7 +95,7 @@ find_mount_point (char const *file, struct stat const *file_stat)
       last_stat = st;
     }
 
-  /* Finally reached a mount point, see what it's called.  */
+  /* Finally reached a mount point, see what it is called.  */
   mp = xgetcwd ();
 
 done:

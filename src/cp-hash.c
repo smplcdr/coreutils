@@ -20,6 +20,7 @@
 #include <config.h>
 
 #include <sys/types.h>
+
 #include "system.h"
 
 #include "hash.h"
@@ -36,7 +37,7 @@ struct Src_to_dest
   dev_t st_dev;
   /* Destination file name (of non-directory or pre-existing directory)
      corresponding to the dev/ino of a copied file, or the destination file
-     name corresponding to a dev/ino pair for a newly-created directory. */
+     name corresponding to a dev/ino pair for a newly-created directory.  */
   char *name;
 };
 
@@ -48,9 +49,9 @@ static Hash_table *src_to_dest;
 #define INITIAL_TABLE_SIZE 103
 
 static size_t
-src_to_dest_hash (void const *x, size_t table_size)
+src_to_dest_hash (const void *x, size_t table_size)
 {
-  struct Src_to_dest const *p = x;
+  const struct Src_to_dest *p = x;
 
   /* Ignoring the device number here should be fine.  */
   /* The cast to uintmax_t prevents negative remainders
@@ -61,11 +62,11 @@ src_to_dest_hash (void const *x, size_t table_size)
 /* Compare two Src_to_dest entries.
    Return true if their keys are judged 'equal'.  */
 static bool
-src_to_dest_compare (void const *x, void const *y)
+src_to_dest_compare (const void *x, const void *y)
 {
-  struct Src_to_dest const *a = x;
-  struct Src_to_dest const *b = y;
-  return SAME_INODE (*a, *b) ? true : false;
+  const struct Src_to_dest *a = x;
+  const struct Src_to_dest *b = y;
+  return SAME_INODE (*a, *b);
 }
 
 static void
@@ -78,7 +79,7 @@ src_to_dest_free (void *x)
 
 /* Remove the entry matching INO/DEV from the table
    that maps source ino/dev to destination file name.  */
-extern void
+void
 forget_created (ino_t ino, dev_t dev)
 {
   struct Src_to_dest probe;
@@ -89,29 +90,28 @@ forget_created (ino_t ino, dev_t dev)
   probe.name = NULL;
 
   ent = hash_delete (src_to_dest, &probe);
-  if (ent)
+  if (ent != NULL)
     src_to_dest_free (ent);
 }
 
 /* If INO/DEV correspond to an already-copied source file, return the
    name of the corresponding destination file.  Otherwise, return NULL.  */
-
-extern char *
+char *
 src_to_dest_lookup (ino_t ino, dev_t dev)
 {
   struct Src_to_dest ent;
-  struct Src_to_dest const *e;
+  const struct Src_to_dest *e;
   ent.st_ino = ino;
   ent.st_dev = dev;
   e = hash_lookup (src_to_dest, &ent);
-  return e ? e->name : NULL;
+  return e != NULL ? e->name : NULL;
 }
 
 /* Add file NAME, copied from inode number INO and device number DEV,
    to the list of files we have copied.
-   Return NULL if inserted, otherwise non-NULL. */
+   Return NULL if inserted, otherwise non-NULL.  */
 
-extern char *
+char *
 remember_copied (const char *name, ino_t ino, dev_t dev)
 {
   struct Src_to_dest *ent;
@@ -124,10 +124,8 @@ remember_copied (const char *name, ino_t ino, dev_t dev)
 
   ent_from_table = hash_insert (src_to_dest, ent);
   if (ent_from_table == NULL)
-    {
-      /* Insertion failed due to lack of memory.  */
-      xalloc_die ();
-    }
+    /* Insertion failed due to lack of memory.  */
+    xalloc_die ();
 
   /* Determine whether there was already an entry in the table
      with a matching key.  If so, free ENT (it wasn't inserted) and
@@ -143,10 +141,11 @@ remember_copied (const char *name, ino_t ino, dev_t dev)
 }
 
 /* Initialize the hash table.  */
-extern void
+void
 hash_init (void)
 {
-  src_to_dest = hash_initialize (INITIAL_TABLE_SIZE, NULL,
+  src_to_dest = hash_initialize (INITIAL_TABLE_SIZE,
+                                 NULL,
                                  src_to_dest_hash,
                                  src_to_dest_compare,
                                  src_to_dest_free);
@@ -156,8 +155,7 @@ hash_init (void)
 
 /* Reset the hash structure in the global variable 'htab' to
    contain no entries.  */
-
-extern void
+void
 forget_all (void)
 {
   hash_free (src_to_dest);

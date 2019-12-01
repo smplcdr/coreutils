@@ -38,12 +38,10 @@ enum
   IGNORE_OPTION
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"all", no_argument, NULL, ALL_OPTION},
   {"ignore", required_argument, NULL, IGNORE_OPTION},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -75,7 +73,10 @@ which may be less than the number of online processors\n\
 int
 main (int argc, char **argv)
 {
+  int optc;
   unsigned long nproc, ignore = 0;
+  enum nproc_query mode = NPROC_CURRENT_OVERRIDABLE;
+
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
   setlocale (LC_ALL, "");
@@ -84,31 +85,21 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  enum nproc_query mode = NPROC_CURRENT_OVERRIDABLE;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-  while (1)
-    {
-      int c = getopt_long (argc, argv, "", longopts, NULL);
-      if (c == -1)
+  while ((optc = getopt_long (argc, argv, "", long_options, NULL)))
+    switch (optc)
+      {
+      case ALL_OPTION:
+        mode = NPROC_ALL;
         break;
-      switch (c)
-        {
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        case ALL_OPTION:
-          mode = NPROC_ALL;
-          break;
-
-        case IGNORE_OPTION:
-          ignore = xdectoumax (optarg, 0, ULONG_MAX, "", _("invalid number"),0);
-          break;
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+      case IGNORE_OPTION:
+        ignore = xdectoumax (optarg, 0, ULONG_MAX, "", _("invalid number"),0);
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (argc != optind)
     {

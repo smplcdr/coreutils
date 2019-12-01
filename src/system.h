@@ -45,7 +45,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-/* Since major is a function on SVR4, we can't use 'ifndef major'.  */
+/* Since major is a function on SVR4, we cannot use 'ifndef major'.  */
 #if MAJOR_IN_MKDEV
 # include <sys/mkdev.h>
 # define HAVE_MAJOR
@@ -54,7 +54,7 @@
 # include <sys/sysmacros.h>
 # define HAVE_MAJOR
 #endif
-#ifdef major			/* Might be defined in sys/types.h.  */
+#ifdef major      /* Might be defined in sys/types.h.  */
 # define HAVE_MAJOR
 #endif
 
@@ -72,7 +72,7 @@
 #include <string.h>
 #include <errno.h>
 
-/* Some systems don't define this; POSIX mentions it but says it is
+/* Some systems do not define this; POSIX mentions it but says it is
    obsolete.  gnulib defines it, but only on native Windows systems,
    and there only because MSVC 10 does.  */
 #ifndef ENODATA
@@ -117,7 +117,7 @@ enum
 #ifdef D_INO_IN_DIRENT
 # define D_INO(dp) (dp)->d_ino
 #else
-/* Some systems don't have inodes, so fake them to avoid lots of ifdefs.  */
+/* Some systems do not have inodes, so fake them to avoid lots of ifdefs.  */
 # define D_INO(dp) NOT_AN_INODE_NUMBER
 #endif
 
@@ -131,7 +131,7 @@ enum
 #  define initialize_main(ac, av)
 # else
 #  define initialize_main(ac, av) \
-     do { _wildcard (ac, av); _response (ac, av); } while (0)
+  do { _wildcard (ac, av); _response (ac, av); } while (0)
 # endif
 #endif
 
@@ -146,7 +146,7 @@ enum
      or EOF.
    - It's typically faster.
    POSIX says that only '0' through '9' are digits.  Prefer ISDIGIT to
-   isdigit unless it's important to use the locale's definition
+   isdigit unless it is important to use the locale's definition
    of 'digit' even when the host does not conform to POSIX.  */
 #define ISDIGIT(c) ((unsigned int) (c) - '0' <= 9)
 
@@ -162,20 +162,36 @@ field_sep (unsigned char ch)
   return isblank (ch) || ch == '\n';
 }
 
-#include <locale.h>
-
-/* Take care of NLS matters.  */
-
 #include "gettext.h"
-#if ! ENABLE_NLS
-# undef textdomain
-# define textdomain(Domainname) /* empty */
-# undef bindtextdomain
-# define bindtextdomain(Domainname, Dirname) /* empty */
-#endif
 
-#define _(msgid) gettext (msgid)
-#define N_(msgid) msgid
+#if ENABLE_NLS
+/* On some systems, things go awry when <libintl.h> comes after <locale.h>.  */
+# include <libintl.h>
+# include <locale.h>
+# define _(msgid) gettext (msgid)
+# if defined(gettext_noop)
+#  define N_(msgid) gettext_noop (msgid)
+# else
+#  define N_(msgid) (msgid)
+# endif
+# define S_(msgid1, msgid2, n) ngettext (msgid1, msgid2, n)
+#else /* !ENABLE_NLS */
+/* Include <locale.h> first to avoid conflicts with these macros.  */
+# include <locale.h>
+# undef gettext
+# undef ngettext
+# undef textdomain
+# undef bindtextdomain
+
+# define gettext(msgid) (msgid)
+# define ngettext(msgid1, msgid2, n) (n == 1 ? msgid1 : msgid2)
+# define textdomain(domainname) do { } while (0)
+# define bindtextdomain(domainname, dirname) do { } while (0)
+
+# define  _(msgid) (msgid)
+# define N_(msgid) (msgid)
+# define S_(msgid1, msgid2, n) (n == 1 ? msgid1 : msgid2)
+#endif /* ENABLE_NLS */
 
 /* Return a value that pluralizes the same way that N does, in all
    languages we know of.  */
@@ -193,7 +209,7 @@ select_plural (uintmax_t n)
 #define STRPREFIX(a, b) (strncmp (a, b, strlen (b)) == 0)
 
 /* Just like strncmp, but the second argument must be a literal string
-   and you don't specify the length;  that comes from the literal.  */
+   and you do not specify the length;  that comes from the literal.  */
 #define STRNCMP_LIT(s, lit) strncmp (s, "" lit "", sizeof (lit) - 1)
 
 #if !HAVE_DECL_GETLOGIN
@@ -216,21 +232,21 @@ struct passwd *getpwuid (uid_t);
 struct group *getgrgid (gid_t);
 #endif
 
-/* Interix has replacements for getgr{gid,nam,ent}, that don't
+/* Interix has replacements for getgr{gid,nam,ent}, that do not
    query the domain controller for group members when not required.
-   This speeds up the calls tremendously (<1 ms vs. >3 s). */
+   This speeds up the calls tremendously (<1 ms vs. >3 s).  */
 /* To protect any system that could provide _nomembers functions
    other than interix, check for HAVE_SETGROUPS, as interix is
    one of the very few (the only?) platform that lacks it */
-#if ! HAVE_SETGROUPS
+#if !HAVE_SETGROUPS
 # if HAVE_GETGRGID_NOMEMBERS
-#  define getgrgid(gid) getgrgid_nomembers(gid)
+#  define getgrgid(gid) getgrgid_nomembers (gid)
 # endif
 # if HAVE_GETGRNAM_NOMEMBERS
-#  define getgrnam(nam) getgrnam_nomembers(nam)
+#  define getgrnam(nam) getgrnam_nomembers (nam)
 # endif
 # if HAVE_GETGRENT_NOMEMBERS
-#  define getgrent() getgrent_nomembers()
+#  define getgrent() getgrent_nomembers ()
 # endif
 #endif
 
@@ -261,33 +277,35 @@ uid_t getuid (void);
 #include "dirname.h"
 #include "openat.h"
 
+/* Return true if FILE_NAME is '.' or '..'
+   This is so we do not try to recurse on '././././. ...' */
 static inline bool
-dot_or_dotdot (char const *file_name)
+dot_or_dotdot (const char *filename)
 {
-  if (file_name[0] == '.')
+  if (*filename == '.')
     {
-      char sep = file_name[(file_name[1] == '.') + 1];
-      return (! sep || ISSLASH (sep));
+      const char *sep = filename + (*(filename + 1) == '.' ? 2 : 1);
+      return (*sep == '\0' || (ISSLASH (*sep) && *(sep + 1) == '\0'));
     }
   else
     return false;
 }
 
-/* A wrapper for readdir so that callers don't see entries for '.' or '..'.  */
-static inline struct dirent const *
+/* A wrapper for readdir so that callers do not see entries for '.' or '..'.  */
+static inline struct dirent *
 readdir_ignoring_dot_and_dotdot (DIR *dirp)
 {
-  while (1)
+  while (true)
     {
-      struct dirent const *dp = readdir (dirp);
-      if (dp == NULL || ! dot_or_dotdot (dp->d_name))
+      struct dirent *dp = readdir (dirp);
+      if (dp == NULL || !dot_or_dotdot (dp->d_name))
         return dp;
     }
 }
 
 /* Return true if DIR is determined to be an empty directory.  */
 static inline bool
-is_empty_dir (int fd_cwd, char const *dir)
+is_empty_dir (int fd_cwd, const char *dir)
 {
   DIR *dirp;
   struct dirent const *dp;
@@ -315,28 +333,10 @@ is_empty_dir (int fd_cwd, char const *dir)
   return saved_errno == 0 ? true : false;
 }
 
-/* Factor out some of the common --help and --version processing code.  */
+#include "long-options.h"
 
-/* These enum values cannot possibly conflict with the option values
-   ordinarily used by commands, including CHAR_MAX + 1, etc.  Avoid
-   CHAR_MIN - 1, as it may equal -1, the getopt end-of-options value.  */
-enum
-{
-  GETOPT_HELP_CHAR = (CHAR_MIN - 2),
-  GETOPT_VERSION_CHAR = (CHAR_MIN - 3)
-};
-
-#define GETOPT_HELP_OPTION_DECL \
-  "help", no_argument, NULL, GETOPT_HELP_CHAR
-#define GETOPT_VERSION_OPTION_DECL \
-  "version", no_argument, NULL, GETOPT_VERSION_CHAR
-#define GETOPT_SELINUX_CONTEXT_OPTION_DECL \
+#define SELINUX_CONTEXT_OPTION_DECL \
   "context", optional_argument, NULL, 'Z'
-
-#define case_GETOPT_HELP_CHAR			\
-  case GETOPT_HELP_CHAR:			\
-    usage (EXIT_SUCCESS);			\
-    break;
 
 /* Program_name must be a literal string.
    Usually it is just PROGRAM_NAME.  */
@@ -347,9 +347,9 @@ enum
 "for details about the options it supports.\n")
 
 #define HELP_OPTION_DESCRIPTION \
-  _("      --help     display this help and exit\n")
+  _("      --help           display this help and exit\n")
 #define VERSION_OPTION_DESCRIPTION \
-  _("      --version  output version information and exit\n")
+  _("      --version        output version information and exit\n")
 
 #include "closein.h"
 #include "closeout.h"
@@ -360,27 +360,19 @@ enum
 
 #include "propername.h"
 /* Define away proper_name (leaving proper_name_utf8, which affects far
-   fewer programs), since it's not worth the cost of adding ~17KB to
+   fewer programs), since it is not worth the cost of adding ~17KB to
    the x86_64 text size of every single program.  This avoids a 40%
    (almost ~2MB) increase in the on-disk space utilization for the set
-   of the 100 binaries. */
+   of the 100 binaries.  */
 #define proper_name(x) (x)
 
 #include "progname.h"
 
-#define case_GETOPT_VERSION_CHAR(Program_name, Authors)			\
-  case GETOPT_VERSION_CHAR:						\
-    version_etc (stdout, Program_name, PACKAGE_NAME, Version, Authors,	\
-                 (char *) NULL);					\
-    exit (EXIT_SUCCESS);						\
-    break;
-
 #ifndef MAX
-# define MAX(a, b) ((a) > (b) ? (a) : (b))
+# define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
-
 #ifndef MIN
-# define MIN(a,b) (((a) < (b)) ? (a) : (b))
+# define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
 
 #include "intprops.h"
@@ -409,62 +401,105 @@ enum
 # define PID_T_MAX TYPE_MAXIMUM (pid_t)
 #endif
 
-/* Use this to suppress gcc's '...may be used before initialized' warnings. */
+/* Use this to suppress gcc's '...may be used before initialized' warnings.  */
 #ifdef lint
 # define IF_LINT(Code) Code
 #else
 # define IF_LINT(Code) /* empty */
 #endif
 
-#ifndef __attribute__
-# if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 8)
-#  define __attribute__(x) /* empty */
+#if ((defined(_WIN32) || defined(__WIN32__)) && !defined(__CYGWIN__)) && !defined(__windows__)
+# define __windows__ 1
+#endif
+
+#if (__windows__ || defined(__MSDOS__) || defined(__DJGPP__) || defined(__OS2__)) && !defined(HAVE_DOS_BASED_FILE_SYSTEM)
+# define HAVE_DOS_BASED_FILE_SYSTEM 1
+#endif
+
+/* By default, colon separates directories in a path.  */
+#if !defined(PATH_SEPARATOR)
+# if __windows__ || HAVE_DOS_BASED_FILE_SYSTEM
+#  define PATH_SEPARATOR ';'
+# else
+#  define PATH_SEPARATOR ':'
 # endif
 #endif
 
+/* These should be phased out in favor of IS_DIR_SEPARATOR, where possible.  */
+#if !defined(DIR_SEPARATOR)
+# if __windows__ || HAVE_DOS_BASED_FILE_SYSTEM
+#  define DIR_SEPARATOR '\\'
+# else
+#  define DIR_SEPARATOR '/'
+# endif
+#endif /* DIR_SEPARATOR */
+
+#if !defined(IS_DIR_SEPARATOR)
+# if defined(ISSLASH)
+#  define IS_DIR_SEPARATOR(c) ISSLASH (c)
+# else
+#  if __windows__ || HAVE_DOS_BASED_FILE_SYSTEM
+#   define IS_DIR_SEPARATOR(c) ((c) == '/' || (c) == '\\')
+#  else
+#   define IS_DIR_SEPARATOR(c) ((c) == '/')
+#  endif
+# endif
+#endif /* IS_DIR_SEPARATOR */
+
+#if !defined(__attribute__)
+# if !defined(__GNUC__) || (__GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 8))
+#  define __attribute__(x) /* empty */
+# endif
+#endif /* __attribute__ */
+
 #ifndef ATTRIBUTE_NORETURN
-# define ATTRIBUTE_NORETURN __attribute__ ((__noreturn__))
+# if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 8) || __SUNPRO_C >= 0x5110
+#  define ATTRIBUTE_NORETURN __attribute__ ((__noreturn__))
+# elif _MSC_VER >= 1200
+#  define ATTRIBUTE_NORETURN __declspec (noreturn)
+# else
+#  define ATTRIBUTE_NORETURN /* empty */
+# endif
 #endif
 
 /* The warn_unused_result attribute appeared first in gcc-3.4.0 */
 #undef ATTRIBUTE_WARN_UNUSED_RESULT
-#if __GNUC__ < 3 || (__GNUC__ == 3 && __GNUC_MINOR__ < 4)
-# define ATTRIBUTE_WARN_UNUSED_RESULT /* empty */
-#else
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 # define ATTRIBUTE_WARN_UNUSED_RESULT __attribute__ ((__warn_unused_result__))
-#endif
-
-#ifdef __GNUC__
-# define LIKELY(cond)    __builtin_expect ((cond), 1)
-# define UNLIKELY(cond)  __builtin_expect ((cond), 0)
 #else
-# define LIKELY(cond)    (cond)
-# define UNLIKELY(cond)  (cond)
+# define ATTRIBUTE_WARN_UNUSED_RESULT /* empty */
 #endif
 
+/* __builtin_expect(CONDITION, EXPECTED_VALUE) evaluates to CONDITION, but notifies the compiler that
+   the most likely value of CONDITION is EXPECTED_VALUE.  */
+#if (!defined(__GNUC__) || (__GNUC__ <= 2 && __GNUC_MINOR__ < 96)) && !defined(__builtin_expect)
+# define __builtin_expect(condition, expected_value) (condition)
+#endif
+
+#define   likely(condition) __builtin_expect ((condition), true)
+#define unlikely(condition) __builtin_expect ((condition), false)
 
 #if defined strdupa
-# define ASSIGN_STRDUPA(DEST, S)		\
+# define ASSIGN_STRDUPA(DEST, S) \
   do { DEST = strdupa (S); } while (0)
 #else
-# define ASSIGN_STRDUPA(DEST, S)		\
-  do						\
-    {						\
-      const char *s_ = (S);			\
-      size_t len_ = strlen (s_) + 1;		\
-      char *tmp_dest_ = alloca (len_);		\
-      DEST = memcpy (tmp_dest_, s_, len_);	\
-    }						\
+# define ASSIGN_STRDUPA(DEST, S) \
+  do \
+    { \
+      const char *s__ = (S); \
+      size_t len__ = strlen (s__) + 1; \
+      char *tmp_dest__ = alloca (len__); \
+      DEST = memcpy (tmp_dest__, s__, len__); \
+    } \
   while (0)
 #endif
 
-#if ! HAVE_SYNC
+#if !HAVE_SYNC
 # define sync() /* empty */
 #endif
 
 /* Compute the greatest common divisor of U and V using Euclid's
    algorithm.  U and V must be nonzero.  */
-
 static inline size_t _GL_ATTRIBUTE_CONST
 gcd (size_t u, size_t v)
 {
@@ -474,7 +509,7 @@ gcd (size_t u, size_t v)
       u = v;
       v = t;
     }
-  while (v);
+  while (v != 0);
 
   return u;
 }
@@ -482,7 +517,6 @@ gcd (size_t u, size_t v)
 /* Compute the least common multiple of U and V.  U and V must be
    nonzero.  There is no overflow checking, so callers should not
    specify outlandish sizes.  */
-
 static inline size_t _GL_ATTRIBUTE_CONST
 lcm (size_t u, size_t v)
 {
@@ -493,19 +527,17 @@ lcm (size_t u, size_t v)
    ALIGNMENT must be nonzero.  The caller must arrange for ((char *)
    PTR) through ((char *) PTR + ALIGNMENT - 1) to be addressable
    locations.  */
-
-static inline void *
+static inline void * _GL_ATTRIBUTE_CONST
 ptr_align (void const *ptr, size_t alignment)
 {
-  char const *p0 = ptr;
-  char const *p1 = p0 + alignment - 1;
+  const char *p0 = ptr;
+  const char *p1 = p0 + alignment - 1;
   return (void *) (p1 - (size_t) p1 % alignment);
 }
 
 /* Return whether the buffer consists entirely of NULs.
    Based on memeqzero in CCAN by Rusty Russell under CC0 (Public domain).  */
-
-static inline bool _GL_ATTRIBUTE_PURE
+static inline bool _GL_ATTRIBUTE_CONST
 is_nul (void const *buf, size_t length)
 {
   const unsigned char *p = buf;
@@ -521,31 +553,31 @@ is_nul (void const *buf, size_t length)
   unsigned char word;
 #endif
 
-  if (! length)
+  if (length == 0)
       return true;
 
   /* Check len bytes not aligned on a word.  */
-  while (UNLIKELY (length & (sizeof word - 1)))
+  while (unlikely (length & (sizeof word - 1)))
     {
-      if (*p)
+      if (*p != '\0')
         return false;
       p++;
       length--;
-      if (! length)
+      if (length == 0)
         return true;
    }
 
   /* Check up to 16 bytes a word at a time.  */
-  for (;;)
+  while (true)
     {
       memcpy (&word, p, sizeof word);
-      if (word)
+      if (word != 0)
         return false;
       p += sizeof word;
       length -= sizeof word;
-      if (! length)
+      if (length == 0)
         return true;
-      if (UNLIKELY (length & 15) == 0)
+      if (unlikely (length & 15) == 0)
         break;
    }
 
@@ -554,7 +586,7 @@ is_nul (void const *buf, size_t length)
 }
 
 /* If 10*Accum + Digit_val is larger than the maximum value for Type,
-   then don't update Accum and return false to indicate it would
+   then do not update Accum and return false to indicate it would
    overflow.  Otherwise, set Accum to that new value and return true.
    Verify at compile-time that Type is Accum's type, and that Type is
    unsigned.  Accum must be an object, so that we can take its
@@ -563,15 +595,14 @@ is_nul (void const *buf, size_t length)
    The "Added check" below is not strictly required, but it causes GCC
    to return a nonzero exit status instead of merely a warning
    diagnostic, and that is more useful.  */
-
-#define DECIMAL_DIGIT_ACCUMULATE(Accum, Digit_val, Type)		\
-  (									\
-   (void) (&(Accum) == (Type *) NULL),  /* The type matches.  */	\
-   verify_expr (! TYPE_SIGNED (Type), /* The type is unsigned.  */      \
-                (((Type) -1 / 10 < (Accum)                              \
-                  || (Type) ((Accum) * 10 + (Digit_val)) < (Accum))     \
-                 ? false                                                \
-                 : (((Accum) = (Accum) * 10 + (Digit_val)), true)))     \
+#define DECIMAL_DIGIT_ACCUMULATE(Accum, Digit_val, Type) \
+  ( \
+   (void) (&(Accum) == (Type *) NULL), /* The type matches.  */ \
+   verify_expr (!TYPE_SIGNED (Type), /* The type is unsigned.  */ \
+                (((Type) -1 / 10 < (Accum) \
+                  || (Type) ((Accum) * 10 + (Digit_val)) < (Accum)) \
+                 ? false \
+                 : (((Accum) = (Accum) * 10 + (Digit_val)), true))) \
   )
 
 static inline void
@@ -600,7 +631,7 @@ Binary prefixes can be used, too: KiB=K, MiB=M, and so on.\n\
 }
 
 static inline void
-emit_blocksize_note (char const *program)
+emit_blocksize_note (const char *program)
 {
   printf (_("\n\
 Display values are in units of the first available SIZE from --block-size,\n\
@@ -628,9 +659,10 @@ the VERSION_CONTROL environment variable.  Here are the values:\n\
 }
 
 static inline void
-emit_ancillary_info (char const *program)
+emit_ancillary_info (const char *program)
 {
-  struct infomap { char const *program; char const *node; } const infomap[] = {
+  const struct infomap { const char *program; const char *node; } infomap[] =
+  {
     { "[", "test invocation" },
     { "coreutils", "Multi-call invocation" },
     { "sha224sum", "sha2 utilities" },
@@ -640,8 +672,8 @@ emit_ancillary_info (char const *program)
     { NULL, NULL }
   };
 
-  char const *node = program;
-  struct infomap const *map_prog = infomap;
+  const char *node = program;
+  const struct infomap *map_prog = infomap;
 
   while (map_prog->program && ! STREQ (program, map_prog->program))
     map_prog++;
@@ -651,7 +683,7 @@ emit_ancillary_info (char const *program)
 
   printf (_("\n%s online help: <%s>\n"), PACKAGE_NAME, PACKAGE_URL);
 
-  /* Don't output this redundant message for English locales.
+  /* Do not output this redundant message for English locales.
      Note we still output for 'C' so that it gets included in the man page.  */
   const char *lc_messages = setlocale (LC_MESSAGES, NULL);
   if (lc_messages && STRNCMP_LIT (lc_messages, "en_"))
@@ -691,58 +723,47 @@ timetostr (time_t t, char *buf)
           : umaxtostr (t, buf));
 }
 
-static inline char *
-bad_cast (char const *s)
+static inline char * _GL_ATTRIBUTE_CONST
+bad_cast (const char *s)
 {
   return (char *) s;
 }
 
-/* Return a boolean indicating whether SB->st_size is defined.  */
-static inline bool
-usable_st_size (struct stat const *sb)
+/* Return a boolean indicating whether ST->st_size is defined.  */
+static inline bool _GL_ATTRIBUTE_CONST
+usable_st_size (const struct stat *st)
 {
-  return (S_ISREG (sb->st_mode) || S_ISLNK (sb->st_mode)
-          || S_TYPEISSHM (sb) || S_TYPEISTMO (sb));
+  return (S_ISREG (st->st_mode)
+          || S_ISLNK (st->st_mode)
+          || S_TYPEISSHM (st)
+          || S_TYPEISTMO (st));
 }
 
 void usage (int status) ATTRIBUTE_NORETURN;
 
 /* Like error(0, 0, ...), but without an implicit newline.
    Also a noop unless the global DEV_DEBUG is set.  */
-#define devmsg(...)			\
-  do					\
-    {					\
-      if (dev_debug)			\
-        fprintf (stderr, __VA_ARGS__);	\
-    }					\
+#define devmsg(...) \
+  do \
+    { \
+      if (dev_debug) \
+        fprintf (stderr, __VA_ARGS__); \
+    } \
   while (0)
 
-#define emit_cycle_warning(file_name)	\
-  do					\
-    {					\
+#define emit_cycle_warning(file_name) \
+  do \
+    { \
       error (0, 0, _("\
 WARNING: Circular directory structure.\n\
 This almost certainly means that you have a corrupted file system.\n\
 NOTIFY YOUR SYSTEM MANAGER.\n\
 The following directory is part of the cycle:\n  %s\n"), \
-             quotef (file_name));	\
-    }					\
+             quotef (file_name)); \
+    } \
   while (0)
 
-/* Like stpncpy, but do ensure that the result is NUL-terminated,
-   and do not NUL-pad out to LEN.  I.e., when strnlen (src, len) == len,
-   this function writes a NUL byte into dest[len].  Thus, the length
-   of the destination buffer must be at least LEN + 1.
-   The DEST and SRC buffers must not overlap.  */
-static inline char *
-stzncpy (char *restrict dest, char const *restrict src, size_t len)
-{
-  char const *src_end = src + len;
-  while (src < src_end && *src)
-    *dest++ = *src++;
-  *dest = 0;
-  return dest;
-}
+#include "strlcpy.h"
 
 #ifndef ARRAY_CARDINALITY
 # define ARRAY_CARDINALITY(Array) (sizeof (Array) / sizeof *(Array))
@@ -752,13 +773,17 @@ stzncpy (char *restrict dest, char const *restrict src, size_t len)
    This is to cater for the incorrect const function declarations
    in selinux.h before libselinux-2.3 (May 2014).
    When version >= 2.3 is ubiquitous remove this function.  */
-static inline char * se_const (char const * sctx) { return (char *) sctx; }
+static inline char * _GL_ATTRIBUTE_CONST
+se_const (const char *sctx)
+{
+  return (char *) sctx;
+}
 
 /* Return true if ERR is ENOTSUP or EOPNOTSUPP, otherwise false.
    This wrapper function avoids the redundant 'or'd comparison on
    systems like Linux for which they have the same value.  It also
    avoids the gcc warning to that effect.  */
-static inline bool
+static inline bool _GL_ATTRIBUTE_CONST
 is_ENOTSUP (int err)
 {
   return err == EOPNOTSUPP || (ENOTSUP != EOPNOTSUPP && err == ENOTSUP);

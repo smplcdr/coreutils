@@ -1,4 +1,4 @@
-/* This is for the 'uname' program. */
+/* This is for the 'uname' program.  */
 #define UNAME_UNAME 1
 
 /* This is for the 'arch' program.  */

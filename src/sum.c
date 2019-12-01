@@ -14,9 +14,9 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Like BSD sum or SysV sum -r, except like SysV sum if -s option is given. */
+/* Like BSD sum or SysV sum -r, except like SysV sum if -s option is given.  */
 
-/* Written by Kayvan Aghaiepour and David MacKenzie. */
+/* Written by Kayvan Aghaiepour and David MacKenzie.  */
 
 #include <config.h>
 
@@ -38,14 +38,12 @@
   proper_name ("Kayvan Aghaiepour"), \
   proper_name ("David MacKenzie")
 
-/* True if any of the files read were the standard input. */
+/* True if any of the files read were the standard input.  */
 static bool have_read_stdin;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"sysv", no_argument, NULL, 's'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -75,6 +73,7 @@ Print checksum and block counts for each FILE.\n\
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -88,9 +87,9 @@ static bool
 bsd_sum_file (const char *file, int print_name)
 {
   FILE *fp;
-  int checksum = 0;	/* The checksum mod 2^16. */
-  uintmax_t total_bytes = 0;	/* The number of bytes. */
-  int ch;		/* Each character read. */
+  int checksum = 0; /* The checksum mod 2^16.  */
+  uintmax_t total_bytes = 0;  /* The number of bytes.  */
+  int ch;   /* Each character read.  */
   char hbuf[LONGEST_HUMAN_READABLE + 1];
   bool is_stdin = STREQ (file, "-");
 
@@ -117,7 +116,7 @@ bsd_sum_file (const char *file, int print_name)
       total_bytes++;
       checksum = (checksum >> 1) + ((checksum & 1) << 15);
       checksum += ch;
-      checksum &= 0xffff;	/* Keep it within bounds. */
+      checksum &= 0xffff; /* Keep it within bounds.  */
     }
 
   if (ferror (fp))
@@ -179,7 +178,7 @@ sysv_sum_file (const char *file, int print_name)
         }
     }
 
-  while (1)
+  while (true)
     {
       size_t bytes_read = safe_read (fd, buf, sizeof buf);
 
@@ -220,7 +219,7 @@ sysv_sum_file (const char *file, int print_name)
 int
 main (int argc, char **argv)
 {
-  bool ok;
+  bool ok = true;
   int optc;
   int files_given;
   bool (*sum_func) (const char *, int) = bsd_sum_file;
@@ -239,33 +238,28 @@ main (int argc, char **argv)
 
   have_read_stdin = false;
 
-  while ((optc = getopt_long (argc, argv, "rs", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'r':		/* For SysV compatibility. */
-          sum_func = bsd_sum_file;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 's':
-          sum_func = sysv_sum_file;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "rs", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'r': /* For SysV compatibility.  */
+        sum_func = bsd_sum_file;
+        break;
+      case 's':
+        sum_func = sysv_sum_file;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   files_given = argc - optind;
   if (files_given <= 0)
     ok = sum_func ("-", files_given);
   else
-    for (ok = true; optind < argc; optind++)
-      ok &= sum_func (argv[optind], files_given);
+    while (optind < argc)
+      ok &= sum_func (argv[optind++], files_given);
 
   if (have_read_stdin && fclose (stdin) == EOF)
     die (EXIT_FAILURE, errno, "%s", quotef ("-"));

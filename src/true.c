@@ -54,7 +54,7 @@ Usage: %s [ignored command line arguments]\n\
 int
 main (int argc, char **argv)
 {
-  /* Recognize --help or --version only if it's the only command-line
+  /* Recognize --help or --version only if it is the only command-line
      argument.  */
   if (argc == 2)
     {

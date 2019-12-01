@@ -1,3 +1,7 @@
+
+#ifndef _LS_H
+#define _LS_H 1
+
 /* This is for the 'ls' program.  */
 #define LS_LS 1
 
@@ -8,3 +12,5 @@
 #define LS_LONG_FORMAT 3
 
 extern int ls_mode;
+
+#endif /* _LS_H */

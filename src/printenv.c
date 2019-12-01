@@ -44,11 +44,9 @@ enum { PRINTENV_FAILURE = 2 };
   proper_name ("David MacKenzie"), \
   proper_name ("Richard Mlynarik")
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"null", no_argument, NULL, '0'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -80,11 +78,10 @@ If no VARIABLE is specified, print name and value pairs for them all.\n\
 int
 main (int argc, char **argv)
 {
+  int optc;
   char **env;
   char *ep, *ap;
-  int i;
   bool ok;
-  int optc;
   bool opt_nul_terminate_output = false;
 
   initialize_main (&argc, &argv);
@@ -96,19 +93,18 @@ main (int argc, char **argv)
   initialize_exit_failure (PRINTENV_FAILURE);
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "+iu:0", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case '0':
-          opt_nul_terminate_output = true;
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (PRINTENV_FAILURE);
-        }
-    }
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "+iu:0", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case '0':
+        opt_nul_terminate_output = true;
+        break;
+      default:
+        usage (PRINTENV_FAILURE);
+      }
 
   if (optind >= argc)
     {
@@ -120,7 +116,7 @@ main (int argc, char **argv)
     {
       int matches = 0;
 
-      for (i = optind; i < argc; ++i)
+      for (int i = optind; i < argc; i++)
         {
           bool matched = false;
 
@@ -128,7 +124,7 @@ main (int argc, char **argv)
           if (strchr (argv[i], '='))
             continue;
 
-          for (env = environ; *env; ++env)
+          for (env = environ; *env != NULL; env++)
             {
               ep = *env;
               ap = argv[i];

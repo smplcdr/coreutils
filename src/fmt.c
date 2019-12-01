@@ -40,11 +40,11 @@
    "best".  Adjust to taste, subject to the caveats given.  */
 
 /* Default longest permitted line length (max_width).  */
-#define WIDTH	75
+#define WIDTH 75
 
 /* Prefer lines to be LEEWAY % shorter than the maximum width, giving
    room for optimization.  */
-#define LEEWAY	7
+#define LEEWAY  7
 
 /* The default secondary indent of tagged paragraph used for unindented
    one-line paragraphs not preceded by any multi-line paragraphs.  */
@@ -63,46 +63,46 @@
 
 typedef long int COST;
 
-#define MAXCOST	TYPE_MAXIMUM (COST)
+#define MAXCOST TYPE_MAXIMUM (COST)
 
-#define SQR(n)		((n) * (n))
-#define EQUIV(n)	SQR ((COST) (n))
+#define SQR(n)    ((n) * (n))
+#define EQUIV(n)  SQR ((COST) (n))
 
 /* Cost of a filled line n chars longer or shorter than goal_width.  */
-#define SHORT_COST(n)	EQUIV ((n) * 10)
+#define SHORT_COST(n) EQUIV ((n) * 10)
 
 /* Cost of the difference between adjacent filled lines.  */
-#define RAGGED_COST(n)	(SHORT_COST (n) / 2)
+#define RAGGED_COST(n)  (SHORT_COST (n) / 2)
 
 /* Basic cost per line.  */
-#define LINE_COST	EQUIV (70)
+#define LINE_COST EQUIV (70)
 
 /* Cost of breaking a line after the first word of a sentence, where
    the length of the word is N.  */
-#define WIDOW_COST(n)	(EQUIV (200) / ((n) + 2))
+#define WIDOW_COST(n) (EQUIV (200) / ((n) + 2))
 
 /* Cost of breaking a line before the last word of a sentence, where
    the length of the word is N.  */
-#define ORPHAN_COST(n)	(EQUIV (150) / ((n) + 2))
+#define ORPHAN_COST(n)  (EQUIV (150) / ((n) + 2))
 
 /* Bonus for breaking a line at the end of a sentence.  */
-#define SENTENCE_BONUS	EQUIV (50)
+#define SENTENCE_BONUS  EQUIV (50)
 
 /* Cost of breaking a line after a period not marking end of a sentence.
    With the definition of sentence we are using (borrowed from emacs, see
    get_line()) such a break would then look like a sentence break.  Hence
    we assign a very high cost -- it should be avoided unless things are
    really bad.  */
-#define NOBREAK_COST	EQUIV (600)
+#define NOBREAK_COST  EQUIV (600)
 
 /* Bonus for breaking a line before open parenthesis.  */
-#define PAREN_BONUS	EQUIV (40)
+#define PAREN_BONUS EQUIV (40)
 
 /* Bonus for breaking a line after other punctuation.  */
-#define PUNCT_BONUS	EQUIV(40)
+#define PUNCT_BONUS EQUIV(40)
 
 /* Credit for breaking a long paragraph one line later.  */
-#define LINE_CREDIT	EQUIV(3)
+#define LINE_CREDIT EQUIV(3)
 
 /* Size of paragraph buffer, in words and characters.  Longer paragraphs
    are handled neatly (cf. flush_paragraph()), so long as these values
@@ -111,18 +111,18 @@ typedef long int COST;
    and/or cause more overflows in cost calculations.  FIXME: Remove these
    arbitrary limits.  */
 
-#define MAXWORDS	1000
-#define MAXCHARS	5000
+#define MAXWORDS  1000
+#define MAXCHARS  5000
 
 /* Extra ctype(3)-style macros.  */
 
-#define isopen(c)	(strchr ("(['`\"", c) != NULL)
-#define isclose(c)	(strchr (")]'\"", c) != NULL)
-#define isperiod(c)	(strchr (".?!", c) != NULL)
+#define isopen(c) (strchr ("(['`\"", c) != NULL)
+#define isclose(c)  (strchr (")]'\"", c) != NULL)
+#define isperiod(c) (strchr (".?!", c) != NULL)
 
 /* Size of a tab stop, for expansion on input and re-introduction on
    output.  */
-#define TABWIDTH	8
+#define TABWIDTH  8
 
 /* Word descriptor structure.  */
 
@@ -133,19 +133,19 @@ struct Word
 
     /* Static attributes determined during input.  */
 
-    const char *text;		/* the text of the word */
-    int length;			/* length of this word */
-    int space;			/* the size of the following space */
-    unsigned int paren:1;	/* starts with open paren */
-    unsigned int period:1;	/* ends in [.?!])* */
-    unsigned int punct:1;	/* ends in punctuation */
-    unsigned int final:1;	/* end of sentence */
+    const char *text;   /* the text of the word */
+    int length;     /* length of this word */
+    int space;      /* the size of the following space */
+    unsigned int paren:1; /* starts with open paren */
+    unsigned int period:1;  /* ends in [.?!])* */
+    unsigned int punct:1; /* ends in punctuation */
+    unsigned int final:1; /* end of sentence */
 
     /* The remaining fields are computed during the optimization.  */
 
-    int line_length;		/* length of the best line starting here */
-    COST best_cost;		/* cost of best paragraph starting here */
-    WORD *next_break;		/* break which achieves best_cost */
+    int line_length;    /* length of the best line starting here */
+    COST best_cost;   /* cost of best paragraph starting here */
+    WORD *next_break;   /* break which achieves best_cost */
   };
 
 /* Forward declarations.  */
@@ -179,7 +179,7 @@ static bool tagged;
 /* If true, each line is a paragraph on its own (default false).  */
 static bool split;
 
-/* If true, don't preserve inter-word spacing (default false).  */
+/* If true, do not preserve inter-word spacing (default false).  */
 static bool uniform;
 
 /* Prefix minus leading and trailing spaces (default "").  */
@@ -299,7 +299,7 @@ The option -WIDTH is an abbreviated form of --width=DIGITS.\n\
 
 /* Decode options and launch execution.  */
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"crown-margin", no_argument, NULL, 'c'},
   {"prefix", required_argument, NULL, 'p'},
@@ -308,18 +308,16 @@ static struct option const long_options[] =
   {"uniform-spacing", no_argument, NULL, 'u'},
   {"width", required_argument, NULL, 'w'},
   {"goal", required_argument, NULL, 'g'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0},
 };
 
 int
 main (int argc, char **argv)
 {
-  int optchar;
+  int optc;
   bool ok = true;
-  char const *max_width_option = NULL;
-  char const *goal_width_option = NULL;
+  const char *max_width_option = NULL;
+  const char *goal_width_option = NULL;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -345,50 +343,39 @@ main (int argc, char **argv)
       argc--;
     }
 
-  while ((optchar = getopt_long (argc, argv, "0123456789cstuw:p:g:",
-                                 long_options, NULL))
-         != -1)
-    switch (optchar)
-      {
-      default:
-        if (ISDIGIT (optchar))
-          error (0, 0, _("invalid option -- %c; -WIDTH is recognized\
- only when it is the first\noption; use -w N instead"),
-                 optchar);
-        usage (EXIT_FAILURE);
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
+  while ((optc = getopt_long (argc, argv, "0123456789cstuw:p:g:",
+                              long_options, NULL)) != -1)
+    switch (optc)
+      {
       case 'c':
         crown = true;
         break;
-
       case 's':
         split = true;
         break;
-
       case 't':
         tagged = true;
         break;
-
       case 'u':
         uniform = true;
         break;
-
       case 'w':
         max_width_option = optarg;
         break;
-
       case 'g':
         goal_width_option = optarg;
         break;
-
       case 'p':
         set_prefix (optarg);
         break;
-
-      case_GETOPT_HELP_CHAR;
-
-      case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
+      default:
+        if (ISDIGIT (optc))
+          error (0, 0, _("invalid option -- %c; -WIDTH is recognized\
+ only when it is the first\noption; use -w N instead"), optc);
+        usage (EXIT_FAILURE);
       }
 
   if (max_width_option)
@@ -578,7 +565,7 @@ get_paragraph (FILE *f)
       if (same_para (c))
         {
           do
-            {			/* for each line till the end of the para */
+            {     /* for each line till the end of the para */
               c = get_line (f, c);
             }
           while (same_para (c) && in_column == other_indent);
@@ -589,7 +576,7 @@ get_paragraph (FILE *f)
       if (same_para (c) && in_column != first_indent)
         {
           do
-            {			/* for each line till the end of the para */
+            {     /* for each line till the end of the para */
               c = get_line (f, c);
             }
           while (same_para (c) && in_column == other_indent);
@@ -670,7 +657,7 @@ get_line (FILE *f, int c)
   end_of_word = &word[MAXWORDS - 2];
 
   do
-    {				/* for each word in a line */
+    {       /* for each word in a line */
 
       /* Scan word.  */
 
@@ -766,8 +753,8 @@ get_space (FILE *f, int c)
 static void
 check_punctuation (WORD *w)
 {
-  char const *start = w->text;
-  char const *finish = start + (w->length - 1);
+  const char *start = w->text;
+  const char *finish = start + (w->length - 1);
   unsigned char fin = *finish;
 
   w->paren = isopen (*start);
@@ -788,7 +775,7 @@ flush_paragraph (void)
   int shift;
   COST best_break;
 
-  /* In the special case where it's all one word, just flush it.  */
+  /* In the special case where it is all one word, just flush it.  */
 
   if (word_limit == word)
     {
@@ -854,7 +841,7 @@ fmt_paragraph (void)
 
   word_limit->best_cost = 0;
   saved_length = word_limit->length;
-  word_limit->length = max_width;	/* sentinel */
+  word_limit->length = max_width; /* sentinel */
 
   for (start = word_limit - 1; start >= word; start--)
     {
@@ -888,7 +875,7 @@ fmt_paragraph (void)
           if (w == word_limit)
             break;
 
-          len += (w - 1)->space + w->length;	/* w > start >= word */
+          len += (w - 1)->space + w->length;  /* w > start >= word */
         }
       while (len < max_width);
       start->best_cost = best + base_cost (start);

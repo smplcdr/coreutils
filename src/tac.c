@@ -15,7 +15,7 @@
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* Written by Jay Lepreau (lepreau@cs.utah.edu).
-   GNU enhancements by David MacKenzie (djm@gnu.ai.mit.edu). */
+   GNU enhancements by David MacKenzie (djm@gnu.ai.mit.edu).  */
 
 /* Copy each FILE, or the standard input if none are given or when a
    FILE name of "-" is encountered, to the standard output with the
@@ -25,10 +25,10 @@
    follows in the file.
 
    Options:
-   -b, --before			The separator is attached to the beginning
+   -b, --before     The separator is attached to the beginning
                                 of the record that it precedes in the file.
-   -r, --regex			The separator is a regular expression.
-   -s, --separator=separator	Use SEPARATOR as the record separator.
+   -r, --regex      The separator is a regular expression.
+   -s, --separator=separator  Use SEPARATOR as the record separator.
 
    To reverse a file byte by byte, use (in bash, ksh, or sh):
 tac -r -s '.\|
@@ -60,7 +60,7 @@ tac -r -s '.\|
 #if defined __MSDOS__ || defined _WIN32
 /* Define this to non-zero on systems for which the regular mechanism
    (of unlinking an open file and expecting to be able to write, seek
-   back to the beginning, then reread it) doesn't work.  E.g., on Windows
+   back to the beginning, then reread it) does not work.  E.g., on Windows
    and DOS systems.  */
 # define DONT_UNLINK_WHILE_OPEN 1
 #endif
@@ -70,55 +70,53 @@ tac -r -s '.\|
 # define DEFAULT_TMPDIR "/tmp"
 #endif
 
-/* The number of bytes per atomic read. */
+/* The number of bytes per atomic read.  */
 #define INITIAL_READSIZE 8192
 
-/* The number of bytes per atomic write. */
+/* The number of bytes per atomic write.  */
 #define WRITESIZE 8192
 
-/* The string that separates the records of the file. */
-static char const *separator;
+/* The string that separates the records of the file.  */
+static const char *separator;
 
 /* True if we have ever read standard input.  */
 static bool have_read_stdin = false;
 
 /* If true, print 'separator' along with the record preceding it
-   in the file; otherwise with the record following it. */
+   in the file; otherwise with the record following it.  */
 static bool separator_ends_record;
 
 /* 0 if 'separator' is to be matched as a regular expression;
    otherwise, the length of 'separator', used as a sentinel to
-   stop the search. */
+   stop the search.  */
 static size_t sentinel_length;
 
 /* The length of a match with 'separator'.  If 'sentinel_length' is 0,
    'match_length' is computed every time a match succeeds;
-   otherwise, it is simply the length of 'separator'. */
+   otherwise, it is simply the length of 'separator'.  */
 static size_t match_length;
 
-/* The input buffer. */
+/* The input buffer.  */
 static char *G_buffer;
 
-/* The number of bytes to read at once into 'buffer'. */
+/* The number of bytes to read at once into 'buffer'.  */
 static size_t read_size;
 
 /* The size of 'buffer'.  This is read_size * 2 + sentinel_length + 2.
    The extra 2 bytes allow 'past_end' to have a value beyond the
-   end of 'G_buffer' and 'match_start' to run off the front of 'G_buffer'. */
+   end of 'G_buffer' and 'match_start' to run off the front of 'G_buffer'.  */
 static size_t G_buffer_size;
 
-/* The compiled regular expression representing 'separator'. */
+/* The compiled regular expression representing 'separator'.  */
 static struct re_pattern_buffer compiled_separator;
 static char compiled_separator_fastmap[UCHAR_MAX + 1];
 static struct re_registers regs;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"before", no_argument, NULL, 'b'},
   {"regex", no_argument, NULL, 'r'},
   {"separator", required_argument, NULL, 's'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -153,7 +151,7 @@ Write each FILE to standard output, last line first.\n\
 }
 
 /* Print the characters from START to PAST_END - 1.
-   If START is NULL, just flush the buffer. */
+   If START is NULL, just flush the buffer.  */
 
 static void
 output (const char *start, const char *past_end)
@@ -170,7 +168,7 @@ output (const char *start, const char *past_end)
       return;
     }
 
-  /* Write out as many full buffers as possible. */
+  /* Write out as many full buffers as possible.  */
   while (bytes_to_add >= bytes_available)
     {
       memcpy (buffer + bytes_in_buffer, start, bytes_available);
@@ -193,28 +191,28 @@ static bool
 tac_seekable (int input_fd, const char *file, off_t file_pos)
 {
   /* Pointer to the location in 'G_buffer' where the search for
-     the next separator will begin. */
+     the next separator will begin.  */
   char *match_start;
 
   /* Pointer to one past the rightmost character in 'G_buffer' that
-     has not been printed yet. */
+     has not been printed yet.  */
   char *past_end;
 
-  /* Length of the record growing in 'G_buffer'. */
+  /* Length of the record growing in 'G_buffer'.  */
   size_t saved_record_size;
 
   /* True if 'output' has not been called yet for any file.
-     Only used when the separator is attached to the preceding record. */
+     Only used when the separator is attached to the preceding record.  */
   bool first_time = true;
-  char first_char = *separator;	/* Speed optimization, non-regexp. */
-  char const *separator1 = separator + 1; /* Speed optimization, non-regexp. */
-  size_t match_length1 = match_length - 1; /* Speed optimization, non-regexp. */
+  char first_char = *separator; /* Speed optimization, non-regexp.  */
+  const char *separator1 = separator + 1; /* Speed optimization, non-regexp.  */
+  size_t match_length1 = match_length - 1; /* Speed optimization, non-regexp.  */
 
   /* Arrange for the first read to lop off enough to leave the rest of the
      file a multiple of 'read_size'.  Since 'read_size' can change, this may
      not always hold during the program run, but since it usually will, leave
      it here for i/o efficiency (page/sector boundaries and all that).
-     Note: the efficiency gain has not been verified. */
+     Note: the efficiency gain has not been verified.  */
   size_t remainder = file_pos % read_size;
   if (remainder != 0)
     {
@@ -253,7 +251,7 @@ tac_seekable (int input_fd, const char *file, off_t file_pos)
     }
 
   match_start = past_end = G_buffer + saved_record_size;
-  /* For non-regexp search, move past impossible positions for a match. */
+  /* For non-regexp search, move past impossible positions for a match.  */
   if (sentinel_length)
     match_start -= match_length1;
 
@@ -264,7 +262,7 @@ tac_seekable (int input_fd, const char *file, off_t file_pos)
          metacharacters.
          If the match succeeds, set 'match_start' to point to the start of
          the match and 'match_length' to the length of the match.
-         Otherwise, make 'match_start' < 'G_buffer'. */
+         Otherwise, make 'match_start' < 'G_buffer'.  */
       if (sentinel_length == 0)
         {
           size_t i = match_start - G_buffer;
@@ -293,20 +291,20 @@ tac_seekable (int input_fd, const char *file, off_t file_pos)
         }
       else
         {
-          /* 'match_length' is constant for non-regexp boundaries. */
+          /* 'match_length' is constant for non-regexp boundaries.  */
           while (*--match_start != first_char
                  || (match_length1 && !STREQ_LEN (match_start + 1, separator1,
                                                   match_length1)))
-            /* Do nothing. */ ;
+            /* Do nothing.  */;
         }
 
       /* Check whether we backed off the front of 'G_buffer' without finding
-         a match for 'separator'. */
+         a match for 'separator'.  */
       if (match_start < G_buffer)
         {
           if (file_pos == 0)
             {
-              /* Hit the beginning of the file; print the remaining record. */
+              /* Hit the beginning of the file; print the remaining record.  */
               output (G_buffer, past_end);
               return true;
             }
@@ -317,7 +315,7 @@ tac_seekable (int input_fd, const char *file, off_t file_pos)
               /* 'G_buffer_size' is about twice 'read_size', so since
                  we want to read in another 'read_size' bytes before
                  the data already in 'G_buffer', we need to increase
-                 'G_buffer_size'. */
+                 'G_buffer_size'.  */
               char *newbuffer;
               size_t offset = sentinel_length ? sentinel_length : 1;
               size_t old_G_buffer_size = G_buffer_size;
@@ -346,7 +344,7 @@ tac_seekable (int input_fd, const char *file, off_t file_pos)
              The source and destination regions probably overlap.  */
           memmove (G_buffer + read_size, G_buffer, saved_record_size);
           past_end = G_buffer + read_size + saved_record_size;
-          /* For non-regexp searches, avoid unnecessary scanning. */
+          /* For non-regexp searches, avoid unnecessary scanning.  */
           if (sentinel_length)
             match_start = G_buffer + read_size;
           else
@@ -360,13 +358,13 @@ tac_seekable (int input_fd, const char *file, off_t file_pos)
         }
       else
         {
-          /* Found a match of 'separator'. */
+          /* Found a match of 'separator'.  */
           if (separator_ends_record)
             {
               char *match_end = match_start + match_length;
 
-              /* If this match of 'separator' isn't at the end of the
-                 file, print the record. */
+              /* If this match of 'separator' is not at the end of the
+                 file, print the record.  */
               if (!first_time || match_end != past_end)
                 output (match_end, past_end);
               past_end = match_end;
@@ -390,7 +388,7 @@ tac_seekable (int input_fd, const char *file, off_t file_pos)
 /* FIXME-someday: remove all of this DONT_UNLINK_WHILE_OPEN junk.
    Using atexit like this is wrong, since it can fail
    when called e.g. 32 or more times.
-   But this isn't a big deal, since the code is used only on WOE/DOS
+   But this is not a big deal, since the code is used only on WOE/DOS
    systems, and few people invoke tac on that many nonseekable files.  */
 
 static const char *file_to_remove;
@@ -404,7 +402,7 @@ unlink_tempfile (void)
 }
 
 static void
-record_or_unlink_tempfile (char const *fn, FILE *fp)
+record_or_unlink_tempfile (const char *fn, FILE *fp)
 {
   if (!file_to_remove)
     {
@@ -417,7 +415,7 @@ record_or_unlink_tempfile (char const *fn, FILE *fp)
 #else
 
 static void
-record_or_unlink_tempfile (char const *fn, FILE *fp _GL_UNUSED)
+record_or_unlink_tempfile (const char *fn, FILE *fp _GL_UNUSED)
 {
   unlink (fn);
 }
@@ -434,8 +432,8 @@ temp_stream (FILE **fp, char **file_name)
   static FILE *tmp_fp;
   if (tempfile == NULL)
     {
-      char const *t = getenv ("TMPDIR");
-      char const *tempdir = t ? t : DEFAULT_TMPDIR;
+      const char *t = getenv ("TMPDIR");
+      const char *tempdir = t ? t : DEFAULT_TMPDIR;
       tempfile = mfile_name_concat (tempdir, "tacXXXXXX", NULL);
       if (tempdir == NULL)
         {
@@ -449,7 +447,7 @@ temp_stream (FILE **fp, char **file_name)
          the temporary file.  On systems that define DONT_UNLINK_WHILE_OPEN,
          the window is much larger -- it extends to the atexit-called
          unlink_tempfile.
-         FIXME: clean up upon fatal signal.  Don't block them, in case
+         FIXME: clean up upon fatal signal.  Do not block them, in case
          $TMPFILE is a remote file system.  */
 
       int fd = mkstemp (tempfile);
@@ -461,7 +459,7 @@ temp_stream (FILE **fp, char **file_name)
         }
 
       tmp_fp = fdopen (fd, (O_BINARY ? "w+b" : "w+"));
-      if (! tmp_fp)
+      if (!tmp_fp)
         {
           error (0, errno, _("failed to open %s for writing"),
                  quoteaf (tempfile));
@@ -497,7 +495,7 @@ temp_stream (FILE **fp, char **file_name)
    and file name.  Return the number of bytes copied, or -1 on error.  */
 
 static off_t
-copy_to_temp (FILE **g_tmp, char **g_tempfile, int input_fd, char const *file)
+copy_to_temp (FILE **g_tmp, char **g_tempfile, int input_fd, const char *file)
 {
   FILE *fp;
   char *file_name;
@@ -505,7 +503,7 @@ copy_to_temp (FILE **g_tmp, char **g_tempfile, int input_fd, char const *file)
   if (!temp_stream (&fp, &file_name))
     return -1;
 
-  while (1)
+  while (true)
     {
       size_t bytes_read = safe_read (input_fd, G_buffer, read_size);
       if (bytes_read == 0)
@@ -602,15 +600,15 @@ tac_file (const char *filename)
 int
 main (int argc, char **argv)
 {
-  const char *error_message;	/* Return value from re_compile_pattern. */
+  const char *error_message;  /* Return value from re_compile_pattern.  */
   int optc;
   bool ok;
   size_t half_buffer_size;
 
   /* Initializer for file_list if no file-arguments
      were specified on the command line.  */
-  static char const *const default_file_list[] = {"-", NULL};
-  char const *const *file;
+  static const char *const default_file_list[] = {"-", NULL};
+  const char *const *file;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -624,25 +622,24 @@ main (int argc, char **argv)
   sentinel_length = 1;
   separator_ends_record = true;
 
-  while ((optc = getopt_long (argc, argv, "brs:", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'b':
-          separator_ends_record = false;
-          break;
-        case 'r':
-          sentinel_length = 0;
-          break;
-        case 's':
-          separator = optarg;
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "brs:", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'b':
+        separator_ends_record = false;
+        break;
+      case 'r':
+        sentinel_length = 0;
+        break;
+      case 's':
+        separator = optarg;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (sentinel_length == 0)
     {
@@ -670,7 +667,7 @@ main (int argc, char **argv)
     }
   half_buffer_size = read_size + sentinel_length + 1;
   G_buffer_size = 2 * half_buffer_size;
-  if (! (read_size < half_buffer_size && half_buffer_size < G_buffer_size))
+  if (!(read_size < half_buffer_size && half_buffer_size < G_buffer_size))
     xalloc_die ();
   G_buffer = xmalloc (G_buffer_size);
   if (sentinel_length)
@@ -684,7 +681,7 @@ main (int argc, char **argv)
     }
 
   file = (optind < argc
-          ? (char const *const *) &argv[optind]
+          ? (const char *const *) &argv[optind]
           : default_file_list);
 
   xset_binary_mode (STDOUT_FILENO, O_BINARY);
@@ -695,7 +692,7 @@ main (int argc, char **argv)
       ok &= tac_file (file[i]);
   }
 
-  /* Flush the output buffer. */
+  /* Flush the output buffer.  */
   output ((char *) NULL, (char *) NULL);
 
   if (have_read_stdin && close (STDIN_FILENO) < 0)

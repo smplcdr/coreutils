@@ -37,7 +37,7 @@ static bool no_newline;
 /* If true, report error messages.  */
 static bool verbose;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"canonicalize", no_argument, NULL, 'f'},
   {"canonicalize-existing", no_argument, NULL, 'e'},
@@ -47,8 +47,6 @@ static struct option const longopts[] =
   {"silent", no_argument, NULL, 's'},
   {"verbose", no_argument, NULL, 'v'},
   {"zero", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -87,6 +85,7 @@ usage (int status)
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -94,9 +93,9 @@ int
 main (int argc, char **argv)
 {
   /* If not -1, use this method to canonicalize.  */
+  int optc;
   int can_mode = -1;
   int status = EXIT_SUCCESS;
-  int optc;
   bool use_nuls = false;
 
   initialize_main (&argc, &argv);
@@ -107,38 +106,37 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "efmnqsvz", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'e':
-          can_mode = CAN_EXISTING;
-          break;
-        case 'f':
-          can_mode = CAN_ALL_BUT_LAST;
-          break;
-        case 'm':
-          can_mode = CAN_MISSING;
-          break;
-        case 'n':
-          no_newline = true;
-          break;
-        case 'q':
-        case 's':
-          verbose = false;
-          break;
-        case 'v':
-          verbose = true;
-          break;
-        case 'z':
-          use_nuls = true;
-          break;
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "efmnqsvz", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'e':
+        can_mode = CAN_EXISTING;
+        break;
+      case 'f':
+        can_mode = CAN_ALL_BUT_LAST;
+        break;
+      case 'm':
+        can_mode = CAN_MISSING;
+        break;
+      case 'n':
+        no_newline = true;
+        break;
+      case 'q':
+      case 's':
+        verbose = false;
+        break;
+      case 'v':
+        verbose = true;
+        break;
+      case 'z':
+        use_nuls = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (optind >= argc)
     {
@@ -162,7 +160,7 @@ main (int argc, char **argv)
       if (value)
         {
           fputs (value, stdout);
-          if (! no_newline)
+          if (!no_newline)
             putchar (use_nuls ? '\0' : '\n');
           free (value);
         }

@@ -58,6 +58,7 @@
 #include "die.h"
 #include "error.h"
 #include "fd-reopen.h"
+#include "long-options.h"
 #include "quote.h"
 #include "xdectoint.h"
 #include "xstrtol.h"
@@ -72,7 +73,7 @@
 #endif
 
 #define Control(c) ((c) & 0x1f)
-/* Canonical values for control characters. */
+/* Canonical values for control characters.  */
 #ifndef CINTR
 # define CINTR Control ('c')
 #endif
@@ -119,14 +120,14 @@
 # define CSWTCH _POSIX_VDISABLE
 #endif
 
-/* SunOS >= 5.3 loses (^Z doesn't work) if 'swtch' is the same as 'susp'.
+/* SunOS >= 5.3 loses (^Z does not work) if 'swtch' is the same as 'susp'.
    So the default is to disable 'swtch.'  */
 #if defined __sun
 # undef CSWTCH
 # define CSWTCH _POSIX_VDISABLE
 #endif
 
-#if defined VWERSE && !defined VWERASE	/* AIX-3.2.5 */
+#if defined VWERSE && !defined VWERASE  /* AIX-3.2.5 */
 # define VWERASE VWERSE
 #endif
 #if defined VDSUSP && !defined CDSUSP
@@ -150,16 +151,16 @@
 #if defined VDISCARD && !defined VFLUSHO
 # define VFLUSHO VDISCARD
 #endif
-#if defined VFLUSH && !defined VFLUSHO	/* Ultrix 4.2 */
+#if defined VFLUSH && !defined VFLUSHO  /* Ultrix 4.2 */
 # define VFLUSHO VFLUSH
 #endif
-#if defined CTLECH && !defined ECHOCTL	/* Ultrix 4.3 */
+#if defined CTLECH && !defined ECHOCTL  /* Ultrix 4.3 */
 # define ECHOCTL CTLECH
 #endif
-#if defined TCTLECH && !defined ECHOCTL	/* Ultrix 4.2 */
+#if defined TCTLECH && !defined ECHOCTL /* Ultrix 4.2 */
 # define ECHOCTL TCTLECH
 #endif
-#if defined CRTKIL && !defined ECHOKE	/* Ultrix 4.2 and 4.3 */
+#if defined CRTKIL && !defined ECHOKE /* Ultrix 4.2 and 4.3 */
 # define ECHOKE CRTKIL
 #endif
 #if defined VFLUSHO && !defined CFLUSHO
@@ -170,41 +171,32 @@
 #endif
 
 /* Which speeds to set.  */
-enum speed_setting
-  {
-    input_speed, output_speed, both_speeds
-  };
+enum speed_setting { input_speed, output_speed, both_speeds };
 
 /* What to output and how.  */
-enum output_type
-  {
-    changed, all, recoverable	/* Default, -a, -g.  */
-  };
+enum output_type { changed, all, recoverable /* Default, -a, -g.  */ };
 
 /* Which member(s) of 'struct termios' a mode uses.  */
-enum mode_type
-  {
-    control, input, output, local, combination
-  };
+enum mode_type { control, input, output, local, combination };
 
-/* Flags for 'struct mode_info'. */
-#define SANE_SET 1		/* Set in 'sane' mode. */
-#define SANE_UNSET 2		/* Unset in 'sane' mode. */
-#define REV 4			/* Can be turned off by prepending '-'. */
-#define OMIT 8			/* Don't display value. */
-#define NO_SETATTR 16		/* tcsetattr not used to set mode bits.  */
+/* Flags for 'struct mode_info'.  */
+#define SANE_SET   1  /* Set in 'sane' mode.  */
+#define SANE_UNSET 2  /* Unset in 'sane' mode.  */
+#define REV        4  /* Can be turned off by prepending '-'.  */
+#define OMIT       8  /* Do not display value.  */
+#define NO_SETATTR 16 /* tcsetattr not used to set mode bits.  */
 
 /* Each mode.  */
 struct mode_info
-  {
-    const char *name;		/* Name given on command line.  */
-    enum mode_type type;	/* Which structure element to change. */
-    char flags;			/* Setting and display options.  */
-    unsigned long bits;		/* Bits to set for this mode.  */
-    unsigned long mask;		/* Other bits to turn off for this mode.  */
-  };
+{
+  const char *name;     /* Name given on command line.  */
+  enum mode_type type;  /* Which structure element to change.  */
+  unsigned int flags:4; /* Setting and display options.  */
+  unsigned long bits;   /* Bits to set for this mode.  */
+  unsigned long mask;   /* Other bits to turn off for this mode.  */
+};
 
-static struct mode_info const mode_info[] =
+static const struct mode_info mode_info[] =
 {
   {"parenb", control, REV, PARENB, 0},
   {"parodd", control, REV, PARODD, 0},
@@ -382,15 +374,14 @@ static struct mode_info const mode_info[] =
 
 /* Control character settings.  */
 struct control_info
-  {
-    const char *name;		/* Name given on command line.  */
-    cc_t saneval;		/* Value to set for 'stty sane'.  */
-    size_t offset;		/* Offset in c_cc.  */
-  };
+{
+  const char *name;  /* Name given on command line.  */
+  cc_t saneval;     /* Value to set for 'stty sane'.  */
+  size_t offset;    /* Offset in c_cc.  */
+};
 
-/* Control characters. */
-
-static struct control_info const control_info[] =
+/* Control characters.  */
+static const struct control_info control_info[] =
 {
   {"intr", CINTR, VINTR},
   {"quit", CQUIT, VQUIT},
@@ -413,7 +404,7 @@ static struct control_info const control_info[] =
 #ifdef VREPRINT
   {"rprnt", CRPRNT, VREPRINT},
 #else
-# ifdef CREPRINT /* HPUX 10.20 needs this */
+# ifdef CREPRINT /* HPUX 10.20 needs this.  */
   {"rprnt", CRPRNT, CREPRINT},
 # endif
 #endif
@@ -424,69 +415,67 @@ static struct control_info const control_info[] =
   {"lnext", CLNEXT, VLNEXT},
 #endif
 #ifdef VFLUSHO
-  {"flush", CFLUSHO, VFLUSHO},   /* deprecated compat option.  */
+  {"flush", CFLUSHO, VFLUSHO},   /* Deprecated compat option.  */
   {"discard", CFLUSHO, VFLUSHO},
 #endif
 #ifdef VSTATUS
   {"status", CSTATUS, VSTATUS},
 #endif
 
-  /* These must be last because of the display routines. */
+  /* These must be last because of the display routines.  */
   {"min", 1, VMIN},
   {"time", 0, VTIME},
   {NULL, 0, 0}
 };
 
-static char const *visible (cc_t ch);
+static const char *visible (cc_t ch);
 static unsigned long int baud_to_value (speed_t speed);
-static bool recover_mode (char const *arg, struct termios *mode);
+static bool recover_mode (const char *arg, struct termios *mode);
 static int screen_columns (void);
-static bool set_mode (struct mode_info const *info, bool reversed,
+static bool set_mode (const struct mode_info *info, bool reversed,
                       struct termios *mode);
 static unsigned long int integer_arg (const char *s, unsigned long int max);
 static speed_t string_to_baud (const char *arg);
 static tcflag_t *mode_type_flag (enum mode_type type, struct termios *mode);
-static void display_all (struct termios *mode, char const *device_name);
+static void display_all (struct termios *mode, const char *device_name);
 static void display_changed (struct termios *mode);
 static void display_recoverable (struct termios *mode);
 static void display_settings (enum output_type output_type,
                               struct termios *mode,
                               const char *device_name);
 static void display_speed (struct termios *mode, bool fancy);
-static void display_window_size (bool fancy, char const *device_name);
+static void display_window_size (bool fancy, const char *device_name);
 static void sane_mode (struct termios *mode);
 static void set_control_char (struct control_info const *info,
                               const char *arg,
                               struct termios *mode);
 static void set_speed (enum speed_setting type, const char *arg,
                        struct termios *mode);
-static void set_window_size (int rows, int cols, char const *device_name);
+static void set_window_size (int rows, int cols, const char *device_name);
 
-/* The width of the screen, for output wrapping. */
+/* The width of the screen, for output wrapping.  */
 static int max_col;
 
-/* Current position, to know when to wrap. */
+/* Current position, to know when to wrap.  */
 static int current_col;
 
 /* Default "drain" mode for tcsetattr.  */
 static int tcsetattr_options = TCSADRAIN;
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"all", no_argument, NULL, 'a'},
   {"save", no_argument, NULL, 'g'},
   {"file", required_argument, NULL, 'F'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 static void wrapf (const char *message, ...)
-     __attribute__ ((__format__ (__printf__, 1, 2)));
+  __attribute__ ((__format__ (__printf__, 1, 2)));
 
 /* Print format string MESSAGE and optional args.
    Wrap to next line first if it won't fit.
-   Print a space first unless MESSAGE will start a new line. */
+   Print a space first unless MESSAGE will start a new line.  */
 
 static void
 wrapf (const char *message,...)
@@ -502,7 +491,7 @@ wrapf (const char *message,...)
   if (buflen < 0)
     xalloc_die ();
 
-  if (0 < current_col)
+  if (current_col > 0)
     {
       if (max_col - current_col < buflen)
         {
@@ -532,8 +521,7 @@ usage (int status)
 Usage: %s [-F DEVICE | --file=DEVICE] [SETTING]...\n\
   or:  %s [-F DEVICE | --file=DEVICE] [-a|--all]\n\
   or:  %s [-F DEVICE | --file=DEVICE] [-g|--save]\n\
-"),
-              program_name, program_name, program_name);
+"), program_name, program_name, program_name);
       fputs (_("\
 Print or change terminal characteristics.\n\
 "), stdout);
@@ -1074,46 +1062,45 @@ settings, CHAR is taken literally, or coded as in ^c, 0x37, 0177 or\n\
 "), stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
-
 /* Apply specified settings to MODE, and update
    SPEED_WAS_SET and REQUIRE_SET_ATTR as required.
-   If CHECKING is true, this function doesn't interact
+   If CHECKING is true, this function does not interact
    with a device, and only validates specified settings.  */
-
 static void
 apply_settings (bool checking, const char *device_name,
-                char * const *settings, int n_settings,
+                char *const *settings, int n_settings,
                 struct termios *mode, bool *speed_was_set,
                 bool *require_set_attr)
 {
-#define check_argument(arg)						\
-  do									\
-    {									\
-      if (k == n_settings - 1 || ! settings[k+1])			\
-        {								\
-          error (0, 0, _("missing argument to %s"), quote (arg));	\
-          usage (EXIT_FAILURE);						\
-        }								\
-    }									\
+#define check_argument(arg)                                       \
+  do                                                              \
+    {                                                             \
+      if (k == n_settings - 1 || ! settings[k+1])                 \
+        {                                                         \
+          error (0, 0, _("missing argument to %s"), quote (arg)); \
+          usage (EXIT_FAILURE);                                   \
+        }                                                         \
+    }                                                             \
   while (0)
 
   for (int k = 1; k < n_settings; k++)
     {
-      char const *arg = settings[k];
+      const char *arg = settings[k];
       bool match_found = false;
       bool not_set_attr = false;
       bool reversed = false;
       int i;
 
-      if (! arg)
+      if (arg == NULL)
         continue;
 
       if (arg[0] == '-')
         {
-          ++arg;
+          arg++;
           reversed = true;
         }
       if (STREQ (arg, "drain"))
@@ -1121,7 +1108,7 @@ apply_settings (bool checking, const char *device_name,
           tcsetattr_options = reversed ? TCSANOW : TCSADRAIN;
           continue;
         }
-      for (i = 0; mode_info[i].name != NULL; ++i)
+      for (i = 0; mode_info[i].name != NULL; i++)
         {
           if (STREQ (arg, mode_info[i].name))
             {
@@ -1148,7 +1135,7 @@ apply_settings (bool checking, const char *device_name,
                 {
                   check_argument (arg);
                   match_found = true;
-                  ++k;
+                  k++;
                   set_control_char (&control_info[i], settings[k], mode);
                   *require_set_attr = true;
                   break;
@@ -1160,7 +1147,7 @@ apply_settings (bool checking, const char *device_name,
           if (STREQ (arg, "ispeed"))
             {
               check_argument (arg);
-              ++k;
+              k++;
               if (checking)
                 continue;
               set_speed (input_speed, settings[k], mode);
@@ -1170,7 +1157,7 @@ apply_settings (bool checking, const char *device_name,
           else if (STREQ (arg, "ospeed"))
             {
               check_argument (arg);
-              ++k;
+              k++;
               if (checking)
                 continue;
               set_speed (output_speed, settings[k], mode);
@@ -1179,10 +1166,10 @@ apply_settings (bool checking, const char *device_name,
             }
 #ifdef TIOCEXT
           /* This is the BSD interface to "extproc".
-            Even though it's an lflag, an ioctl is used to set it.  */
+            Even though it is an lflag, an ioctl is used to set it.  */
           else if (STREQ (arg, "extproc"))
             {
-              int val = ! reversed;
+              int val = !reversed ? 1 : 0;
 
               if (checking)
                 continue;
@@ -1198,7 +1185,7 @@ apply_settings (bool checking, const char *device_name,
           else if (STREQ (arg, "rows"))
             {
               check_argument (arg);
-              ++k;
+              k++;
               if (checking)
                 continue;
               set_window_size (integer_arg (settings[k], INT_MAX), -1,
@@ -1208,7 +1195,7 @@ apply_settings (bool checking, const char *device_name,
                    || STREQ (arg, "columns"))
             {
               check_argument (arg);
-              ++k;
+              k++;
               if (checking)
                 continue;
               set_window_size (-1, integer_arg (settings[k], INT_MAX),
@@ -1228,7 +1215,7 @@ apply_settings (bool checking, const char *device_name,
             {
               unsigned long int value;
               check_argument (arg);
-              ++k;
+              k++;
               mode->c_line = value = integer_arg (settings[k], ULONG_MAX);
               if (mode->c_line != value)
                 error (0, 0, _("invalid line discipline %s"),
@@ -1253,7 +1240,7 @@ apply_settings (bool checking, const char *device_name,
             }
           else
             {
-              if (! recover_mode (arg, mode))
+              if (!recover_mode (arg, mode))
                 {
                   error (0, 0, _("invalid argument %s"), quote (arg));
                   usage (EXIT_FAILURE);
@@ -1295,7 +1282,7 @@ main (int argc, char **argv)
   verbose_output = false;
   recoverable_output = false;
 
-  /* Don't print error messages for unrecognized options.  */
+  /* Do not print error messages for unrecognized options.  */
   opterr = 0;
 
   /* If any new options are ever added to stty, the short options MUST
@@ -1305,9 +1292,10 @@ main (int argc, char **argv)
      stty parses options, be sure it still works with combinations of
      short and long options, --, POSIXLY_CORRECT, etc.  */
 
-  while ((optc = getopt_long (argc - argi, argv + argi, "-agF:",
-                              longopts, NULL))
-         != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc - argi, argv + argi, "-agF:", long_options, NULL)) != -1)
     {
       switch (optc)
         {
@@ -1315,27 +1303,20 @@ main (int argc, char **argv)
           verbose_output = true;
           output_type = all;
           break;
-
         case 'g':
           recoverable_output = true;
           output_type = recoverable;
           break;
-
         case 'F':
           if (file_name)
             die (EXIT_FAILURE, 0, _("only one device may be specified"));
           file_name = optarg;
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           /* Consider "drain" as an option rather than a setting,
              to support: alias stty='stty -drain'  etc.  */
-          if (! STREQ (argv[argi + opti], "-drain")
-              && ! STREQ (argv[argi + opti], "drain"))
+          if (!STREQ (argv[argi + opti], "-drain")
+              && !STREQ (argv[argi + opti], "drain"))
             noargs = false;
 
           /* Skip the argument containing this unrecognized option;
@@ -1349,7 +1330,7 @@ main (int argc, char **argv)
           break;
         }
 
-      /* Clear fully-parsed arguments, so they don't confuse the 2nd pass.  */
+      /* Clear fully-parsed arguments, so they do not confuse the 2nd pass.  */
       while (opti < optind)
         argv[argi + opti++] = NULL;
     }
@@ -1420,7 +1401,7 @@ main (int argc, char **argv)
       if (tcgetattr (STDIN_FILENO, &new_mode))
         die (EXIT_FAILURE, errno, "%s", quotef (device_name));
 
-      /* Normally, one shouldn't use memcmp to compare structures that
+      /* Normally, one should not use memcmp to compare structures that
          may have 'holes' containing uninitialized data, but we have been
          careful to initialize the storage of these two variables to all
          zeroes.  One might think it more efficient simply to compare the
@@ -1434,7 +1415,7 @@ main (int argc, char **argv)
              tcgetattr (&m1); tcsetattr (&m1); tcgetattr (&m2);
              sometimes (m1 != m2).  The only difference is in the four bits
              of the c_cflag field corresponding to the baud rate.  To save
-             Sun users a little confusion, don't report an error if this
+             Sun users a little confusion, do not report an error if this
              happens.  But suppress the error only if we haven't tried to
              set the baud rate explicitly -- otherwise we'd never give an
              error for a true failure to set the baud rate.  */
@@ -1477,7 +1458,7 @@ set_mode (struct mode_info const *info, bool reversed, struct termios *mode)
 
   if (bitsp == NULL)
     {
-      /* Combination mode. */
+      /* Combination mode.  */
       if (STREQ (info->name, "evenp") || STREQ (info->name, "parity"))
         {
           if (reversed)
@@ -1565,7 +1546,7 @@ set_mode (struct mode_info const *info, bool reversed, struct termios *mode)
           if ((info->name[0] == 'r' && reversed)
               || (info->name[0] == 'c' && !reversed))
             {
-              /* Cooked mode. */
+              /* Cooked mode.  */
               mode->c_iflag |= BRKINT | IGNPAR | ISTRIP | ICRNL | IXON;
               mode->c_oflag |= OPOST;
               mode->c_lflag |= ISIG | ICANON;
@@ -1578,7 +1559,7 @@ set_mode (struct mode_info const *info, bool reversed, struct termios *mode)
             }
           else
             {
-              /* Raw mode. */
+              /* Raw mode.  */
               mode->c_iflag = 0;
               mode->c_oflag &= ~OPOST;
               mode->c_lflag &= ~(ISIG | ICANON
@@ -1647,9 +1628,9 @@ set_mode (struct mode_info const *info, bool reversed, struct termios *mode)
           ;
       else if (STREQ (info->name, "dec"))
         {
-          mode->c_cc[VINTR] = 3;	/* ^C */
-          mode->c_cc[VERASE] = 127;	/* DEL */
-          mode->c_cc[VKILL] = 21;	/* ^U */
+          mode->c_cc[VINTR] = 3;  /* ^C */
+          mode->c_cc[VERASE] = 127; /* DEL */
+          mode->c_cc[VKILL] = 21; /* ^U */
           mode->c_lflag |= ECHOE
 #ifdef ECHOCTL
             | ECHOCTL
@@ -1683,12 +1664,12 @@ set_control_char (struct control_info const *info, const char *arg,
     value = to_uchar (arg[0]);
   else if (STREQ (arg, "^-") || STREQ (arg, "undef"))
     value = _POSIX_VDISABLE;
-  else if (arg[0] == '^' && arg[1] != '\0')	/* Ignore any trailing junk. */
+  else if (arg[0] == '^' && arg[1] != '\0') /* Ignore any trailing junk.  */
     {
       if (arg[1] == '?')
         value = 127;
       else
-        value = to_uchar (arg[1]) & ~0140; /* Non-letters get weird results. */
+        value = to_uchar (arg[1]) & ~0140; /* Non-letters get weird results.  */
     }
   else
     value = integer_arg (arg, TYPE_MAXIMUM (cc_t));
@@ -1717,7 +1698,7 @@ get_win_size (int fd, struct winsize *win)
 }
 
 static void
-set_window_size (int rows, int cols, char const *device_name)
+set_window_size (int rows, int cols, const char *device_name)
 {
   struct winsize win;
 
@@ -1743,7 +1724,7 @@ set_window_size (int rows, int cols, char const *device_name)
      Unfortunately, the old TIOCSSIZE code does collide with TIOCSWINSZ,
      but they can be disambiguated by checking whether a "struct ttysize"
      structure's "ts_lines" field is greater than 64K or not.  If so,
-     it's almost certainly a "struct winsize" instead.
+     it is almost certainly a "struct winsize" instead.
 
      At any rate, the bug manifests itself when ws_row == 0; the symptom is
      that ws_row is set to ws_col, and ws_col is set to (ws_xpixel<<16)
@@ -1779,7 +1760,7 @@ set_window_size (int rows, int cols, char const *device_name)
 }
 
 static void
-display_window_size (bool fancy, char const *device_name)
+display_window_size (bool fancy, const char *device_name)
 {
   struct winsize win;
 
@@ -1812,13 +1793,13 @@ screen_columns (void)
      EINVAL for telnet (but not rlogin) sessions.
      On ISC 3.0, it fails for the console and the serial port
      (but it works for ptys).
-     It can also fail on any system when stdout isn't a tty.
+     It can also fail on any system when stdout is not a tty.
      In case of any failure, just use the default.  */
   if (get_win_size (STDOUT_FILENO, &win) == 0 && 0 < win.ws_col)
     return win.ws_col;
 #endif
   {
-    /* Use $COLUMNS if it's in [1..INT_MAX].  */
+    /* Use $COLUMNS if it is in [1..INT_MAX].  */
     char *col_string = getenv ("COLUMNS");
     long int n_columns;
     if (!(col_string != NULL
@@ -1857,7 +1838,7 @@ mode_type_flag (enum mode_type type, struct termios *mode)
 
 static void
 display_settings (enum output_type output_type, struct termios *mode,
-                  char const *device_name)
+                  const char *device_name)
 {
   switch (output_type)
     {
@@ -1902,7 +1883,7 @@ display_changed (struct termios *mode)
       if (STREQ (control_info[i].name, "flush"))
         continue;
 #endif
-      /* If swtch is the same as susp, don't print both.  */
+      /* If swtch is the same as susp, do not print both.  */
 #if VSWTCH == VSUSP
       if (STREQ (control_info[i].name, "swtch"))
         continue;
@@ -1950,7 +1931,7 @@ display_changed (struct termios *mode)
 
       /* bitsp would be NULL only for "combination" modes, yet those
          are filtered out above via the OMIT flag.  Tell static analysis
-         tools that it's ok to dereference bitsp here.  */
+         tools that it is ok to dereference bitsp here.  */
       assert (bitsp);
 
       if ((*bitsp & mask) == mode_info[i].bits)
@@ -1973,7 +1954,7 @@ display_changed (struct termios *mode)
 }
 
 static void
-display_all (struct termios *mode, char const *device_name)
+display_all (struct termios *mode, const char *device_name)
 {
   int i;
   tcflag_t *bitsp;
@@ -1997,7 +1978,7 @@ display_all (struct termios *mode, char const *device_name)
       if (STREQ (control_info[i].name, "flush"))
         continue;
 #endif
-      /* If swtch is the same as susp, don't print both.  */
+      /* If swtch is the same as susp, do not print both.  */
 #if VSWTCH == VSUSP
       if (STREQ (control_info[i].name, "swtch"))
         continue;
@@ -2074,7 +2055,7 @@ display_recoverable (struct termios *mode)
 
 /* NOTE: identical to below, modulo use of tcflag_t */
 static int
-strtoul_tcflag_t (char const *s, int base, char **p, tcflag_t *result,
+strtoul_tcflag_t (const char *s, int base, char **p, tcflag_t *result,
                   char delim)
 {
   unsigned long ul;
@@ -2088,7 +2069,7 @@ strtoul_tcflag_t (char const *s, int base, char **p, tcflag_t *result,
 
 /* NOTE: identical to above, modulo use of cc_t */
 static int
-strtoul_cc_t (char const *s, int base, char **p, cc_t *result, char delim)
+strtoul_cc_t (const char *s, int base, char **p, cc_t *result, char delim)
 {
   unsigned long ul;
   errno = 0;
@@ -2102,10 +2083,10 @@ strtoul_cc_t (char const *s, int base, char **p, cc_t *result, char delim)
 /* Parse the output of display_recoverable.
    Return false if any part of it is invalid.  */
 static bool
-recover_mode (char const *arg, struct termios *mode)
+recover_mode (const char *arg, struct termios *mode)
 {
   tcflag_t flag[4];
-  char const *s = arg;
+  const char *s = arg;
   size_t i;
   for (i = 0; i < 4; i++)
     {
@@ -2133,9 +2114,9 @@ recover_mode (char const *arg, struct termios *mode)
 
 struct speed_map
 {
-  const char *string;		/* ASCII representation. */
-  speed_t speed;		/* Internal form. */
-  unsigned long int value;	/* Numeric value. */
+  const char *string;   /* ASCII representation.  */
+  speed_t speed;    /* Internal form.  */
+  unsigned long int value;  /* Numeric value.  */
 };
 
 static struct speed_map const speeds[] =

@@ -22,6 +22,7 @@ this program.  If not, see https://www.gnu.org/licenses/.  */
 #include <limits.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -57,7 +58,7 @@ static wide_uint _GL_ATTRIBUTE_CONST
 binvert (wide_uint a)
 {
   wide_uint x = 0xf5397db1 >> (4*((a/2) & 0x7));
-  for (;;)
+  while (true)
     {
       wide_uint y = 2*x - x*x*a;
       if (y == x)

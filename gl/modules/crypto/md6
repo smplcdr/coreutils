@@ -1,0 +1,32 @@
+Description:
+Compute MD6 checksum.
+
+Files:
+lib/md6_compress.c
+lib/md6.h
+lib/md6_mode.c
+lib/md6_nist.c
+lib/md6_nist.h
+
+Depends-on:
+assert
+inttypes
+stdio
+stdint
+stdlib
+string
+
+configure.ac:
+AC_DEFINE([GL_COMPILE_CRYPTO_STREAM], 1, [Compile Gnulib crypto stream ops.])
+
+Makefile.am:
+lib_SOURCES += md6_compress.c md6_mode.c md6_nist.c
+
+Include:
+"md6.h"
+
+License:
+MIT
+
+Maintainer:
+Sergey Sushilin

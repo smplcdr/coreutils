@@ -67,6 +67,7 @@ normal_progs='
     env
     expand
     expr
+    exst
     factor
     false
     fmt
@@ -81,7 +82,10 @@ normal_progs='
     ln
     logname
     ls
+    md2sum
+    md4sum
     md5sum
+    md6sum
     mkdir
     mkfifo
     mknod
@@ -110,6 +114,7 @@ normal_progs='
     sha256sum
     sha384sum
     sha512sum
+    sha3sum
     shred
     shuf
     sleep
@@ -135,6 +140,7 @@ normal_progs='
     vdir
     wc
     whoami
+    xchg
     yes
 '
 

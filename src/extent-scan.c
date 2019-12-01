@@ -17,16 +17,17 @@
    Written by Jie Liu (jeff.liu@oracle.com).  */
 
 #include <config.h>
+
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/utsname.h>
 #include <assert.h>
 
 #include "system.h"
+
 #include "extent-scan.h"
 #include "fiemap.h"
 #include "xstrtol.h"
-
 
 /* Work around Linux kernel issues on BTRFS and EXT4.  */
 static bool
@@ -46,10 +47,10 @@ extent_need_sync (void)
       struct utsname name;
       need_sync = 0; /* No workaround by default.  */
 
-# ifdef __linux__
+# if defined(__linux__)
       if (uname (&name) != -1 && STRNCMP_LIT (name.release, "2.6.") == 0)
         {
-           unsigned long val;
+           unsigned long int val;
            if (xstrtoul (name.release + 4, NULL, 10, &val, NULL) == LONGINT_OK)
              {
                if (val < 39)
@@ -77,8 +78,8 @@ extent_scan_init (int src_fd, struct extent_scan *scan)
   scan->fm_flags = extent_need_sync () ? FIEMAP_FLAG_SYNC : 0;
 }
 
-#ifdef __linux__
-# ifndef FS_IOC_FIEMAP
+#if defined(__linux__)
+# if !defined(FS_IOC_FIEMAP)
 #  define FS_IOC_FIEMAP _IOWR ('f', 11, struct fiemap)
 # endif
 /* Call ioctl(2) with FS_IOC_FIEMAP (available in linux 2.6.27) to
@@ -95,13 +96,13 @@ extent_scan_read (struct extent_scan *scan)
       struct fiemap *fiemap = &fiemap_buf.f;
       struct fiemap_extent *fm_extents = &fiemap->fm_extents[0];
       enum { headersize = offsetof (struct fiemap, fm_extents) };
-      enum { count = (sizeof fiemap_buf - headersize) / sizeof *fm_extents };
+      enum { count = (sizeof (fiemap_buf) - headersize) / sizeof (*fm_extents) };
       verify (count > 1);
 
       /* This is required at least to initialize fiemap->fm_start,
          but also serves (in mid 2010) to appease valgrind, which
-         appears not to know the semantics of the FIEMAP ioctl. */
-      memset (&fiemap_buf, 0, sizeof fiemap_buf);
+         appears not to know the semantics of the FIEMAP ioctl.  */
+      memset (&fiemap_buf, 0, sizeof (fiemap_buf));
 
       fiemap->fm_start = scan->scan_start;
       fiemap->fm_flags = scan->fm_flags;
@@ -141,7 +142,7 @@ extent_scan_read (struct extent_scan *scan)
           assert (fm_extents[i].fe_logical
                   <= OFF_T_MAX - fm_extents[i].fe_length);
 
-          verify (sizeof last_ei->ext_flags >= sizeof fm_extents->fe_flags);
+          verify (sizeof (last_ei->ext_flags) >= sizeof (fm_extents->fe_flags));
 
           if (si && last_ei->ext_flags
               == (fm_extents[i].fe_flags & ~FIEMAP_EXTENT_LAST)
@@ -154,8 +155,7 @@ extent_scan_read (struct extent_scan *scan)
               last_ei->ext_flags = fm_extents[i].fe_flags;
             }
           else if ((si == 0 && scan->scan_start > fm_extents[i].fe_logical)
-                   || (si && (last_ei->ext_logical + last_ei->ext_length
-                              > fm_extents[i].fe_logical)))
+                || (si && (last_ei->ext_logical + last_ei->ext_length > fm_extents[i].fe_logical)))
             {
               /* BTRFS before 2.6.38 could return overlapping extents
                  for sparse files.  We adjust the returned extents
@@ -168,7 +168,7 @@ extent_scan_read (struct extent_scan *scan)
               else
                 {
                   /* We could return here if scan->scan_start == 0
-                     but don't so as to minimize special cases.  */
+                     but do not so as to minimize special cases.  */
                   new_logical = last_ei->ext_logical + last_ei->ext_length;
                 }
               length_adjust = new_logical - fm_extents[i].fe_logical;
@@ -182,7 +182,7 @@ extent_scan_read (struct extent_scan *scan)
               fm_extents[i].fe_logical = new_logical;
               fm_extents[i].fe_length -= length_adjust;
               /* Process the adjusted extent again.  */
-              i--;
+              --i;
               continue;
             }
           else
@@ -203,7 +203,7 @@ extent_scan_read (struct extent_scan *scan)
       if (si > count && !scan->hit_final_extent)
         last_ei = scan->ext_info + --si - 1;
 
-      /* We don't bother reallocating any trailing slots.  */
+      /* We do not bother reallocating any trailing slots.  */
       scan->ei_count = si;
 
       if (scan->hit_final_extent)

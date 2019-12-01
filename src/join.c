@@ -28,6 +28,7 @@
 #include "fadvise.h"
 #include "hard-locale.h"
 #include "linebuffer.h"
+#include "long-options.h"
 #include "memcasecmp.h"
 #include "quote.h"
 #include "stdio--.h"
@@ -65,16 +66,16 @@ struct outlist
 /* A field of a line.  */
 struct field
   {
-    char *beg;			/* First character in field.  */
-    size_t len;			/* The length of the field.  */
+    char *beg;      /* First character in field.  */
+    size_t len;     /* The length of the field.  */
   };
 
 /* A line read from an input file.  */
 struct line
   {
-    struct linebuffer buf;	/* The line itself.  */
-    size_t nfields;		/* Number of elements in 'fields'.  */
-    size_t nfields_allocated;	/* Number of elements allocated for 'fields'. */
+    struct linebuffer buf;  /* The line itself.  */
+    size_t nfields;   /* Number of elements in 'fields'.  */
+    size_t nfields_allocated; /* Number of elements allocated for 'fields'.  */
     struct field *fields;
   };
 
@@ -82,8 +83,8 @@ struct line
    same join field value.  */
 struct seq
   {
-    size_t count;			/* Elements used in 'lines'.  */
-    size_t alloc;			/* Elements allocated in 'lines'.  */
+    size_t count;     /* Elements used in 'lines'.  */
+    size_t alloc;     /* Elements allocated in 'lines'.  */
     struct line **lines;
   };
 
@@ -97,8 +98,8 @@ static uintmax_t line_no[2] = {0, 0};
 static char *g_names[2];
 
 /* This provides an extra line buffer for each file.  We need these if we
-   try to read two consecutive lines into the same buffer, since we don't
-   want to overwrite the previous buffer before we check order. */
+   try to read two consecutive lines into the same buffer, since we do not
+   want to overwrite the previous buffer before we check order.  */
 static struct line *spareline[2] = {NULL, NULL};
 
 /* True if the LC_COLLATE locale is hard.  */
@@ -110,14 +111,14 @@ static bool print_unpairables_1, print_unpairables_2;
 /* If nonzero, print pairable lines.  */
 static bool print_pairables;
 
-/* If nonzero, we have seen at least one unpairable line. */
+/* If nonzero, we have seen at least one unpairable line.  */
 static bool seen_unpairable;
 
-/* If nonzero, we have warned about disorder in that file. */
+/* If nonzero, we have warned about disorder in that file.  */
 static bool issued_disorder_warning[2];
 
 /* Empty output field filler.  */
-static char const *empty_filler;
+static const char *empty_filler;
 
 /* Whether to ensure the same number of fields are output from each line.  */
 static bool autoformat;
@@ -141,7 +142,7 @@ static struct outlist *outlist_end = &outlist_head;
    tab character whose value (when cast to unsigned char) equals TAB.  */
 static int tab = -1;
 
-/* If nonzero, check that the input is correctly ordered. */
+/* If nonzero, check that the input is correctly ordered.  */
 static enum
   {
     CHECK_ORDER_DEFAULT,
@@ -157,15 +158,13 @@ enum
 };
 
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"ignore-case", no_argument, NULL, 'i'},
   {"check-order", no_argument, NULL, CHECK_ORDER_OPTION},
   {"nocheck-order", no_argument, NULL, NOCHECK_ORDER_OPTION},
   {"zero-terminated", no_argument, NULL, 'z'},
   {"header", no_argument, NULL, HEADER_LINE_OPTION},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -179,7 +178,7 @@ static bool ignore_case;
    join them without checking for ordering */
 static bool join_header_lines;
 
-/* The character marking end of line. Default to \n. */
+/* The character marking end of line. Default to \n.  */
 static char eolchar = '\n';
 
 void
@@ -271,7 +270,7 @@ static void
 xfields (struct line *line)
 {
   char *ptr = line->buf.buffer;
-  char const *lim = ptr + line->buf.length - 1;
+  const char *lim = ptr + line->buf.length - 1;
 
   if (ptr == lim)
     return;
@@ -331,7 +330,7 @@ keycmp (struct line const *line1, struct line const *line2,
   char *beg2;
 
   size_t len1;
-  size_t len2;		/* Length of fields to compare.  */
+  size_t len2;    /* Length of fields to compare.  */
   int diff;
 
   if (jf_1 < line1->nfields)
@@ -388,7 +387,7 @@ keycmp (struct line const *line1, struct line const *line2,
    If the user specified --check-order, the problem is fatal.
    Otherwise (the default), the message is simply a warning.
 
-   A message is printed at most once per input file. */
+   A message is printed at most once per input file.  */
 
 static void
 check_order (const struct line *prev,
@@ -403,7 +402,7 @@ check_order (const struct line *prev,
           size_t join_field = whatfile == 1 ? join_field_1 : join_field_2;
           if (keycmp (prev, current, join_field, join_field) > 0)
             {
-              /* Exclude any trailing newline. */
+              /* Exclude any trailing newline.  */
               size_t len = current->buf.length;
               if (0 < len && current->buf.buffer[len - 1] == '\n')
                 --len;
@@ -459,7 +458,7 @@ get_line (FILE *fp, struct line **linep, int which)
   else
     line = init_linep (linep);
 
-  if (! readlinebuffer_delim (&line->buf, fp, eolchar))
+  if (!readlinebuffer_delim (&line->buf, fp, eolchar))
     {
       if (ferror (fp))
         die (EXIT_FAILURE, errno, _("read error"));
@@ -598,7 +597,7 @@ prjoin (struct line const *line1, struct line const *line2)
       const struct outlist *o;
 
       o = outlist;
-      while (1)
+      while (true)
         {
           if (o->file == 0)
             {
@@ -836,7 +835,7 @@ add_field (int file, size_t field)
    diagnostic and exit.  */
 
 static size_t
-string_to_join_field (char const *str)
+string_to_join_field (const char *str)
 {
   size_t result;
   uintmax_t val;
@@ -884,7 +883,7 @@ decode_field_spec (const char *s, int *file_index, size_t *field_index)
       die (EXIT_FAILURE, 0,
            _("invalid file number in field spec: %s"), quote (s));
 
-      /* Tell gcc -W -Wall that we can't get beyond this point.
+      /* Tell gcc -W -Wall that we cannot get beyond this point.
          This avoids a warning (otherwise legit) that the caller's copies
          of *file_index and *field_index might be used uninitialized.  */
       abort ();
@@ -904,7 +903,7 @@ add_field_list (char *str)
     {
       int file_index;
       size_t field_index;
-      char const *spec_item = p;
+      const char *spec_item = p;
 
       p = strpbrk (p, ", \t");
       if (p)
@@ -1025,9 +1024,10 @@ main (int argc, char **argv)
   issued_disorder_warning[0] = issued_disorder_warning[1] = false;
   check_input_order = CHECK_ORDER_DEFAULT;
 
-  while ((optc = getopt_long (argc, argv, "-a:e:i1:2:j:o:t:v:z",
-                              longopts, NULL))
-         != -1)
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
+  while ((optc = getopt_long (argc, argv, "-a:e:i1:2:j:o:t:v:z", long_options, NULL)) != -1)
     {
       optc_status = MUST_BE_OPERAND;
 
@@ -1036,7 +1036,6 @@ main (int argc, char **argv)
         case 'v':
             print_pairables = false;
             FALLTHROUGH;
-
         case 'a':
           {
             unsigned long int val;
@@ -1050,26 +1049,21 @@ main (int argc, char **argv)
               print_unpairables_2 = true;
           }
           break;
-
         case 'e':
           if (empty_filler && ! STREQ (empty_filler, optarg))
             die (EXIT_FAILURE, 0,
                  _("conflicting empty-field replacement strings"));
           empty_filler = optarg;
           break;
-
         case 'i':
           ignore_case = true;
           break;
-
         case '1':
           set_join_field (&join_field_1, string_to_join_field (optarg));
           break;
-
         case '2':
           set_join_field (&join_field_2, string_to_join_field (optarg));
           break;
-
         case 'j':
           if ((optarg[0] == '1' || optarg[0] == '2') && !optarg[1]
               && optarg == argv[optind - 1] + 2)
@@ -1085,7 +1079,6 @@ main (int argc, char **argv)
               set_join_field (&join_field_2, join_field_1);
             }
           break;
-
         case 'o':
           if (STREQ (optarg, "auto"))
             autoformat = true;
@@ -1095,11 +1088,10 @@ main (int argc, char **argv)
               optc_status = MIGHT_BE_O_ARG;
             }
           break;
-
         case 't':
           {
             unsigned char newtab = optarg[0];
-            if (! newtab)
+            if (!newtab)
               newtab = '\n'; /* '' => process the whole line.  */
             else if (optarg[1])
               {
@@ -1114,32 +1106,22 @@ main (int argc, char **argv)
             tab = newtab;
           }
           break;
-
         case 'z':
           eolchar = 0;
           break;
-
         case NOCHECK_ORDER_OPTION:
           check_input_order = CHECK_ORDER_DISABLED;
           break;
-
         case CHECK_ORDER_OPTION:
           check_input_order = CHECK_ORDER_ENABLED;
           break;
-
-        case 1:		/* Non-option argument.  */
+        case 1: /* Non-option argument.  */
           add_file_name (optarg, g_names, operand_status, joption_count,
                          &nfiles, &prev_optc_status, &optc_status);
           break;
-
         case HEADER_LINE_OPTION:
           join_header_lines = true;
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_FAILURE);
         }

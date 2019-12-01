@@ -36,7 +36,7 @@ enum Verbosity
   /* Print a message for each file whose attributes we change.  */
   V_changes_only,
 
-  /* Do not be verbose.  This is the default. */
+  /* Do not be verbose.  This is the default.  */
   V_off
 };
 
@@ -45,7 +45,7 @@ struct Chown_option
   /* Level of verbosity.  */
   enum Verbosity verbosity;
 
-  /* If nonzero, change the ownership of directories recursively. */
+  /* If nonzero, change the ownership of directories recursively.  */
   bool recurse;
 
   /* Pointer to the device and inode numbers of '/', when --recursive.
@@ -55,13 +55,13 @@ struct Chown_option
   /* This corresponds to the --dereference (opposite of -h) option.  */
   bool affect_symlink_referent;
 
-  /* If nonzero, force silence (no error messages). */
+  /* If nonzero, force silence (no error messages).  */
   bool force_silent;
 
-  /* The name of the user to which ownership of the files is being given. */
+  /* The name of the user to which ownership of the files is being given.  */
   char *user_name;
 
-  /* The name of the group to which ownership of the files is being given. */
+  /* The name of the group to which ownership of the files is being given.  */
   char *group_name;
 };
 

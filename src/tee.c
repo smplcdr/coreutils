@@ -39,10 +39,10 @@
 
 static bool tee_files (int nfiles, char **files);
 
-/* If true, append to output files rather than truncating them. */
+/* If true, append to output files rather than truncating them.  */
 static bool append;
 
-/* If true, ignore interrupts. */
+/* If true, ignore interrupts.  */
 static bool ignore_interrupts;
 
 enum output_error
@@ -56,17 +56,15 @@ enum output_error
 
 static enum output_error output_error;
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"append", no_argument, NULL, 'a'},
   {"ignore-interrupts", no_argument, NULL, 'i'},
   {"output-error", optional_argument, NULL, 'p'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
-static char const *const output_error_args[] =
+static const char *const output_error_args[] =
 {
   "warn", "warn-nopipe", "exit", "exit-nopipe", NULL
 };
@@ -131,34 +129,28 @@ main (int argc, char **argv)
   append = false;
   ignore_interrupts = false;
 
-  while ((optc = getopt_long (argc, argv, "aip", long_options, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case 'a':
-          append = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'i':
-          ignore_interrupts = true;
-          break;
-
-        case 'p':
-          if (optarg)
-            output_error = XARGMATCH ("--output-error", optarg,
-                                      output_error_args, output_error_types);
-          else
-            output_error = output_error_warn_nopipe;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "aip", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case 'a':
+        append = true;
+        break;
+      case 'i':
+        ignore_interrupts = true;
+        break;
+      case 'p':
+        if (optarg)
+          output_error = XARGMATCH ("--output-error", optarg,
+                                    output_error_args, output_error_types);
+        else
+          output_error = output_error_warn_nopipe;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (ignore_interrupts)
     signal (SIGINT, SIG_IGN);
@@ -189,7 +181,7 @@ tee_files (int nfiles, char **files)
   ssize_t bytes_read = 0;
   int i;
   bool ok = true;
-  char const *mode_string =
+  const char *mode_string =
     (O_BINARY
      ? (append ? "ab" : "wb")
      : (append ? "a" : "w"));

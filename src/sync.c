@@ -45,12 +45,10 @@ enum sync_mode
   MODE_SYNC
 };
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"data", no_argument, NULL, 'd'},
   {"file-system", no_argument, NULL, 'f'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -81,6 +79,7 @@ or their containing file systems.\n\
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
@@ -88,7 +87,7 @@ or their containing file systems.\n\
    Return 1 on success.  */
 
 static bool
-sync_arg (enum sync_mode mode, char const *file)
+sync_arg (enum sync_mode mode, const char *file)
 {
   bool ret = true;
   int open_flags = O_RDONLY | O_NONBLOCK;
@@ -102,8 +101,7 @@ sync_arg (enum sync_mode mode, char const *file)
 
   /* Note O_PATH might be supported with syncfs(),
      though as of Linux 3.18 is not.  */
-  fd = open (file, open_flags);
-  if (fd < 0)
+  if ((fd = open (file, open_flags)) < 0)
     {
       /* Use the O_RDONLY errno, which is significant
          with directories for example.  */
@@ -137,17 +135,14 @@ sync_arg (enum sync_mode mode, char const *file)
         case MODE_DATA:
           sync_status = fdatasync (fd);
           break;
-
         case MODE_FILE:
           sync_status = fsync (fd);
           break;
-
 #if HAVE_SYNCFS
         case MODE_FILE_SYSTEM:
           sync_status = syncfs (fd);
           break;
 #endif
-
         default:
           assert ("invalid sync_mode");
         }
@@ -171,7 +166,7 @@ sync_arg (enum sync_mode mode, char const *file)
 int
 main (int argc, char **argv)
 {
-  int c;
+  int optc;
   bool args_specified;
   bool arg_data = false, arg_file_system = false;
   enum sync_mode mode;
@@ -185,44 +180,36 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((c = getopt_long (argc, argv, "df", long_options, NULL))
-         != -1)
-    {
-      switch (c)
-        {
-        case 'd':
-          arg_data = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'f':
-          arg_file_system = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "df", long_options, NULL)) != EOF)
+    switch (optc)
+      {
+      case 'd':
+        arg_data = true;
+        break;
+      case 'f':
+        arg_file_system = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   args_specified = optind < argc;
 
   if (arg_data && arg_file_system)
-    {
-      die (EXIT_FAILURE, 0,
-           _("cannot specify both --data and --file-system"));
-    }
+    die (EXIT_FAILURE, 0,
+         _("cannot specify both --data and --file-system"));
 
   if (!args_specified && arg_data)
     die (EXIT_FAILURE, 0, _("--data needs at least one argument"));
 
-  if (! args_specified || (arg_file_system && ! HAVE_SYNCFS))
+  if (!args_specified || (arg_file_system && ! HAVE_SYNCFS))
     mode = MODE_SYNC;
   else if (arg_file_system)
     mode = MODE_FILE_SYSTEM;
-  else if (! arg_data)
+  else if (!arg_data)
     mode = MODE_FILE;
   else
     mode = MODE_DATA;
@@ -230,10 +217,8 @@ main (int argc, char **argv)
   if (mode == MODE_SYNC)
     sync ();
   else
-    {
-      for (; optind < argc; optind++)
-        ok &= sync_arg (mode, argv[optind]);
-    }
+    while (optind < argc)
+      ok &= sync_arg (mode, argv[optind++]);
 
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

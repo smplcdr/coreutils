@@ -63,7 +63,7 @@ main (int argc, char **argv)
 
   parse_gnu_standard_options_only (argc, argv, PROGRAM_NAME, PACKAGE_NAME,
                                    Version, true, usage, AUTHORS,
-                                   (char const *) NULL);
+                                   (const char *) NULL);
 
   if (optind < argc)
     {
@@ -74,7 +74,7 @@ main (int argc, char **argv)
   /* POSIX requires using getlogin (or equivalent code) and prohibits
      using a fallback technique.  */
   cp = getlogin ();
-  if (! cp)
+  if (!cp)
     die (EXIT_FAILURE, 0, _("no login name"));
 
   puts (cp);

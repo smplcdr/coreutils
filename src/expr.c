@@ -88,7 +88,7 @@ mpz_mul (mpz_t r, mpz_t a0, mpz_t b0)
   intmax_t a = a0[0];
   intmax_t b = b0[0];
   intmax_t val = a * b;
-  if (! (a == 0 || b == 0
+  if (!(a == 0 || b == 0
          || ((val < 0) == ((a < 0) ^ (b < 0)) && val / a == b)))
     integer_overflow ('*');
   r[0] = val;
@@ -114,7 +114,7 @@ mpz_tdiv_r (mpz_t r, mpz_t a0, mpz_t b0)
   r[0] = a < - INTMAX_MAX && b == -1 ? 0 : a % b;
 }
 static char * _GL_ATTRIBUTE_MALLOC
-mpz_get_str (char const *str, int base, mpz_t z)
+mpz_get_str (const char *str, int base, mpz_t z)
 {
   (void) str; (void) base;
   char buf[INT_BUFSIZE_BOUND (intmax_t)];
@@ -173,12 +173,12 @@ enum valtype
 };
 typedef enum valtype TYPE;
 
-/* A value is.... */
+/* A value is....  */
 struct valinfo
 {
-  TYPE type;			/* Which kind. */
+  TYPE type;      /* Which kind.  */
   union
-  {				/* The value itself. */
+  { /* The value itself.  */
     mpz_t i;
     char *s;
   } u;
@@ -226,7 +226,7 @@ mbs_logical_cspn (const char *s, const char *accept)
 
       for (mbui_init (iter, s); mbui_avail (iter); mbui_advance (iter))
         {
-          ++idx;
+          idx++;
           if (mb_len (mbui_cur (iter)) == 1)
             {
               if (mbschr (accept, *mbui_cur_ptr (iter)))
@@ -244,15 +244,15 @@ mbs_logical_cspn (const char *s, const char *accept)
             }
         }
 
-      /* not found */
+      /* Not found */
       return 0;
     }
   else
     {
-      /* single-byte locale,
-         convert returned byte offset to 1-based index or zero if not found. */
+      /* Single-byte locale,
+         convert returned byte offset to 1-based index or zero if not found.  */
       size_t i = strcspn (s, accept);
-      return (s[i] ? i + 1 : 0);
+      return (s[i] != '\0' ? i + 1 : 0);
     }
 }
 
@@ -262,14 +262,14 @@ mbs_logical_cspn (const char *s, const char *accept)
    POS and LEN refer to logical characters, not octets.
 
    Upon exit, sets v->s to the new string.
-   The new string might be empty if POS/LEN are invalid. */
+   The new string might be empty if POS/LEN are invalid.  */
 static char *
 mbs_logical_substr (const char *s, size_t pos, size_t len)
 {
   char *v, *vlim;
 
-  size_t blen = strlen (s); /* byte length */
-  size_t llen = (MB_CUR_MAX > 1) ? mbslen (s) : blen; /* logical length */
+  size_t blen = strlen (s); /* Byte length.  */
+  size_t llen = (MB_CUR_MAX > 1) ? mbslen (s) : blen; /* Logical length.  */
 
   if (llen < pos || pos == 0 || len == 0 || len == SIZE_MAX)
     return xstrdup ("");
@@ -288,7 +288,7 @@ mbs_logical_substr (const char *s, size_t pos, size_t len)
       /* Multibyte case */
 
       /* FIXME: this is wasteful. Some memory can be saved by counting
-         how many bytes the matching characters occupy. */
+         how many bytes the matching characters occupy.  */
       vlim = v = xmalloc (blen + 1);
 
       mbui_iterator_t iter;
@@ -438,7 +438,7 @@ main (int argc, char **argv)
   atexit (close_stdout);
 
   parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, VERSION,
-                      usage, AUTHORS, (char const *) NULL);
+                      usage, AUTHORS, (const char *) NULL);
 
   /* The above handles --help and --version.
      Since there is no other invocation of getopt, handle '--' here.  */
@@ -481,7 +481,7 @@ int_value (unsigned long int i)
 /* Return a VALUE for S.  */
 
 static VALUE *
-str_value (char const *s)
+str_value (const char *s)
 {
   VALUE *v = xmalloc (sizeof *v);
   v->type = string;
@@ -531,7 +531,7 @@ null (VALUE *v)
       return mpz_sgn (v->u.i) == 0;
     case string:
       {
-        char const *cp = v->u.s;
+        const char *cp = v->u.s;
         if (*cp == '\0')
           return true;
 
@@ -554,19 +554,19 @@ null (VALUE *v)
 /* Return true if CP takes the form of an integer.  */
 
 static bool _GL_ATTRIBUTE_PURE
-looks_like_integer (char const *cp)
+looks_like_integer (const char *cp)
 {
   cp += (*cp == '-');
 
   do
-    if (! ISDIGIT (*cp))
+    if (!ISDIGIT (*cp))
       return false;
   while (*++cp);
 
   return true;
 }
 
-/* Coerce V to a string value (can't fail).  */
+/* Coerce V to a string value (cannot fail).  */
 
 static void
 tostring (VALUE *v)
@@ -601,7 +601,7 @@ toarith (VALUE *v)
       {
         char *s = v->u.s;
 
-        if (! looks_like_integer (s))
+        if (!looks_like_integer (s))
           return false;
         if (mpz_init_set_str (v->u.i, s, 10) != 0 && !HAVE_GMP)
           die (EXPR_FAILURE, ERANGE, "%s", (s));
@@ -635,7 +635,7 @@ getsize (mpz_t i)
    STR must not be NULL.  */
 
 static bool
-nextarg (char const *str)
+nextarg (const char *str)
 {
   if (*args == NULL)
     return false;
@@ -657,7 +657,7 @@ nomoreargs (void)
 
 /* Report missing operand.
    There is an implicit assumption that there was a previous argument,
-   and (args-1) is valid. */
+   and (args-1) is valid.  */
 static void
 require_more_args (void)
 {
@@ -727,7 +727,7 @@ docolon (VALUE *sv, VALUE *pv)
       else
         {
           /* In multibyte locales, convert the matched offset (=number of bytes)
-             to the number of matched characters. */
+             to the number of matched characters.  */
           size_t i = (MB_CUR_MAX == 1
                       ? matchlen
                       : mbs_offset_to_chars (sv->u.s, matchlen));
@@ -883,7 +883,7 @@ eval5 (bool evaluate)
   trace ("eval5");
 #endif
   l = eval6 (evaluate);
-  while (1)
+  while (true)
     {
       if (nextarg (":"))
         {
@@ -914,7 +914,7 @@ eval4 (bool evaluate)
   trace ("eval4");
 #endif
   l = eval5 (evaluate);
-  while (1)
+  while (true)
     {
       if (nextarg ("*"))
         fxn = multiply;
@@ -953,7 +953,7 @@ eval3 (bool evaluate)
   trace ("eval3");
 #endif
   l = eval4 (evaluate);
-  while (1)
+  while (true)
     {
       if (nextarg ("+"))
         fxn = plus;
@@ -983,7 +983,7 @@ eval2 (bool evaluate)
   trace ("eval2");
 #endif
   l = eval3 (evaluate);
-  while (1)
+  while (true)
     {
       VALUE *r;
       enum
@@ -1062,7 +1062,7 @@ eval1 (bool evaluate)
   trace ("eval1");
 #endif
   l = eval2 (evaluate);
-  while (1)
+  while (true)
     {
       if (nextarg ("&"))
         {
@@ -1093,7 +1093,7 @@ eval (bool evaluate)
   trace ("eval");
 #endif
   l = eval1 (evaluate);
-  while (1)
+  while (true)
     {
       if (nextarg ("|"))
         {

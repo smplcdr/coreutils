@@ -70,11 +70,9 @@ enum
   PORTABILITY_OPTION = CHAR_MAX + 1
 };
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"portability", no_argument, NULL, PORTABILITY_OPTION},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -103,10 +101,10 @@ Diagnose invalid or unportable file names.\n\
 int
 main (int argc, char **argv)
 {
+  int optc;
   bool ok = true;
   bool check_basic_portability = false;
   bool check_extra_portability = false;
-  int optc;
 
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
@@ -116,31 +114,25 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while ((optc = getopt_long (argc, argv, "+pP", longopts, NULL)) != -1)
-    {
-      switch (optc)
-        {
-        case PORTABILITY_OPTION:
-          check_basic_portability = true;
-          check_extra_portability = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case 'p':
-          check_basic_portability = true;
-          break;
-
-        case 'P':
-          check_extra_portability = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "+pP", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case PORTABILITY_OPTION:
+        check_basic_portability = true;
+        check_extra_portability = true;
+        break;
+      case 'p':
+        check_basic_portability = true;
+        break;
+      case 'P':
+        check_extra_portability = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (optind == argc)
     {
@@ -159,9 +151,9 @@ main (int argc, char **argv)
    and return false; otherwise, return true.  */
 
 static bool
-no_leading_hyphen (char const *file)
+no_leading_hyphen (const char *file)
 {
-  char const *p;
+  const char *p;
 
   for (p = file;  (p = strchr (p, '-'));  p++)
     if (p == file || p[-1] == '/')
@@ -178,14 +170,14 @@ no_leading_hyphen (char const *file)
    return true, else report an error and return false.  */
 
 static bool
-portable_chars_only (char const *file, size_t filelen)
+portable_chars_only (const char *file, size_t filelen)
 {
   size_t validlen = strspn (file,
                             ("/"
                              "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                              "abcdefghijklmnopqrstuvwxyz"
                              "0123456789._-"));
-  char const *invalid = file + validlen;
+  const char *invalid = file + validlen;
 
   if (*invalid)
     {
@@ -215,7 +207,7 @@ component_start (char *f)
 /* Return the size of the file name component F.  F must be nonempty.  */
 
 static size_t _GL_ATTRIBUTE_PURE
-component_len (char const *f)
+component_len (const char *f)
 {
   size_t len;
   for (len = 1; f[len] != '/' && f[len]; len++)
@@ -274,7 +266,7 @@ validate_file_name (char *file, bool check_basic_portability,
 
   if (check_basic_portability)
     {
-      if (! portable_chars_only (file, filelen))
+      if (!portable_chars_only (file, filelen))
         return false;
     }
   else
@@ -295,7 +287,7 @@ validate_file_name (char *file, bool check_basic_portability,
     }
 
   if (check_basic_portability
-      || (! file_exists && PATH_MAX_MINIMUM <= filelen))
+      || (!file_exists && PATH_MAX_MINIMUM <= filelen))
     {
       size_t maxsize;
 
@@ -304,7 +296,7 @@ validate_file_name (char *file, bool check_basic_portability,
       else
         {
           long int size;
-          char const *dir = (*file == '/' ? "/" : ".");
+          const char *dir = (*file == '/' ? "/" : ".");
           errno = 0;
           size = pathconf (dir, _PC_PATH_MAX);
           if (size < 0 && errno != 0)
@@ -330,10 +322,10 @@ validate_file_name (char *file, bool check_basic_portability,
   /* Check whether pathconf (..., _PC_NAME_MAX) can be avoided, i.e.,
      whether all file name components are so short that they are valid
      in any file system on this platform.  If CHECK_BASIC_PORTABILITY, though,
-     it's more convenient to check component lengths below.  */
+     it is more convenient to check component lengths below.  */
 
   check_component_lengths = check_basic_portability;
-  if (! check_component_lengths && ! file_exists)
+  if (!check_component_lengths && ! file_exists)
     {
       for (start = file; *(start = component_start (start)); )
         {
@@ -369,7 +361,7 @@ validate_file_name (char *file, bool check_basic_portability,
           else
             {
               long int len;
-              char const *dir = (start == file ? "." : file);
+              const char *dir = (start == file ? "." : file);
               char c = *start;
               errno = 0;
               *start = '\0';

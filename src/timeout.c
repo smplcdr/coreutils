@@ -35,7 +35,7 @@
      This can be seen with 'timeout 10 dd&' for example.
      However if one brings this group to the foreground with the 'fg'
      command before the timer expires, the command will remain
-     in the stop state as the shell doesn't send a SIGCONT
+     in the stop state as the shell does not send a SIGCONT
      because the timeout process (group leader) is already running.
      To get the command running again one can Ctrl-Z, and do fg again.
      Note one can Ctrl-C the whole job when in this state.
@@ -60,6 +60,7 @@
 #include "sig2str.h"
 #include "operand2sig.h"
 #include "error.h"
+#include "long-options.h"
 #include "quote.h"
 
 #if HAVE_SETRLIMIT
@@ -84,24 +85,22 @@ static double kill_after;
 static bool foreground;      /* whether to use another program group.  */
 static bool preserve_status; /* whether to use a timeout status or not.  */
 static bool verbose;         /* whether to diagnose timeouts or not.  */
-static char const* command;
+static const char* command;
 
 /* for long options with no corresponding short option, use enum */
 enum
 {
-      FOREGROUND_OPTION = CHAR_MAX + 1,
-      PRESERVE_STATUS_OPTION
+  FOREGROUND_OPTION = CHAR_MAX + 1,
+  PRESERVE_STATUS_OPTION
 };
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"kill-after", required_argument, NULL, 'k'},
   {"signal", required_argument, NULL, 's'},
   {"verbose", no_argument, NULL, 'v'},
   {"foreground", no_argument, NULL, FOREGROUND_OPTION},
   {"preserve-status", no_argument, NULL, PRESERVE_STATUS_OPTION},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -109,7 +108,7 @@ static struct option const long_options[] =
    Round DURATION up to the next representable value.
    Treat out-of-range values as if they were maximal,
    as that's more useful in practice than reporting an error.
-   '0' means don't timeout.  */
+   '0' means do not timeout.  */
 static void
 settimeout (double duration, bool warn)
 {
@@ -157,7 +156,7 @@ static int
 send_sig (pid_t where, int sig)
 {
   /* If sending to the group, then ignore the signal,
-     so we don't go into a signal loop.  Note that this will ignore any of the
+     so we do not go into a signal loop.  Note that this will ignore any of the
      signals registered in install_cleanup(), that are sent after we
      propagate the first one, which hopefully won't be an issue.  Note this
      process can be implicitly multithreaded due to some timer_settime()
@@ -192,7 +191,7 @@ cleanup (int sig)
           /* Start a new timeout after which we'll send SIGKILL.  */
           term_signal = SIGKILL;
           settimeout (kill_after, false);
-          kill_after = 0; /* Don't let later signals reset kill alarm.  */
+          kill_after = 0; /* Do not let later signals reset kill alarm.  */
           errno = saved_errno;
         }
 
@@ -283,7 +282,7 @@ case the exit status is 128+9 rather than 124.\n"), stdout);
 /* Given a floating point value *X, and a suffix character, SUFFIX_CHAR,
    scale *X by the multiplier implied by SUFFIX_CHAR.  SUFFIX_CHAR may
    be the NUL byte or 's' to denote seconds, 'm' for minutes, 'h' for
-   hours, or 'd' for days.  If SUFFIX_CHAR is invalid, don't modify *X
+   hours, or 'd' for days.  If SUFFIX_CHAR is invalid, do not modify *X
    and return false.  Otherwise return true.  */
 
 static bool
@@ -321,7 +320,7 @@ parse_duration (const char *str)
   double duration;
   const char *ep;
 
-  if (! (xstrtod (str, &ep, &duration, cl_strtod) || errno == ERANGE)
+  if (!(xstrtod (str, &ep, &duration, cl_strtod) || errno == ERANGE)
       /* Nonnegative interval.  */
       || ! (0 <= duration)
       /* No extra chars after the number and an optional s,m,h,d char.  */
@@ -358,7 +357,7 @@ install_sigchld (void)
   sigaction (SIGCHLD, &sa, NULL);
 
   /* We inherit the signal mask from our parent process,
-     so ensure SIGCHLD is not blocked. */
+     so ensure SIGCHLD is not blocked.  */
   unblock_signal (SIGCHLD);
 }
 
@@ -381,7 +380,7 @@ install_cleanup (int sigterm)
 
 /* Block all signals which were registered with cleanup() as the signal
    handler, so we never kill processes after waitpid() returns.
-   Also block SIGCHLD to ensure it doesn't fire between
+   Also block SIGCHLD to ensure it does not fire between
    waitpid() polling and sigsuspend() waiting for a signal.
    Return original mask in OLD_SET.  */
 static void
@@ -413,7 +412,7 @@ disable_core_dumps (void)
     return true;
 
 #elif HAVE_SETRLIMIT && defined RLIMIT_CORE
-  /* Note this doesn't disable processing by a filter in
+  /* Note this does not disable processing by a filter in
      /proc/sys/kernel/core_pattern on Linux.  */
   if (setrlimit (RLIMIT_CORE, &(struct rlimit) {0,0}) == 0)
     return true;
@@ -442,6 +441,9 @@ main (int argc, char **argv)
   initialize_exit_failure (EXIT_CANCELED);
   atexit (close_stdout);
 
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
+
   while ((c = getopt_long (argc, argv, "+k:s:v", long_options, NULL)) != -1)
     {
       switch (c)
@@ -449,29 +451,20 @@ main (int argc, char **argv)
         case 'k':
           kill_after = parse_duration (optarg);
           break;
-
         case 's':
           term_signal = operand2sig (optarg, signame);
           if (term_signal == -1)
             usage (EXIT_CANCELED);
           break;
-
         case 'v':
           verbose = true;
           break;
-
         case FOREGROUND_OPTION:
           foreground = true;
           break;
-
         case PRESERVE_STATUS_OPTION:
           preserve_status = true;
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_CANCELED);
           break;
@@ -487,7 +480,7 @@ main (int argc, char **argv)
   command = argv[0];
 
   /* Ensure we're in our own group so all subprocesses can be killed.
-     Note we don't just put the child in a separate group as
+     Note we do not just put the child in a separate group as
      then we would need to worry about foreground and background groups
      and propagating signals between them.  */
   if (!foreground)
@@ -496,25 +489,25 @@ main (int argc, char **argv)
   /* Setup handlers before fork() so that we
      handle any signals caused by child, without races.  */
   install_cleanup (term_signal);
-  signal (SIGTTIN, SIG_IGN);   /* Don't stop if background child needs tty.  */
-  signal (SIGTTOU, SIG_IGN);   /* Don't stop if background child needs tty.  */
+  signal (SIGTTIN, SIG_IGN);   /* Do not stop if background child needs tty.  */
+  signal (SIGTTOU, SIG_IGN);   /* Do not stop if background child needs tty.  */
   install_sigchld ();          /* Interrupt sigsuspend() when child exits.   */
 
   monitored_pid = fork ();
-  if (monitored_pid == -1)
+  if (monitored_pid < 0)
     {
       error (0, errno, _("fork system call failed"));
       return EXIT_CANCELED;
     }
   else if (monitored_pid == 0)
-    {                           /* child */
-      /* exec doesn't reset SIG_IGN -> SIG_DFL.  */
+    { /* child */
+      /* exec does not reset SIG_IGN -> SIG_DFL.  */
       signal (SIGTTIN, SIG_DFL);
       signal (SIGTTOU, SIG_DFL);
 
       execvp (argv[0], argv);   /* FIXME: should we use "sh -c" ... here?  */
 
-      /* exit like sh, env, nohup, ...  */
+      /* exit like sh, env, nohup, ... */
       int exit_status = errno == ENOENT ? EXIT_ENOENT : EXIT_CANNOT_INVOKE;
       error (0, errno, _("failed to run command %s"), quote (command));
       return exit_status;
@@ -525,12 +518,12 @@ main (int argc, char **argv)
       int status;
 
       /* We configure timers so that SIGALRM is sent on expiry.
-         Therefore ensure we don't inherit a mask blocking SIGALRM.  */
+         Therefore ensure we do not inherit a mask blocking SIGALRM.  */
       unblock_signal (SIGALRM);
 
       settimeout (timeout, true);
 
-      /* Ensure we don't cleanup() after waitpid() reaps the child,
+      /* Ensure we do not cleanup() after waitpid() reaps the child,
          to avoid sending signals to a possibly different process.  */
       sigset_t cleanup_set;
       block_cleanup_and_chld (term_signal, &cleanup_set);
@@ -540,7 +533,7 @@ main (int argc, char **argv)
 
       if (wait_result < 0)
         {
-          /* shouldn't happen.  */
+          /* should not happen.  */
           error (0, errno, _("error waiting for command"));
           status = EXIT_CANCELED;
         }
@@ -564,7 +557,7 @@ main (int argc, char **argv)
             }
           else
             {
-              /* shouldn't happen.  */
+              /* should not happen.  */
               error (0, 0, _("unknown status from command (%d)"), status);
               status = EXIT_FAILURE;
             }

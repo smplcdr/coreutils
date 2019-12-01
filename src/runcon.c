@@ -56,15 +56,13 @@
 
 #define AUTHORS proper_name ("Russell Coker")
 
-static struct option const long_options[] =
+static const struct option long_options[] =
 {
   {"role", required_argument, NULL, 'r'},
   {"type", required_argument, NULL, 't'},
   {"user", required_argument, NULL, 'u'},
   {"range", required_argument, NULL, 'l'},
   {"compute", no_argument, NULL, 'c'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -99,12 +97,15 @@ With neither CONTEXT nor COMMAND, print the current security context.\n\
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
 int
 main (int argc, char **argv)
 {
+  int oi = -1;
+  int optc;
   char *role = NULL;
   char *range = NULL;
   char *user = NULL;
@@ -125,46 +126,38 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while (1)
-    {
-      int option_index = 0;
-      int c = getopt_long (argc, argv, "+r:t:u:l:c", long_options,
-                           &option_index);
-      if (c == -1)
-        break;
-      switch (c)
-        {
-        case 'r':
-          if (role)
-            die (EXIT_FAILURE, 0, _("multiple roles"));
-          role = optarg;
-          break;
-        case 't':
-          if (type)
-            die (EXIT_FAILURE, 0, _("multiple types"));
-          type = optarg;
-          break;
-        case 'u':
-          if (user)
-            die (EXIT_FAILURE, 0, _("multiple users"));
-          user = optarg;
-          break;
-        case 'l':
-          if (range)
-            die (EXIT_FAILURE, 0, _("multiple levelranges"));
-          range = optarg;
-          break;
-        case 'c':
-          compute_trans = true;
-          break;
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-        default:
-          usage (EXIT_FAILURE);
-          break;
-        }
-    }
+  while ((optc = getopt_long (argc, argv, "+r:t:u:l:c", long_options, &oi)) != EOF)
+    switch (optc)
+      {
+      case 'r':
+        if (role)
+          die (EXIT_FAILURE, 0, _("multiple roles"));
+        role = optarg;
+        break;
+      case 't':
+        if (type)
+          die (EXIT_FAILURE, 0, _("multiple types"));
+        type = optarg;
+        break;
+      case 'u':
+        if (user)
+          die (EXIT_FAILURE, 0, _("multiple users"));
+        user = optarg;
+        break;
+      case 'l':
+        if (range)
+          die (EXIT_FAILURE, 0, _("multiple levelranges"));
+        range = optarg;
+        break;
+      case 'c':
+        compute_trans = true;
+        break;
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (argc - optind == 0)
     {

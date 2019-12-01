@@ -33,13 +33,13 @@
 #include "operand2sig.h"
 
 extern int
-operand2sig (char const *operand, char *signame)
+operand2sig (const char *operand, char *signame)
 {
   int signum;
 
   if (ISDIGIT (*operand))
     {
-      /* Note we don't put a limit on the maximum value passed,
+      /* Note we do not put a limit on the maximum value passed,
          because we're checking shell $? values here, and ksh for
          example will add 256 to the signal value, thus being wider
          than the number of WEXITSTATUS bits.
@@ -58,7 +58,7 @@ operand2sig (char const *operand, char *signame)
       if (signum != -1)
         {
           /* Note AIX uses a different bit pattern for status returned
-             from shell and wait(), so we can't use WTERMSIG etc. here.
+             from shell and wait(), so we cannot use WTERMSIG etc. here.
              Also ksh returns 0xFF + signal number.  */
           signum &= signum >= 0xFF ? 0xFF : 0x7F;
         }
@@ -66,7 +66,7 @@ operand2sig (char const *operand, char *signame)
   else
     {
       /* Convert signal to upper case in the C locale, not in the
-         current locale.  Don't assume ASCII; it might be EBCDIC.  */
+         current locale.  Do not assume ASCII; it might be EBCDIC.  */
       char *upcased = xstrdup (operand);
       char *p;
       for (p = upcased; *p; p++)

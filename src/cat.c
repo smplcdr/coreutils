@@ -23,14 +23,13 @@
 
 #include <config.h>
 
-#include <stdio.h>
 #include <getopt.h>
-#include <sys/types.h>
-
+#include <stdio.h>
 #if HAVE_STROPTS_H
 # include <stropts.h>
 #endif
 #include <sys/ioctl.h>
+#include <sys/types.h>
 
 #include "system.h"
 #include "ioblksize.h"
@@ -39,6 +38,7 @@
 #include "fadvise.h"
 #include "full-write.h"
 #include "safe-read.h"
+#include "long-options.h"
 #include "xbinary-io.h"
 
 /* The official name of this program (e.g., no 'g' prefix).  */
@@ -48,8 +48,20 @@
   proper_name ("Torbjorn Granlund"), \
   proper_name ("Richard M. Stallman")
 
+static const struct option long_options[] =
+{
+  {"number-nonblank", no_argument, NULL, 'b'},
+  {"number", no_argument, NULL, 'n'},
+  {"squeeze-blank", no_argument, NULL, 's'},
+  {"show-nonprinting", no_argument, NULL, 'v'},
+  {"show-ends", no_argument, NULL, 'E'},
+  {"show-tabs", no_argument, NULL, 'T'},
+  {"show-all", no_argument, NULL, 'A'},
+  {NULL, 0, NULL, '\0'}
+};
+
 /* Name of input file.  May be "-".  */
-static char const *infile;
+static const char *infile;
 
 /* Descriptor on which input file is open.  */
 static int input_desc;
@@ -59,11 +71,10 @@ static int input_desc;
    an 18 digit counter needs about 1000y */
 #define LINE_COUNTER_BUF_LEN 20
 static char line_buf[LINE_COUNTER_BUF_LEN] =
-  {
-    ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-    ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '0',
-    '\t', '\0'
-  };
+{
+  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+  ' ', ' ', ' ', ' ', ' ', ' ', ' ', '0', '\t', '\0'
+};
 
 /* Position in 'line_buf' where printing starts.  This will not change
    unless the number of lines is larger than 999999.  */
@@ -87,8 +98,7 @@ usage (int status)
     {
       printf (_("\
 Usage: %s [OPTION]... [FILE]...\n\
-"),
-              program_name);
+"), program_name);
       fputs (_("\
 Concatenate FILE(s) to standard output.\n\
 "), stdout);
@@ -117,15 +127,14 @@ Concatenate FILE(s) to standard output.\n\
 Examples:\n\
   %s f - g  Output f's contents, then standard input, then g's contents.\n\
   %s        Copy standard input to standard output.\n\
-"),
-              program_name, program_name);
+"), program_name, program_name);
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 
 /* Compute the next line number.  */
-
 static void
 next_line_num (void)
 {
@@ -147,21 +156,16 @@ next_line_num (void)
 
 /* Plain cat.  Copies the file behind 'input_desc' to STDOUT_FILENO.
    Return true if successful.  */
-
 static bool
-simple_cat (
-     /* Pointer to the buffer, used by reads and writes.  */
-     char *buf,
-
-     /* Number of characters preferably read or written by each read and write
-        call.  */
-     size_t bufsize)
+simple_cat (char *buf,     /* Pointer to the buffer, used by reads and writes.  */
+            size_t bufsize /* Number of characters preferably read or written by each read and write
+                              call.  */
+            )
 {
   /* Actual number of characters read, and therefore written.  */
   size_t n_read;
 
   /* Loop until the end of the file.  */
-
   while (true)
     {
       /* Read a block of input.  */
@@ -174,16 +178,13 @@ simple_cat (
         }
 
       /* End of this file?  */
-
       if (n_read == 0)
         return true;
 
       /* Write this block out.  */
-
       {
-        /* The following is ok, since we know that 0 < n_read.  */
-        size_t n = n_read;
-        if (full_write (STDOUT_FILENO, buf, n) != n)
+        /* The following is ok, since we know that n_read > 0.  */
+        if (full_write (STDOUT_FILENO, buf, n_read) != n_read)
           die (EXIT_FAILURE, errno, _("write error"));
       }
     }
@@ -191,13 +192,12 @@ simple_cat (
 
 /* Write any pending output to STDOUT_FILENO.
    Pending is defined to be the *BPOUT - OUTBUF bytes starting at OUTBUF.
-   Then set *BPOUT to OUTPUT if it's not already that value.  */
-
+   Then set *BPOUT to OUTPUT if it is not already that value.  */
 static inline void
 write_pending (char *outbuf, char **bpout)
 {
   size_t n_write = *bpout - outbuf;
-  if (0 < n_write)
+  if (n_write > 0)
     {
       if (full_write (STDOUT_FILENO, outbuf, n_write) != n_write)
         die (EXIT_FAILURE, errno, _("write error"));
@@ -211,20 +211,12 @@ write_pending (char *outbuf, char **bpout)
 
    A newline character is always put at the end of the buffer, to make
    an explicit test for buffer end unnecessary.  */
-
 static bool
 cat (
-     /* Pointer to the beginning of the input buffer.  */
-     char *inbuf,
-
-     /* Number of characters read in each read call.  */
-     size_t insize,
-
-     /* Pointer to the beginning of the output buffer.  */
-     char *outbuf,
-
-     /* Number of characters written by each write call.  */
-     size_t outsize,
+     char *inbuf,    /* Pointer to the beginning of the input buffer.  */
+     size_t insize,  /* Number of characters read in each read call.  */
+     char *outbuf,   /* Pointer to the beginning of the output buffer.  */
+     size_t outsize, /* Number of characters written by each write call.  */
 
      /* Variables that have values according to the specified options.  */
      bool show_nonprinting,
@@ -265,7 +257,6 @@ cat (
 
   /* The inbuf pointers are initialized so that BPIN > EOB, and thereby input
      is read immediately.  */
-
   eob = inbuf;
   bpin = eob + 1;
 
@@ -276,7 +267,6 @@ cat (
       do
         {
           /* Write if there are at least OUTSIZE bytes in OUTBUF.  */
-
           if (outbuf + outsize <= bpout)
             {
               char *wp = outbuf;
@@ -292,13 +282,11 @@ cat (
 
               /* Move the remaining bytes to the beginning of the
                  buffer.  */
-
               memmove (outbuf, wp, remaining_bytes);
               bpout = outbuf + remaining_bytes;
             }
 
           /* Is INBUF empty?  */
-
           if (bpin > eob)
             {
               bool input_pending = false;
@@ -318,8 +306,10 @@ cat (
                      More/BSD returns ENODEV on special files
                      like /dev/null.
                      Irix-5 returns ENOSYS on pipes.  */
-                  if (errno == EOPNOTSUPP || errno == ENOTTY
-                      || errno == EINVAL || errno == ENODEV
+                  if (errno == EOPNOTSUPP
+                      || errno == ENOTTY
+                      || errno == EINVAL
+                      || errno == ENODEV
                       || errno == ENOSYS)
                     use_fionread = false;
                   else
@@ -338,7 +328,6 @@ cat (
                 write_pending (outbuf, &bpout);
 
               /* Read more input into INBUF.  */
-
               n_read = safe_read (input_desc, inbuf, insize);
               if (n_read == SAFE_READ_ERROR)
                 {
@@ -356,7 +345,6 @@ cat (
 
               /* Update the pointers and insert a sentinel at the buffer
                  end.  */
-
               bpin = inbuf;
               eob = bpin + n_read;
               *eob = '\n';
@@ -367,7 +355,6 @@ cat (
 
               /* Was the last line empty?
                  (i.e., have two or more consecutive newlines been read?)  */
-
               if (++newlines > 0)
                 {
                   if (newlines >= 2)
@@ -397,12 +384,10 @@ cat (
                 }
 
               /* Output a currency symbol if requested (-e).  */
-
               if (show_ends)
                 *bpout++ = '$';
 
               /* Output the newline.  */
-
               *bpout++ = '\n';
             }
           ch = *bpin++;
@@ -517,7 +502,7 @@ main (int argc, char **argv)
   char *outbuf;
 
   bool ok = true;
-  int c;
+  int optc;
 
   /* Index in argv to processed argument.  */
   int argind;
@@ -545,20 +530,6 @@ main (int argc, char **argv)
   bool show_tabs = false;
   int file_open_mode = O_RDONLY;
 
-  static struct option const long_options[] =
-  {
-    {"number-nonblank", no_argument, NULL, 'b'},
-    {"number", no_argument, NULL, 'n'},
-    {"squeeze-blank", no_argument, NULL, 's'},
-    {"show-nonprinting", no_argument, NULL, 'v'},
-    {"show-ends", no_argument, NULL, 'E'},
-    {"show-tabs", no_argument, NULL, 'T'},
-    {"show-all", no_argument, NULL, 'A'},
-    {GETOPT_HELP_OPTION_DECL},
-    {GETOPT_VERSION_OPTION_DECL},
-    {NULL, 0, NULL, 0}
-  };
-
   initialize_main (&argc, &argv);
   set_program_name (argv[0]);
   setlocale (LC_ALL, "");
@@ -572,68 +543,54 @@ main (int argc, char **argv)
   atexit (close_stdout);
 
   /* Parse command line options.  */
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-  while ((c = getopt_long (argc, argv, "benstuvAET", long_options, NULL))
-         != -1)
+  while ((optc = getopt_long (argc, argv, "benstuvAET", long_options, NULL)) != -1)
     {
-      switch (c)
+      switch (optc)
         {
         case 'b':
           number = true;
           number_nonblank = true;
           break;
-
         case 'e':
           show_ends = true;
           show_nonprinting = true;
           break;
-
         case 'n':
           number = true;
           break;
-
         case 's':
           squeeze_blank = true;
           break;
-
         case 't':
           show_tabs = true;
           show_nonprinting = true;
           break;
-
         case 'u':
           /* We provide the -u feature unconditionally.  */
           break;
-
         case 'v':
           show_nonprinting = true;
           break;
-
         case 'A':
           show_nonprinting = true;
           show_ends = true;
           show_tabs = true;
           break;
-
         case 'E':
           show_ends = true;
           break;
-
         case 'T':
           show_tabs = true;
           break;
-
-        case_GETOPT_HELP_CHAR;
-
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
         default:
           usage (EXIT_FAILURE);
         }
     }
 
   /* Get device, i-node number, and optimal blocksize of output.  */
-
   if (fstat (STDOUT_FILENO, &stat_buf) < 0)
     die (EXIT_FAILURE, errno, _("standard output"));
 
@@ -642,19 +599,17 @@ main (int argc, char **argv)
   out_ino = stat_buf.st_ino;
   out_isreg = S_ISREG (stat_buf.st_mode) != 0;
 
-  if (! (number || show_ends || squeeze_blank))
+  if (!(number || show_ends || squeeze_blank))
     {
       file_open_mode |= O_BINARY;
       xset_binary_mode (STDOUT_FILENO, O_BINARY);
     }
 
   /* Check if any of the input files are the same as the output file.  */
-
-  /* Main loop.  */
-
   infile = "-";
   argind = optind;
 
+  /* Main loop.  */
   do
     {
       if (argind < argc)
@@ -688,10 +643,9 @@ main (int argc, char **argv)
 
       fdadvise (input_desc, 0, 0, FADVISE_SEQUENTIAL);
 
-      /* Don't copy a nonempty regular file to itself, as that would
+      /* Do not copy a nonempty regular file to itself, as that would
          merely exhaust the output device.  It's better to catch this
          error earlier rather than later.  */
-
       if (out_isreg
           && stat_buf.st_dev == out_dev && stat_buf.st_ino == out_ino
           && lseek (input_desc, 0, SEEK_CUR) < stat_buf.st_size)
@@ -704,8 +658,8 @@ main (int argc, char **argv)
       /* Select which version of 'cat' to use.  If any format-oriented
          options were given use 'cat'; otherwise use 'simple_cat'.  */
 
-      if (! (number || show_ends || show_nonprinting
-             || show_tabs || squeeze_blank))
+      if (!(number || show_ends || show_nonprinting
+            || show_tabs || squeeze_blank))
         {
           insize = MAX (insize, outsize);
           inbuf = xmalloc (insize + page_size - 1);
@@ -737,7 +691,6 @@ main (int argc, char **argv)
              Align the output buffer to a page size boundary, for efficiency
              on some paging implementations, so add PAGE_SIZE - 1 bytes to the
              request to make room for the alignment.  */
-
           outbuf = xmalloc (outsize - 1 + insize * 4 + LINE_COUNTER_BUF_LEN
                             + page_size - 1);
 

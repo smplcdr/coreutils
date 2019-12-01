@@ -15,7 +15,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-/* Written by David MacKenzie and Jim Meyering. */
+/* Written by David MacKenzie and Jim Meyering.  */
 
 #include <config.h>
 #include <getopt.h>
@@ -32,11 +32,9 @@
   proper_name ("David MacKenzie"), \
   proper_name ("Jim Meyering")
 
-static struct option const longopts[] =
+static const struct option long_options[] =
 {
   {"zero", no_argument, NULL, 'z'},
-  {GETOPT_HELP_OPTION_DECL},
-  {GETOPT_VERSION_OPTION_DECL},
   {NULL, 0, NULL, 0}
 };
 
@@ -77,9 +75,10 @@ Examples:\n\
 int
 main (int argc, char **argv)
 {
-  static char const dot = '.';
+  int optc;
+  static const char dot = '.';
   bool use_nuls = false;
-  char const *result;
+  const char *result;
   size_t len;
 
   initialize_main (&argc, &argv);
@@ -90,26 +89,18 @@ main (int argc, char **argv)
 
   atexit (close_stdout);
 
-  while (true)
-    {
-      int c = getopt_long (argc, argv, "z", longopts, NULL);
+  parse_long_options (argc, argv, PROGRAM_NAME, PACKAGE_NAME, Version, usage, AUTHORS,
+                      (const char *) NULL);
 
-      if (c == -1)
+  while ((optc = getopt_long (argc, argv, "z", long_options, NULL)) != -1)
+    switch (optc)
+      {
+      case 'z':
+        use_nuls = true;
         break;
-
-      switch (c)
-        {
-        case 'z':
-          use_nuls = true;
-          break;
-
-        case_GETOPT_HELP_CHAR;
-        case_GETOPT_VERSION_CHAR (PROGRAM_NAME, AUTHORS);
-
-        default:
-          usage (EXIT_FAILURE);
-        }
-    }
+      default:
+        usage (EXIT_FAILURE);
+      }
 
   if (argc < optind + 1)
     {
@@ -122,7 +113,7 @@ main (int argc, char **argv)
       result = argv[optind];
       len = dir_len (result);
 
-      if (! len)
+      if (!len)
         {
           result = &dot;
           len = 1;
