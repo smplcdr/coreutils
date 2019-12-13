@@ -140,7 +140,7 @@ static const struct option long_options[] =
   {"help", no_argument, NULL, HELP_OPTION},
   {"version", no_argument, NULL, VERSION_OPTION},
   {"context", optional_argument, NULL, 'Z'},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 void

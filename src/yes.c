@@ -55,6 +55,7 @@ Repeatedly output a line with all specified STRING(s), or 'y'.\n\
 
       emit_ancillary_info (PROGRAM_NAME);
     }
+
   exit (status);
 }
 

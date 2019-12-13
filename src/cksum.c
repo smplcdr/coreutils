@@ -34,11 +34,6 @@
 
 #include <config.h>
 
-/* The official name of this program (e.g., no 'g' prefix).  */
-#define PROGRAM_NAME "cksum"
-
-#define AUTHORS proper_name ("Q. Frank Xia")
-
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -47,6 +42,11 @@
 
 #include "fadvise.h"
 #include "xbinary-io.h"
+
+/* The official name of this program (e.g., no 'g' prefix).  */
+#define PROGRAM_NAME "cksum"
+
+#define AUTHORS proper_name ("Q. Frank Xia")
 
 #ifdef CRCTAB
 
@@ -60,8 +60,8 @@
 
   The i bit in GEN is set if X^i is a summand of G(X) except X^32.  */
 
-# define GEN (BIT (26) | BIT (23) | BIT (22) | BIT (16) | BIT (12)   \
-              | BIT (11) | BIT (10) | BIT (8) | BIT (7) | BIT (5)    \
+# define GEN (BIT (26) | BIT (23) | BIT (22) | BIT (16) | BIT (12) \
+              | BIT (11) | BIT (10) | BIT (8) | BIT (7) | BIT (5) \
               | BIT (4) | BIT (2) | BIT (1) | BIT (0))
 
 static uint_fast32_t r[8];
@@ -111,7 +111,7 @@ main (void)
 /* Number of bytes to read at once.  */
 # define BUFLEN (1 << 16)
 
-static uint_fast32_t const crctab[256] =
+static const uint_fast32_t crctab[256] =
 {
   0x00000000,
   0x04c11db7, 0x09823b6e, 0x0d4326d9, 0x130476dc, 0x17c56b6b,

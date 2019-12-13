@@ -198,6 +198,8 @@ enum acl_type
 
 struct fileinfo
 {
+  struct stat stat;
+
   /* The file name.  */
   char *name;
 
@@ -206,8 +208,6 @@ struct fileinfo
 
   /* For terminal hyperlinks.  */
   char *absolute_name;
-
-  struct stat stat;
 
   enum filetype filetype;
 
@@ -218,11 +218,11 @@ struct fileinfo
   /* Security context.  */
   char *scontext;
 
-  bool stat_ok;
+  unsigned int stat_ok:1;
 
   /* For symbolic link and color printing, true if linked-to file
      exists, otherwise false.  */
-  bool linkok;
+  unsigned int link_ok:1;
 
   /* For long listings, true if the file has an access control list,
      or a security context.  */
@@ -232,7 +232,7 @@ struct fileinfo
   bool has_capability;
 
   /* Whether file name needs quoting. tri-state with -1 == unknown.  */
-  int quoted;
+  int quoted:2;
 };
 
 #define LEN_STR_PAIR(s) sizeof (s) - 1, s
@@ -242,12 +242,12 @@ struct fileinfo
    type.  */
 struct bin_str
 {
-  size_t len;         /* Number of bytes */
-  const char *string; /* Pointer to the same */
+  size_t len;         /* Number of bytes.  */
+  const char *string; /* Pointer to the same.  */
 };
 
 #if !HAVE_TCGETPGRP
-# define tcgetpgrp(Fd) 0
+# define tcgetpgrp(fd) 0
 #endif
 
 static size_t quote_name (const char *name,
@@ -285,8 +285,8 @@ static void print_dir (const char *name, const char *realname,
 static size_t print_file_name_and_frills (const struct fileinfo *f,
                                           size_t start_col);
 static void print_horizontal (void);
-static int format_user_width (uid_t u);
-static int format_group_width (gid_t g);
+static unsigned int format_user_width (uid_t u);
+static unsigned int format_group_width (gid_t g);
 static void print_long_format (const struct fileinfo *f);
 static void print_many_per_line (void);
 static size_t print_name_with_quoting (const struct fileinfo *f,
@@ -357,7 +357,7 @@ static const char *hostname;
 
 /* Mode of appropriate file for colorization.  */
 #define FILE_OR_LINK_MODE(file) \
-  ((color_symlink_as_referent && (file)->linkok) \
+  ((color_symlink_as_referent && (file)->link_ok) \
    ? (file)->linkmode : (file)->stat.st_mode)
 
 /* Record of one pending directory waiting to be listed.  */
@@ -2054,7 +2054,7 @@ decode_switches (int argc, char **argv)
       case HYPERLINK_OPTION:
         {
           int i;
-          if (optarg)
+          if (optarg != NULL)
             i = XARGMATCH ("--hyperlink", optarg, when_args, when_types);
           else
             /* Using --hyperlink with no argument is equivalent to using
@@ -2867,7 +2867,7 @@ patterns_match (struct ignore_pattern const *patterns, const char *file)
 static bool
 file_ignored (const char *name)
 {
-  return ((ignore_mode != IGNORE_MINIMAL && name[0] == '.' && (ignore_mode == IGNORE_DEFAULT || ! name[1 + (name[1] == '.')]))
+  return ((ignore_mode != IGNORE_MINIMAL && name[0] == '.' && (ignore_mode == IGNORE_DEFAULT || name[1 + (name[1] == '.' ? 1 : 0)] != '\0'))
           || (ignore_mode == IGNORE_DEFAULT && patterns_match (hide_patterns, name))
           || patterns_match (ignore_patterns, name));
 }
@@ -2878,7 +2878,7 @@ file_ignored (const char *name)
 static uintmax_t
 unsigned_file_size (off_t size)
 {
-  return size + (size < 0) * ((uintmax_t) OFF_T_MAX - OFF_T_MIN + 1);
+  return size + (size < 0 ? 1 : 0) * ((uintmax_t) OFF_T_MAX - OFF_T_MIN + 1);
 }
 
 #ifdef HAVE_CAP
@@ -2899,7 +2899,7 @@ has_capability (const char *name)
     return false;
 
   /* Check if human-readable capability string is empty.  */
-  has_cap = *result != '\0';
+  has_cap = (*result != '\0');
 
   cap_free (result);
   return has_cap;
@@ -3041,7 +3041,7 @@ static bool
 needs_quoting (const char* name)
 {
   char test[2];
-  size_t len = quotearg_buffer (test, sizeof test, name, -1,
+  size_t len = quotearg_buffer (test, sizeof (test), name, -1,
                                 filename_quoting_options);
   return *name != *test || strlen (name) != len;
 }
@@ -3208,7 +3208,7 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
           bool have_scontext = false;
           bool have_acl = false;
           int attr_len = getfilecon_cache (full_name, f, do_deref);
-          err = (attr_len < 0);
+          err = (attr_len < 0 ? 1 : 0);
 
           if (err == 0)
             {
@@ -3232,8 +3232,8 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
           if (err == 0 && format == long_format)
             {
               int n = file_has_acl_cache (full_name, f);
-              err = (n < 0);
-              have_acl = (0 < n);
+              err = (n < 0 ? 1 : 0);
+              have_acl = (n > 0);
             }
 
           f->acl_type = (!have_scontext && !have_acl
@@ -3243,7 +3243,7 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
                             : ACL_T_YES));
           any_has_acl |= f->acl_type != ACL_T_NONE;
 
-          if (err)
+          if (err != 0)
             error (0, errno, "%s", quotef (full_name));
         }
 
@@ -3257,16 +3257,16 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
 
           /* Use the slower quoting path for this entry, though
              do not update CWD_SOME_QUOTED since alignment not affected.  */
-          if (linkname && f->quoted == 0 && needs_quoting (f->linkname))
+          if (linkname != NULL && f->quoted == 0 && needs_quoting (f->linkname))
             f->quoted = -1;
 
           /* Avoid following symbolic links when possible, ie, when
-             they won't be traced and when no indicator is needed.  */
-          if (linkname
+             they will not be traced and when no indicator is needed.  */
+          if (linkname != NULL
               && (file_type <= indicator_style || check_symlink_mode)
               && stat_for_mode (linkname, &linkstats) == 0)
             {
-              f->linkok = true;
+              f->link_ok = true;
               f->linkmode = linkstats.st_mode;
             }
           free (linkname);
@@ -3299,43 +3299,43 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
         {
           if (print_owner)
             {
-              int len = format_user_width (f->stat.st_uid);
+              unsigned int len = format_user_width (f->stat.st_uid);
               if (owner_width < len)
                 owner_width = len;
             }
           if (print_group)
             {
-              int len = format_group_width (f->stat.st_gid);
+              unsigned int len = format_group_width (f->stat.st_gid);
               if (group_width < len)
                 group_width = len;
             }
           if (print_author)
             {
-              int len = format_user_width (f->stat.st_author);
+              unsigned int len = format_user_width (f->stat.st_author);
               if (author_width < len)
                 author_width = len;
             }
         }
       if (print_scontext)
         {
-          int len = strlen (f->scontext);
+          unsigned int len = (unsigned int) strlen (f->scontext);
           if (scontext_width < len)
             scontext_width = len;
         }
       if (format == long_format)
         {
           char b[INT_BUFSIZE_BOUND (uintmax_t)];
-          int b_len = strlen (umaxtostr (f->stat.st_nlink, b));
+          unsigned int b_len = (unsigned int) strlen (umaxtostr (f->stat.st_nlink, b));
           if (nlink_width < b_len)
             nlink_width = b_len;
 
           if (S_ISCHR (f->stat.st_mode) || S_ISBLK (f->stat.st_mode))
             {
               char buf[INT_BUFSIZE_BOUND (uintmax_t)];
-              int len = strlen (umaxtostr (major (f->stat.st_rdev), buf));
+              unsigned int len = (unsigned int) strlen (umaxtostr (major (f->stat.st_rdev), buf));
               if (major_device_number_width < len)
                 major_device_number_width = len;
-              len = strlen (umaxtostr (minor (f->stat.st_rdev), buf));
+              len = (unsigned int) strlen (umaxtostr (minor (f->stat.st_rdev), buf));
               if (minor_device_number_width < len)
                 minor_device_number_width = len;
               len = major_device_number_width + 2 + minor_device_number_width;
@@ -3346,9 +3346,9 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
             {
               char buf[LONGEST_HUMAN_READABLE + 1];
               uintmax_t size = unsigned_file_size (f->stat.st_size);
-              int len = mbswidth (human_readable (size, buf,
-                                                  file_human_output_opts,
-                                                  1, file_output_block_size),
+              unsigned int len = mbswidth (human_readable (size, buf,
+                                                           file_human_output_opts,
+                                                           1, file_output_block_size),
                                   0);
               if (file_size_width < len)
                 file_size_width = len;
@@ -3359,7 +3359,7 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
   if (print_inode)
     {
       char buf[INT_BUFSIZE_BOUND (uintmax_t)];
-      int len = strlen (umaxtostr (f->stat.st_ino, buf));
+      unsigned int len = (unsigned int) strlen (umaxtostr (f->stat.st_ino, buf));
       if (inode_number_width < len)
         inode_number_width = len;
     }
@@ -3453,7 +3453,7 @@ extract_dirs_from_files (const char *dirname, bool command_line_arg)
   size_t j;
   bool ignore_dot_and_dot_dot = (dirname != NULL);
 
-  if (dirname && LOOP_DETECT)
+  if (dirname != NULL && LOOP_DETECT)
     {
       /* Insert a marker entry first.  When we dequeue this marker entry,
          we will know that DIRNAME has been processed and may be removed
@@ -3463,7 +3463,8 @@ extract_dirs_from_files (const char *dirname, bool command_line_arg)
 
   /* Queue the directories last one first, because queueing reverses the
      order.  */
-  for (i = cwd_n_used; i-- != 0; )
+  i = cwd_n_used;
+  while (i-- != 0)
     {
       struct fileinfo *f = sorted_file[i];
 
@@ -3471,7 +3472,7 @@ extract_dirs_from_files (const char *dirname, bool command_line_arg)
           && (!ignore_dot_and_dot_dot
               || !basename_is_dot_or_dotdot (f->name)))
         {
-          if (!dirname || f->name[0] == '/')
+          if (dirname == NULL || f->name[0] == '/')
             queue_directory (f->name, f->linkname, command_line_arg);
           else
             {
@@ -3726,7 +3727,7 @@ sort_files (void)
   if (sorted_file_alloc < cwd_n_used + cwd_n_used / 2)
     {
       free (sorted_file);
-      sorted_file = xnmalloc (cwd_n_used, sizeof *sorted_file * 3);
+      sorted_file = xnmalloc (cwd_n_used, sizeof (*sorted_file) * 3);
       sorted_file_alloc = cwd_n_used * 3;
     }
 
@@ -3740,7 +3741,7 @@ sort_files (void)
      comparison function that is not a total order, and if we ignored
      the failure this might cause qsort to dump core.  */
   if (setjmp (failed_strcoll) == 0)
-    use_strcmp = false; /* strcoll() succeeded */
+    use_strcmp = false; /* strcoll() succeeded.  */
   else
     {
       use_strcmp = true;
@@ -3892,7 +3893,7 @@ format_group (gid_t g, int width, bool stat_ok)
 }
 
 /* Return the number of columns that format_user_or_group will print.  */
-static int
+static unsigned int
 format_user_or_group_width (const char *name, unsigned long int id)
 {
   if (name != NULL)
@@ -3901,19 +3902,19 @@ format_user_or_group_width (const char *name, unsigned long int id)
     {
       char buf[INT_BUFSIZE_BOUND (id)];
       sprintf (buf, "%lu", id);
-      return strlen (buf);
+      return (unsigned int) strlen (buf);
     }
 }
 
 /* Return the number of columns that format_user will print.  */
-static int
+static unsigned int
 format_user_width (uid_t u)
 {
   return format_user_or_group_width (numeric_ids ? NULL : getuser (u), u);
 }
 
 /* Likewise, for groups.  */
-static int
+static unsigned int
 format_group_width (gid_t g)
 {
   return format_user_or_group_width (numeric_ids ? NULL : getgroup (g), g);
@@ -4600,22 +4601,22 @@ get_color_indicator (const struct fileinfo *f, bool symlink_target)
 
   const char* name;
   mode_t mode;
-  int linkok;
+  int link_ok;
   if (symlink_target)
     {
       name = f->linkname;
       mode = f->linkmode;
-      linkok = f->linkok ? 0 : -1;
+      link_ok = f->link_ok ? 0 : -1;
     }
   else
     {
       name = f->name;
       mode = FILE_OR_LINK_MODE (f);
-      linkok = f->linkok;
+      link_ok = f->link_ok;
     }
 
-  /* Is this a nonexistent file?  If so, linkok == -1.  */
-  if (linkok == -1 && is_colored (C_MISSING))
+  /* Is this a nonexistent file?  If so, link_ok == -1.  */
+  if (link_ok == -1 && is_colored (C_MISSING))
     type = C_MISSING;
   else if (!f->stat_ok)
     {
@@ -4684,7 +4685,7 @@ get_color_indicator (const struct fileinfo *f, bool symlink_target)
     }
 
   /* Adjust the color for orphaned symlinks.  */
-  if (type == C_LINK && !linkok)
+  if (type == C_LINK && link_ok == 0)
     {
       if (color_symlink_as_referent || is_colored (C_ORPHAN))
         type = C_ORPHAN;

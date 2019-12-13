@@ -15,7 +15,6 @@
    License along with the GNU C Library; if not, see
    <https://www.gnu.org/licenses/>.  */
 
-#include <stddef.h>
 #include <string.h>
 
 #include "strlcpy.h"
@@ -30,15 +29,12 @@
 size_t
 strlcpy (char *dst, const char *src, size_t n)
 {
-  size_t len = strnlen (src, n);
-  if (n != 0)
+  if (n != 0 && *src != '\0')
     {
-      /*
-        size_t ret = strlen (src);
-        size_t len = (ret >= size) ? size - 1 : ret;
-      */
+      size_t len = strnlen (src, n);
       memcpy (dst, src, len);
       dst[len] = '\0';
+      return len;
     }
-  return len;
+  return 0;
 }

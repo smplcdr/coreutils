@@ -436,7 +436,7 @@ yes
 fi
 
 # FIXME: note that this macro appears above, too.
-# I'm leaving it here for now.  This whole thing needs to be modernized...
+# I am leaving it here for now.  This whole thing needs to be modernized...
 gl_WINSIZE_IN_PTEM
 
 gl_HEADER_TIOCGWINSZ_IN_TERMIOS_H

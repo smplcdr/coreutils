@@ -632,5 +632,7 @@ main (int argc, char **argv)
         }
     }
 
+	forget_all ();
+
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

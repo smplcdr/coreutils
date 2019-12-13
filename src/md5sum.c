@@ -116,7 +116,7 @@
 # define DIGEST_TYPE_STRING "MD6"
 # define DIGEST_STREAM      md6_stream
 # define DIGEST_BITS        512
-# define DIGEST_REFERENCE   "none" /* "https://groups.csail.mit.edu/cis/md6/docs/2009-04-15-md6-report.pdf" */
+# define DIGEST_REFERENCE   "<https://groups.csail.mit.edu/cis/md6/docs/2009-04-15-md6-report.pdf>"
 # define DIGEST_ALIGN       8
 #elif HASH_ALGO_SHA1
 # define PROGRAM_NAME       "sha1sum"
@@ -158,7 +158,7 @@
 # define DIGEST_TYPE_STRING "SHA3"
 # define DIGEST_STREAM      sha3_stream
 # define DIGEST_BITS        512
-# define DIGEST_REFERENCE   "FIPS 202"
+# define DIGEST_REFERENCE   "FIPS-202"
 # define DIGEST_ALIGN       8
 #else
 # error "Cannot decide which hash algorithm to compile."
@@ -278,7 +278,11 @@ struct ignore_pattern
   struct ignore_pattern *next;
 };
 
-static struct ignore_pattern *ignore_patterns = NULL;
+static struct ignore_pattern *ignore_patterns;
+
+/* Similar to IGNORE_PATTERNS, except that -a causes this
+   variable itself to be ignored.  */
+static struct ignore_pattern *hide_patterns;
 
 #if HASH_HAVE_VARIABLE_SIZE
 static uintmax_t digest_length;
@@ -322,22 +326,24 @@ enum
 
 static const struct option long_options[] =
 {
-#if HASH_HAVE_VARIABLE_SIZE
-  {"length", required_argument, NULL, 'l'},
-#endif
+  {"all", no_argument, NULL, 'a'},
   {"binary", no_argument, NULL, 'b'},
   {"check", no_argument, NULL, 'c'},
+  {"hide", required_argument, NULL, 'H'},
   {"ignore", required_argument, NULL, 'I'},
   {"ignore-backups", no_argument, NULL, 'B'},
   {"ignore-missing", no_argument, NULL, IGNORE_MISSING_OPTION},
+#if HASH_HAVE_VARIABLE_SIZE
+  {"length", required_argument, NULL, 'l'},
+#endif
   {"quiet", no_argument, NULL, QUIET_OPTION},
+  {"recursive", no_argument, NULL, 'r'},
   {"status", no_argument, NULL, STATUS_OPTION},
-  {"text", no_argument, NULL, 't'},
-  {"warn", no_argument, NULL, 'w'},
   {"strict", no_argument, NULL, STRICT_OPTION},
   {"tag", no_argument, NULL, TAG_OPTION},
+  {"text", no_argument, NULL, 't'},
+  {"warn", no_argument, NULL, 'w'},
   {"zero", no_argument, NULL, 'z'},
-  {"recursive", no_argument, NULL, 'r'},
   {NULL, 0, NULL, '\0'}
 };
 
@@ -481,7 +487,8 @@ visit_dir (dev_t device, ino_t inode)
     /* Insertion failed due to lack of memory.  */
     xalloc_die ();
 
-  if ((found_match = (ent_from_table != ent)))
+  found_match = (ent_from_table != ent);
+  if (found_match)
     /* ent was not inserted, so free it.  */
     free (ent);
 
@@ -542,46 +549,47 @@ static bool
 file_ignored (const char *file)
 {
   return ((ignore_mode != IGNORE_MINIMAL
-           && *file == '.'
+           && file[0] == '.'
            && (ignore_mode == IGNORE_DEFAULT || file[1 + (file[1] == '.' ? 1 : 0)] == '\0'))
-       || patterns_match (ignore_patterns, file));
+          || (ignore_mode == IGNORE_DEFAULT && patterns_match (hide_patterns, file))
+          || patterns_match (ignore_patterns, file));
 }
 
-static struct stat dot_st[1];
-static struct stat dot_dot_st[1];
-
-static bool
-is_dot (const char *dirname)
-{
-  struct stat st;
-
-  if (unlikely (stat (dirname, &st) != 0))
-    die (EXIT_FAILURE, errno, "%s", quotef (dirname));
-
-  return dot_st->st_dev == st.st_dev
-      && dot_st->st_ino == st.st_ino;
-}
+static struct stat dot_st;
+static struct stat dot_dot_st;
 
 /* Return true if the filename's inode same as '.' or '..' inode.  */
 static bool
-is_dot_or_dotdot (const char *filename)
+is_dot_or_dotdot (const char *dirname, struct stat st)
 {
-  struct stat st;
+  if (unlikely (stat (dirname, &st) != 0))
+    die (EXIT_FAILURE, errno, "%s", quotef (dirname));
 
-  if (unlikely (stat (filename, &st) != 0))
-    die (EXIT_FAILURE, errno, "%s", quotef (filename));
+  return (st.st_dev == dot_st.st_dev     && st.st_ino == dot_st.st_ino)
+      || (st.st_dev == dot_dot_st.st_dev && st.st_ino == dot_dot_st.st_ino);
+}
 
-  return (st.st_dev == dot_st->st_dev && st.st_ino == dot_st->st_ino)
-      || (st.st_dev == dot_dot_st->st_dev && st.st_ino == dot_dot_st->st_ino);
+/* Return true if the last component of NAME is '.'
+   This is so we do not try to recurse on '././././. ...' */
+static bool
+basename_is_dot (const char *name)
+{
+  if (*name == '.')
+    {
+      name++;
+      return (*name == '\0' || (ISSLASH (*name) && *(name + 1) == '\0'));
+    }
+  else
+    return false;
 }
 
 /* Put DIRNAME/NAME into DEST, handling '.' and '/' properly.  */
 /* FIXME: maybe remove this function someday.  See about using a
    non-malloc'ing version of file_name_concat.  */
-static __nonnull ((1, 2, 3)) void
+static void __nonnull ((1, 2, 3))
 attach (char *dest, const char *dirname, const char *name, bool force)
 {
-  if (*dirname == '\0')
+  if (*name == '/' || *dirname == '\0')
     {
       strcpy (dest, name);
       return;
@@ -590,14 +598,14 @@ attach (char *dest, const char *dirname, const char *name, bool force)
   size_t i = 0;
 
   /* Copy dirname if it is not "." or if we were asked to do this.  */
-  if (force || !is_dot (dirname))
+  if (force || !basename_is_dot (dirname))
     {
-      i = strlen (dirname);
-      memcpy (dest, dirname, i);
+      memcpy (dest, dirname, (i = strlen (dirname)));
       /* Add '/' if 'dirname' does not already end with it.  */
       if (dirname[i - 1] != '/')
         dest[i++] = '/';
     }
+
   strcpy (dest + i, name);
 }
 
@@ -608,16 +616,6 @@ is_directory (const struct fileinfo *f)
   return f->filetype == directory
       || f->filetype == arg_directory;
 }
-
-#if 0
-/* Return true if the last component of NAME is '.' or '..'
-   This is so we do not try to recurse on '././././. ...' */
-static bool
-basename_is_dot_or_dotdot (const char *name)
-{
-  return dot_or_dotdot (last_component (name));
-}
-#endif
 
 /* Request that the directory named NAME have its contents listed later.
    If REALNAME is nonzero, it will be used instead of NAME when the
@@ -661,10 +659,10 @@ extract_dirs_from_files (const char *dirname, bool command_line_arg)
      order.  */
   for (size_t i = cwd_n_used; i != 0; i--)
     {
-      struct fileinfo *f = &cwd_file[i];
+      struct fileinfo *f = cwd_file + i;
 
       if (is_directory (f)
-       && (!ignore_dot_and_dot_dot || !is_dot_or_dotdot (f->name)))
+          && (!ignore_dot_and_dot_dot || !is_dot_or_dotdot (f->name, f->stat)))
         {
           if (dirname == NULL || f->name[0] == '/')
             queue_directory (f->name, f->linkname, command_line_arg);
@@ -675,7 +673,10 @@ extract_dirs_from_files (const char *dirname, bool command_line_arg)
               free (name);
             }
           if (f->filetype == arg_directory)
-            free_ent (f);
+            {
+              free_ent (f);
+              cwd_n_used--;
+            }
         }
     }
 }
@@ -689,8 +690,6 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
   if (!command_line_arg && file_ignored (name))
     return;
 
-  struct fileinfo *f;
-
   /* An inode value prior to gobble_file necessarily came from readdir,
      which is not used for command line arguments.  */
   assert (!command_line_arg || inode == NOT_AN_INODE_NUMBER);
@@ -701,7 +700,7 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
       cwd_n_alloc *= 2;
     }
 
-  f = cwd_file + cwd_n_used;
+  struct fileinfo *f = cwd_file + cwd_n_used;
   memset (f, '\0', sizeof (*f));
   f->stat.st_ino = inode;
   f->filetype = type;
@@ -743,10 +742,11 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
 
       if (!command_line_arg)
         {
-          f->name = xstrdup (full_name);
+          f->name = full_name;
           cwd_n_used++;
         }
-      free (full_name);
+      else
+        free (full_name);
       return;
     }
 
@@ -768,9 +768,8 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
   else
     f->filetype = regular_file;
 
-  f->name = xstrdup (full_name);
+  f->name = full_name;
   cwd_n_used++;
-  free (full_name);
 }
 
 /* The set of signals that are caught.  */
@@ -790,7 +789,7 @@ static volatile sig_atomic_t stop_signal_count;
 static void
 process_signals (void)
 {
-  while (interrupt_signal || stop_signal_count)
+  while (interrupt_signal != 0 || stop_signal_count != 0)
     {
       int sig;
       int stops;
@@ -834,6 +833,7 @@ diagnose_leading_hyphen (int argc, char **argv)
      for a file name that looks like an option.  */
 
   struct stat st;
+
   for (int i = 1; i < argc; i++)
     {
       const char *arg = *(argv + i);
@@ -867,6 +867,10 @@ Print or check %s (%i-bit) checksums.\n\
 
       emit_stdin_note ();
 
+      fputs (_("\
+  -a, --all            do not ignore entries starting with .\n\
+"), stdout);
+
 #if O_BINARY
       fputs (_("\
 \n\
@@ -884,16 +888,22 @@ Print or check %s (%i-bit) checksums.\n\
 "), DIGEST_TYPE_STRING);
 
 #if HASH_HAVE_VARIABLE_SIZE && !HASH_ALGO_SHA3
-      printf (_("\
+      fputs (_("\
   -l, --length         digest length in bits; must not exceed the maximum for\n\
-                       the %s algorithm and must be a multiple of 8\n\
-"), DIGEST_TYPE_STRING);
+                       the "DIGEST_TYPE_STRING" algorithm and must be a multiple of 8\n\
+"), stdout);
 #elif HASH_ALGO_SHA3
       fputs (_("\
   -l, --length         digest length in bits; must not exceed the maximum for\n\
                        the SHA-3 algorithm and must be equal either 224, 256, 384 or 512\n\
 "), stdout);
 #endif
+
+      fputs (_("\
+      --hide=PATTERN   do not list implied entries matching shell PATTERN\
+\n\
+                         (overridden by -a)\n\
+"), stdout);
 
       fputs (_("\
       --tag            create a BSD-style checksum\n\
@@ -930,15 +940,15 @@ The following five options are useful only when verifying checksums:\n\
       fputs (HELP_OPTION_DESCRIPTION, stdout);
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
 
-      printf (_("\
+      fputs (_("\
 \n\
-The sums are computed as described in %s.  When checking, the input\n\
+The sums are computed as described in "DIGEST_REFERENCE".  When checking, the input\n\
 should be a former output of this program.  The default mode is to print a\n\
 line with checksum, a space, a character indicating input mode ('*' for binary,\n\
 ' ' for text or where binary is insignificant), and name for each FILE.\n\
 \n\
 Note: There is no difference between binary mode and text mode on GNU systems.\n\
-"), DIGEST_REFERENCE);
+"), stdout);
 
       emit_ancillary_info (PROGRAM_NAME);
     }
@@ -1076,7 +1086,7 @@ split_3 (char *s, size_t s_len, unsigned char **hex_digest,
     {
       i += algo_name_len;
 
-    #if HASH_HAVE_VARIABLE_SIZE
+#if HASH_HAVE_VARIABLE_SIZE
       /* Terminate and match algorithm name.  */
       const char *algo_name = &s[i - algo_name_len];
       /* Skip algorithm variants.  */
@@ -1096,9 +1106,9 @@ split_3 (char *s, size_t s_len, unsigned char **hex_digest,
         {
           unsigned long int tmp_ulong;
           if (xstrtoul (s + i, NULL, 0, &tmp_ulong, NULL) == LONGINT_OK
-           && tmp_ulong > 0
-           && tmp_ulong <= digest_max_len * 8
-           && tmp_ulong % 8 == 0)
+              && tmp_ulong > 0
+              && tmp_ulong <= digest_max_len * 8
+              && tmp_ulong % 8 == 0)
             digest_length = tmp_ulong;
           else
             return false;
@@ -1110,7 +1120,7 @@ split_3 (char *s, size_t s_len, unsigned char **hex_digest,
         digest_length = digest_max_len * 8;
 
       digest_hex_bytes = digest_length / 4;
-    #endif
+#endif
 
       if (s[i] == ' ')
         i++;
@@ -1140,8 +1150,8 @@ split_3 (char *s, size_t s_len, unsigned char **hex_digest,
   while (isxdigit (*hp++))
     digest_hex_bytes++;
   if (digest_hex_bytes < 2
-   || digest_hex_bytes % 2
-   || digest_max_len * 2 < digest_hex_bytes)
+      || digest_hex_bytes % 2
+      || digest_max_len * 2 < digest_hex_bytes)
     return false;
   digest_length = digest_hex_bytes * 4;
 #endif
@@ -1232,13 +1242,13 @@ print_digest (char *file, int file_is_binary, unsigned char *bin_buffer)
       if (needs_escape)
         putchar ('\\');
 
-    #if HASH_HAVE_VARIABLE_SIZE
+#if HASH_HAVE_VARIABLE_SIZE
       fputs (algorithm_out_string, stdout);
       if (digest_length < digest_max_len * 8)
         printf ("-%"PRIuMAX, digest_length);
-    #else
+#else
       fputs (DIGEST_TYPE_STRING, stdout);
-    #endif
+#endif
 
       fputs (" (", stdout);
       print_filename (file, needs_escape);
@@ -1271,27 +1281,30 @@ digest_current_files (int *binary, unsigned char *bin_buffer, bool *missing)
 {
   for (size_t i = 0; i < cwd_n_used; i++)
     {
-      const char *file = cwd_file[i].name;
+      char *file = cwd_file[i].name;
       if (cwd_file[i].filetype == directory || cwd_file[i].filetype == arg_directory)
         {
           if (!recursive)
-            error (0, EISDIR, "%s", cwd_file[i].name);
+            error (0, EISDIR, "%s", quotef (file));
           else
             {
               char full_dirname[PATH_MAX];
-              if (getcwd (full_dirname, sizeof (full_dirname) - strlen (file) - 2) == NULL)
+              if (getcwd (full_dirname, sizeof (full_dirname) - strlen (file) - 1 /* '/' */ - 1 /* '\0' */) == NULL)
                 {
                   error (0, errno, "%s", quotef (file));
                   continue;
                 }
-              attach (full_dirname, cwd_file[i].name, "", true);
+
+              attach (full_dirname, file, "", true);
               digest_directory (full_dirname, binary, bin_buffer, missing);
             }
         }
       else
-        if (digest_file (cwd_file[i].name, binary, bin_buffer, missing))
-          print_digest (cwd_file[i].name, *binary, bin_buffer);
+        if (digest_file (file, binary, bin_buffer, missing))
+          print_digest (file, *binary, bin_buffer);
     }
+
+  clear_files ();
 }
 
 /* An interface to the function, DIGEST_STREAM.
@@ -1318,7 +1331,7 @@ digest_file (char *filename, int *binary _GL_UNUSED, unsigned char *bin_buffer, 
     {
       have_read_stdin = true;
       fp = stdin;
-    #if O_BINARY
+#if O_BINARY
       if (*binary != 0)
         {
           if (*binary < 0)
@@ -1326,15 +1339,15 @@ digest_file (char *filename, int *binary _GL_UNUSED, unsigned char *bin_buffer, 
           if (*binary != 0)
             xset_binary_mode (STDIN_FILENO, O_BINARY);
         }
-    #endif
+#endif
     }
   else
     {
-    #if O_BINARY
+#if O_BINARY
       fp = fopen (filename, (*binary != 0 ? "rb" : "r"));
-    #else
+#else
       fp = fopen (filename, "r");
-    #endif
+#endif
       if (unlikely (fp == NULL))
         {
           if (ignore_missing && errno == ENOENT)
@@ -1419,6 +1432,7 @@ digest_directory (char *dirname, int *binary, unsigned char *bin_buffer, bool *m
       dev_ino_push (dir_stat.st_dev, dir_stat.st_ino);
     }
 
+  /* We have to left it here to avoid warnings like 'do not listing already-listed directory'.  */
   clear_files ();
 
   /* Read the directory entries, and insert the subfiles into the 'cwd_file' table.  */
@@ -1434,12 +1448,12 @@ digest_directory (char *dirname, int *binary, unsigned char *bin_buffer, bool *m
             {
               enum filetype type;
 
-            #if HAVE_STRUCT_DIRENT_D_TYPE
+#if HAVE_STRUCT_DIRENT_D_TYPE
               if (ent->d_type == DT_DIR)
                 type = directory;
               else
                 type = regular_file;
-            #else
+#else
               {
                 struct stat ent_stat;
                 if (stat (ent->d_name, &ent_stat) != 0) /* At this line is two reasons why using d_type is better.  */
@@ -1452,7 +1466,7 @@ digest_directory (char *dirname, int *binary, unsigned char *bin_buffer, bool *m
                 else
                   type = regular_file;
               }
-            #endif
+#endif
 
               gobble_file (ent->d_name, type,
                            RELIABLE_D_INO (ent),
@@ -1463,7 +1477,6 @@ digest_directory (char *dirname, int *binary, unsigned char *bin_buffer, bool *m
                  of this directory.  Useful when there are many (millions)
                  of entries in a directory.  */
               digest_current_files (binary, bin_buffer, missing);
-              clear_files ();
             }
         }
       else if (errno != 0)
@@ -1488,7 +1501,7 @@ digest_directory (char *dirname, int *binary, unsigned char *bin_buffer, bool *m
     }
 
   /* If any member files are subdirectories, perhaps they should have their
-     contents listed rather than being mentioned here as files.  */
+     contents printed digest rather than being mentioned here as files.  */
   if (recursive)
     extract_dirs_from_files (dirname, false);
 
@@ -1714,6 +1727,7 @@ main (int argc, char **argv)
   struct pending *thispend;
   ignore_mode = IGNORE_DEFAULT;
   ignore_patterns = NULL;
+  hide_patterns = NULL;
 
   /* Setting values of global variables.  */
   initialize_main (&argc, &argv);
@@ -1734,42 +1748,45 @@ main (int argc, char **argv)
 
 #if HASH_HAVE_VARIABLE_SIZE
   const char *digest_length_str = "";
-  const char *short_options = "bcl:rtwzBI:R";
+  const char *short_options = "abcl:rtwzBHI:R";
 #else
-  const char *short_options = "bcrtwzBI:R";
+  const char *short_options = "abcrtwzBHI:R";
 #endif
 
   while ((optc = getopt_long (argc, argv, short_options, long_options, NULL)) != -1)
     switch (optc)
       {
-      #if HASH_HAVE_VARIABLE_SIZE
-      case 'l':
-        digest_length_str = optarg;
-        digest_length = xdectoumax (optarg, 0, UINTMAX_MAX, "", _("invalid length"), 0);
-
-      # if HASH_ALGO_SHA3
-        if (digest_length != 224 && digest_length != 256
-         && digest_length != 384 && digest_length != 512)
-          {
-            error (0, 0, _("invalid length: %s"), quote (digest_length_str));
-            die (EXIT_FAILURE, 0, _("valid digest lengths are 224, 256, 384 and 512 bits"));
-          }
-      # else
-        if (digest_length % 8 != 0)
-          {
-            error (0, 0, _("invalid length: %s"), quote (digest_length_str));
-            die (EXIT_FAILURE, 0, _("length is not a multiple of 8"));
-          }
-      # endif
-
+      case 'a':
+        ignore_mode = IGNORE_MINIMAL;
         break;
-      #endif
       case 'b':
         binary = 1;
         break;
       case 'c':
         do_check = true;
         break;
+#if HASH_HAVE_VARIABLE_SIZE
+      case 'l':
+        digest_length_str = optarg;
+        digest_length = xdectoumax (optarg, 0, UINTMAX_MAX, "", _("invalid length"), 0);
+
+# if HASH_ALGO_SHA3
+        if (digest_length != 224 && digest_length != 256
+         && digest_length != 384 && digest_length != 512)
+          {
+            error (0, 0, _("invalid length: %s"), quote (digest_length_str));
+            die (EXIT_FAILURE, 0, _("valid digest lengths are 224, 256, 384 and 512 bits"));
+          }
+# else
+        if (digest_length % 8 != 0)
+          {
+            error (0, 0, _("invalid length: %s"), quote (digest_length_str));
+            die (EXIT_FAILURE, 0, _("length is not a multiple of 8"));
+          }
+# endif
+
+        break;
+#endif
       case STATUS_OPTION:
         status_only = true;
         warn = false;
@@ -1786,6 +1803,9 @@ main (int argc, char **argv)
       case IGNORE_MISSING_OPTION:
         ignore_missing = true;
         break;
+      case 'r':
+        recursive = true;
+        break;
       case QUIET_OPTION:
         status_only = false;
         warn = false;
@@ -1801,13 +1821,17 @@ main (int argc, char **argv)
       case 'z':
         delim = '\0';
         break;
-      case 'r':
-      case 'R':
-        recursive = true;
-        break;
       case 'B':
         add_ignore_pattern ("*~");
         add_ignore_pattern (".*~");
+        break;
+      case 'H':
+        {
+          struct ignore_pattern *hide = xmalloc (sizeof (*hide));
+          hide->pattern = optarg;
+          hide->next = hide_patterns;
+          hide_patterns = hide;
+        }
         break;
       case 'I':
         add_ignore_pattern (optarg);
@@ -1922,17 +1946,15 @@ main (int argc, char **argv)
 
   if (recursive)
     {
-      if (stat (".", dot_st) != 0)
+      if (stat (".", &dot_st) != 0)
         die (EXIT_FAILURE, errno, ".");
-      if (stat ("..", dot_dot_st) != 0)
+      if (stat ("..", &dot_dot_st) != 0)
         die (EXIT_FAILURE, errno, "..");
     }
 
   cwd_n_alloc = 128;
   cwd_file = xnmalloc (cwd_n_alloc, sizeof (*cwd_file));
   cwd_n_used = 0;
-
-  clear_files ();
 
   if (optind == argc)
     gobble_file ("-", regular_file, NOT_AN_INODE_NUMBER, true, "");
@@ -1988,8 +2010,9 @@ main (int argc, char **argv)
 
   free (cwd_file);
 
-  if (LOOP_DETECT)
+  if (active_dir_set != NULL)
     {
+      obstack_free (&dev_ino_obstack, NULL);
       assert (hash_get_n_entries (active_dir_set) == 0);
       hash_free (active_dir_set);
     }

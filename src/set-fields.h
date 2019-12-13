@@ -18,10 +18,10 @@
 # define SET_FIELDS_H
 
 struct field_range_pair
-  {
-    uintmax_t lo;
-    uintmax_t hi;
-  };
+{
+  uintmax_t lo;
+  uintmax_t hi;
+};
 
 /* Array of `struct range_pair' holding all the finite ranges.  */
 extern struct field_range_pair *frp;

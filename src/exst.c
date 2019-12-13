@@ -87,15 +87,27 @@ is_file_exist (const char *file, struct stat *st)
       if (path == NULL || *path == '\0')
         return false;
       path = xstrdup (path);
-      for (char *dir = strtok (path, ":"); dir != NULL; dir = strtok (NULL, ":"))
+      char *candidate;
+      for (char *dir = strtok (path, ":");
+           dir != NULL;
+           dir = strtok (NULL, ":"))
         {
-          char *candidate = file_name_concat (dir, file, NULL);
+          candidate = file_name_concat (dir, file, NULL);
+          if (candidate == NULL)
+            xalloc_die ();
           if (stat (candidate, st) == 0)
             {
               free (candidate);
               return true;
             }
           free (candidate);
+        }
+      char cwd[PATH_MAX + 1];
+      candidate = file_name_concat (getcwd (cwd, sizeof (cwd) - 1), file, NULL);
+      if (stat (candidate, st) == 0)
+        {
+          free (candidate);
+          return true;
         }
       return false;
     }

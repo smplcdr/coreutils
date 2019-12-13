@@ -506,5 +506,7 @@ main (int argc, char **argv)
       ok = movefile (file[0], file[1], false, &x);
     }
 
+	forget_all ();
+
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

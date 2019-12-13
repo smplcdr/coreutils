@@ -51,18 +51,17 @@ add_range_pair (uintmax_t lo, uintmax_t hi)
     frp = X2NREALLOC (frp, &n_frp_allocated);
   frp[n_frp].lo = lo;
   frp[n_frp].hi = hi;
-  ++n_frp;
+  n_frp++;
 }
-
 
 /* Comparison function for qsort to order the list of
    struct range_pairs.  */
 static int
 compare_ranges (const void *a, const void *b)
 {
-  int a_start = ((const struct field_range_pair *) a)->lo;
-  int b_start = ((const struct field_range_pair *) b)->lo;
-  return a_start < b_start ? -1 : a_start > b_start;
+  uintmax_t a_start = ((const struct field_range_pair *) a)->lo;
+  uintmax_t b_start = ((const struct field_range_pair *) b)->lo;
+  return a_start < b_start ? -1 : a_start > b_start ? 1 : 0;
 }
 
 /* Reallocate Range Pair entries, with corresponding
@@ -137,11 +136,11 @@ complement_rp (void)
 void
 set_fields (const char *fieldstr, unsigned int options)
 {
-  uintmax_t initial = 1;	/* Value of first number in a range.  */
-  uintmax_t value = 0;		/* If nonzero, a number being accumulated.  */
+  uintmax_t initial = 1;  /* Value of first number in a range.  */
+  uintmax_t value = 0;    /* If nonzero, a number being accumulated.  */
   bool lhs_specified = false;
   bool rhs_specified = false;
-  bool dash_found = false;	/* True if a '-' is found in this field.  */
+  bool dash_found = false;  /* True if a '-' is found in this field.  */
 
   bool in_digits = false;
 

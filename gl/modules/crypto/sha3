@@ -5,7 +5,6 @@ Files:
 lib/sha3.c
 lib/sha3.h
 
-lib/macros.h
 lib/memxor.c
 lib/memxor.h
 lib/memxor-internal.h

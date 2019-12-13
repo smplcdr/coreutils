@@ -7,32 +7,18 @@
 
    This file is part of GNU Coreutils.
 
-   GNU Coreutils is free software: you can redistribute it and/or
-   modify it under the terms of either:
+   GNU Coreutils is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-     * the GNU Lesser General Public License as published by the Free
-       Software Foundation; either version 3 of the License, or (at your
-       option) any later version.
-
-   or
-
-     * the GNU General Public License as published by the Free
-       Software Foundation; either version 2 of the License, or (at your
-       option) any later version.
-
-   or both in parallel, as here.
-
-   GNU Coreutils is distributed in the hope that it will be useful,
+   This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received copies of the GNU General Public License and
-   the GNU Lesser General Public License along with this program.  If
-   not, see http://www.gnu.org/licenses/.
-*/
-
-#include <config.h>
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <assert.h>
 #include <stdlib.h>
@@ -40,37 +26,60 @@
 
 #include "sha3.h"
 
-#include "macros.h"
 #include "memxor.h"
 
+#define LE_READ_UINT64(p) \
+  ((((uint64_t) (p)[7]) << 56) \
+ | (((uint64_t) (p)[6]) << 48) \
+ | (((uint64_t) (p)[5]) << 40) \
+ | (((uint64_t) (p)[4]) << 32) \
+ | (((uint64_t) (p)[3]) << 24) \
+ | (((uint64_t) (p)[2]) << 16) \
+ | (((uint64_t) (p)[1]) << 8) \
+ |  ((uint64_t) (p)[0]) << 0)
+
+#define LE_WRITE_UINT64(p, i) \
+  do \
+    { \
+      (p)[7] = ((i) >> 56) & 0xFF; \
+      (p)[6] = ((i) >> 48) & 0xFF; \
+      (p)[5] = ((i) >> 40) & 0xFF; \
+      (p)[4] = ((i) >> 32) & 0xFF; \
+      (p)[3] = ((i) >> 24) & 0xFF; \
+      (p)[2] = ((i) >> 16) & 0xFF; \
+      (p)[1] = ((i) >> 8)  & 0xFF; \
+      (p)[0] = ((i) >> 0)  & 0xFF; \
+    } \
+  while (0)
+
 static void
-sha3_absorb (struct sha3_state *state, unsigned length, const uint8_t *data)
+sha3_absorb (uint64_t A[SHA3_STATE_LENGTH], size_t length, const uint8_t *data)
 {
   assert ((length & 7) == 0);
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
   {
     uint64_t *p;
-    for (p = state->a; length > 0; p++, length -= 8, data += 8)
+    for (p = A; length != 0; p++, length -= 8, data += 8)
       *p ^= LE_READ_UINT64 (data);
   }
 #else /* !defined(__BYTE_ORDER__) || __BYTE_ORDER__ != __ORDER_BIG_ENDIAN__ */
-  memxor (state->a, data, length);
+  memxor (A, data, length);
 #endif
 
-  sha3_permute (state);
+  sha3_permute (A);
 }
 
-unsigned int
-sha3_update (struct sha3_state *state,
-             unsigned int block_size,
+size_t
+sha3_update (uint64_t A[SHA3_STATE_LENGTH],
+             size_t block_size,
              uint8_t *block,
-             unsigned int pos,
+             size_t pos,
              size_t length,
              const uint8_t *data)
 {
-  if (pos > 0)
+  if (pos != 0)
     {
-      unsigned int left = block_size - pos;
+      size_t left = block_size - pos;
       if (length < left)
         {
           memcpy (block + pos, data, length);
@@ -81,28 +90,28 @@ sha3_update (struct sha3_state *state,
           memcpy (block + pos, data, left);
           data += left;
           length -= left;
-          sha3_absorb (state, block_size, block);
+          sha3_absorb (A, block_size, block);
         }
     }
 
   for (; length >= block_size; length -= block_size, data += block_size)
-    sha3_absorb (state, block_size, data);
+    sha3_absorb (A, block_size, data);
 
   memcpy (block, data, length);
   return length;
 }
 
 void
-sha3_pad (struct sha3_state *state, unsigned int block_size, uint8_t *block, unsigned int pos)
+sha3_pad (uint64_t A[SHA3_STATE_LENGTH], size_t block_size, uint8_t *block, size_t pos)
 {
   assert (pos < block_size);
 
   block[pos++] = 6;
 
-  memset (block + pos, 0, block_size - pos);
+  memset (block + pos, '\0', block_size - pos);
   block[block_size - 1] |= 0x80;
 
-  sha3_absorb (state, block_size, block);
+  sha3_absorb (A, block_size, block);
 }
 
 /* Write the word array at SRC to the byte array at DST, using little
@@ -114,24 +123,18 @@ write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
   memcpy (dst, src, length);
 }
 #else
-static void
+static inline void
 write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
 {
-  size_t i;
-  size_t words;
-  unsigned int leftover;
+  size_t words = length / 8;
+  unsigned int leftover = length % 8;
 
-  words = length / 8;
-  leftover = length % 8;
-
-  for (i = 0; i < words; i++, dst += 8)
+  for (size_t i = 0; i < words; i++, dst += 8)
     LE_WRITE_UINT64 (dst, src[i]);
 
   if (leftover != 0)
     {
-      uint64_t word;
-
-      word = src[i];
+      uint64_t word = src[words];
 
       while (leftover--)
         {
@@ -151,10 +154,10 @@ write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
                                                                         \
   void                                                                  \
   sha3_##bits##_update (struct sha3_##bits##_ctx *ctx,                  \
-                   size_t length,                                       \
-                   const uint8_t *data)                                 \
+                        size_t length,                                  \
+                        const uint8_t *data)                            \
   {                                                                     \
-    ctx->index = sha3_update (&ctx->state, SHA3_##bits##_BLOCK_SIZE,    \
+    ctx->index = sha3_update (ctx->state.A, SHA3_##bits##_BLOCK_SIZE,   \
                               ctx->block, ctx->index, length,           \
                               data);                                    \
   }                                                                     \
@@ -164,9 +167,9 @@ write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
                         size_t length,                                  \
                         uint8_t *digest)                                \
    {                                                                    \
-     sha3_pad (&ctx->state, SHA3_##bits##_BLOCK_SIZE, ctx->block,       \
+     sha3_pad (ctx->state.A, SHA3_##bits##_BLOCK_SIZE, ctx->block,      \
                ctx->index);                                             \
-     write_le64 (length, digest, ctx->state.a);                         \
+     write_le64 (length, digest, ctx->state.A);                         \
      sha3_##bits##_init (ctx);                                          \
    }                                                                    \
                                                                         \
@@ -219,6 +222,8 @@ sha3_stream (FILE *stream, void *resblock, size_t datalen)
     case SHA3_512_DIGEST_SIZE:
       result = sha3_512_stream (stream, resblock);
       break;
+    default:
+      assert (!"invalid digest size");
     }
 
   return result;

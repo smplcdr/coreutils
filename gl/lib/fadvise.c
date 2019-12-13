@@ -16,7 +16,7 @@
 
 /* Without this pragma, gcc suggests that (given !HAVE_POSIX_FADVISE)
    the fdadvise function might be a candidate for attribute 'const'.  */
-#if (__GNUC__ == 4 && 6 <= __GNUC_MINOR__) || 4 < __GNUC__
+#if ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4) && !HAVE_POSIX_FADVISE
 # pragma GCC diagnostic ignored "-Wsuggest-attribute=const"
 #endif
 
@@ -38,6 +38,6 @@ fdadvise (int fd, off_t offset, off_t len, fadvice_t advice)
 void
 fadvise (FILE *fp, fadvice_t advice)
 {
-  if (fp)
+  if (fp != NULL)
     fdadvise (fileno (fp), 0, 0, advice);
 }

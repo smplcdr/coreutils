@@ -43,7 +43,7 @@
 
 #define WORD_T_THRESH 16
 
-/* XOR word-aligned areas. n is the number of words, not bytes. */
+/* XOR word-aligned areas. N is the number of words, not bytes.  */
 static void
 memxor_common_alignment (word_t *dst, const word_t *src, size_t n)
 {
@@ -65,9 +65,9 @@ memxor_common_alignment (word_t *dst, const word_t *src, size_t n)
     }
 }
 
-/* XOR *un-aligned* src-area onto aligned dst area. n is number of
-   words, not bytes. Assumes we can read complete words at the start
-   and end of the src operand. */
+/* XOR *un-aligned* src-area onto aligned dst area.  N is number of
+   words, not bytes.  Assumes we can read complete words at the start
+   and end of the src operand.  */
 static void
 memxor_different_alignment (word_t *dst, const unsigned char *src, size_t n)
 {
@@ -80,7 +80,7 @@ memxor_different_alignment (word_t *dst, const unsigned char *src, size_t n)
   shl = CHAR_BIT * offset;
   shr = CHAR_BIT * (sizeof(word_t) - offset);
 
-  src_word = (const word_t *) ((uintptr_t) src & -sizeof(word_t));
+  src_word = (const word_t *) ((uintptr_t) src & -sizeof (word_t));
 
   /* Read top offset bytes, in native byte order. */
   READ_PARTIAL (s0, (unsigned char *) &src_word[n], offset);
@@ -104,11 +104,11 @@ memxor_different_alignment (word_t *dst, const unsigned char *src, size_t n)
       n -= 2;
       s0 = src_word[n+1];
       dst[n+1] ^= MERGE(s0, shl, s1, shr);
-      s1 = src_word[n]; /* FIXME: Overread on last iteration */
+      s1 = src_word[n]; /* FIXME: Overread on last iteration.  */
       dst[n] ^= MERGE(s1, shl, s0, shr);
     }
   assert (n == 1);
-  /* Read low wordsize - offset bytes */
+  /* Read low wordsize -- offset bytes.  */
   READ_PARTIAL (s0, src, sizeof(word_t) - offset);
 #if !defined(__BYTE_ORDER__) || __BYTE_ORDER__ != __ORDER_BIG_ENDIAN__
   s0 <<= shl; /* FIXME: eliminate shift? */
@@ -120,28 +120,25 @@ memxor_different_alignment (word_t *dst, const unsigned char *src, size_t n)
 /* Performance, Intel SU1400 (x86_64): 0.25 cycles/byte aligned, 0.45
    cycles/byte unaligned.  */
 
-/* XOR LEN bytes starting at SRCADDR onto DESTADDR. Result undefined
-   if the source overlaps with the destination. Return DESTADDR.  */
+/* XOR N bytes starting at SOURCE onto DESTINATION.  Result undefined
+   if the source overlaps with the destination.  Return DESTINATION.  */
 void *
-memxor(void *dst_in, const void *src_in, size_t n)
+memxor (void *destination, const void *source, size_t n)
 {
-  unsigned char *dst = dst_in;
-  const unsigned char *src = src_in;
+  unsigned char *dst = destination;
+  const unsigned char *src = source;
 
   if (n >= WORD_T_THRESH)
     {
-      unsigned int i;
-      unsigned int offset;
-      size_t nwords;
       /* There are at least some bytes to compare.  No need to test
          for N == 0 in this alignment loop.  */
-      for (i = ALIGN_OFFSET(dst + n); i > 0; i--)
+      for (unsigned int i = ALIGN_OFFSET(dst + n); i > 0; i--)
         {
           n--;
           dst[n] ^= src[n];
         }
-      offset = ALIGN_OFFSET (src + n);
-      nwords = n / sizeof (word_t);
+      unsigned int offset = ALIGN_OFFSET (src + n);
+      size_t nwords = n / sizeof (word_t);
       n %= sizeof (word_t);
 
       if (offset != 0)

@@ -205,7 +205,7 @@ static bool debug;
 
 /* will be set according to the current locale.  */
 static const char *decimal_point;
-static int decimal_point_length;
+static size_t decimal_point_length;
 
 /* debugging for developers.  Enables devmsg().  */
 static bool dev_debug = false;
@@ -324,11 +324,11 @@ expld (long double val, unsigned int base, unsigned int /*output */ *x)
     {
       while (absld (val) >= base)
         {
-          ++power;
+          power++;
           val /= base;
         }
     }
-  if (x)
+  if (x != NULL)
     *x = power;
   return val;
 }

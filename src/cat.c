@@ -169,7 +169,6 @@ simple_cat (char *buf,     /* Pointer to the buffer, used by reads and writes.  
   while (true)
     {
       /* Read a block of input.  */
-
       n_read = safe_read (input_desc, buf, bufsize);
       if (n_read == SAFE_READ_ERROR)
         {
@@ -212,10 +211,9 @@ write_pending (char *outbuf, char **bpout)
    A newline character is always put at the end of the buffer, to make
    an explicit test for buffer end unnecessary.  */
 static bool
-cat (
-     char *inbuf,    /* Pointer to the beginning of the input buffer.  */
+cat (char  *inbuf,   /* Pointer to the beginning of the input buffer.  */
      size_t insize,  /* Number of characters read in each read call.  */
-     char *outbuf,   /* Pointer to the beginning of the output buffer.  */
+     char  *outbuf,  /* Pointer to the beginning of the output buffer.  */
      size_t outsize, /* Number of characters written by each write call.  */
 
      /* Variables that have values according to the specified options.  */

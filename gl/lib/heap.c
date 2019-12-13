@@ -39,7 +39,6 @@ struct heap
 };
 
 /* Allocate memory for the heap. */
-
 struct heap *
 heap_alloc (int (*compare) (void const *, void const *), size_t n_reserve)
 {
@@ -58,13 +57,11 @@ heap_alloc (int (*compare) (void const *, void const *), size_t n_reserve)
   return heap;
 }
 
-
 static int
 heap_default_compare (void const *a, void const *b)
 {
   return 0;
 }
-
 
 void
 heap_free (struct heap *heap)
@@ -74,7 +71,6 @@ heap_free (struct heap *heap)
 }
 
 /* Insert element into heap. */
-
 int
 heap_insert (struct heap *heap, void *item)
 {
@@ -89,7 +85,6 @@ heap_insert (struct heap *heap, void *item)
 }
 
 /* Pop top element off heap. */
-
 void *
 heap_remove_top (struct heap *heap)
 {
@@ -106,7 +101,6 @@ heap_remove_top (struct heap *heap)
 }
 
 /* Move element down into appropriate position in heap. */
-
 static size_t
 heapify_down (void **array, size_t count, size_t initial,
               int (*compare) (void const *, void const *))
@@ -133,7 +127,6 @@ heapify_down (void **array, size_t count, size_t initial,
 }
 
 /* Move element up into appropriate position in heap. */
-
 static void
 heapify_up (void **array, size_t count,
             int (*compare) (void const *, void const *))

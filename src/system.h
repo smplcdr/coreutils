@@ -291,6 +291,17 @@ dot_or_dotdot (const char *filename)
     return false;
 }
 
+static inline bool
+is_absolute_path (const char *path)
+{
+#if ((defined(_WIN32) || defined(__WIN32__)) && !defined(__CYGWIN__)) \
+  || defined(__MSDOS__) || defined(__DJGPP__) || defined(__OS2__)
+  return ISSLASH (*path) || (*path != '\0' && *(path + 1) == ':' && ISSLASH (*(path + 2)));
+#else
+  return ISSLASH (*path);
+#endif
+}
+
 /* A wrapper for readdir so that callers do not see entries for '.' or '..'.  */
 static inline struct dirent *
 readdir_ignoring_dot_and_dotdot (DIR *dirp)

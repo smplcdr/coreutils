@@ -31,7 +31,6 @@
    Exit on parse error or if MIN or MAX are exceeded.
    Strings can have multiplicative SUFFIXES if specified.
    ERR is printed along with N_STR on error.  */
-
 __xdectoint_t
 __xnumtoint (const char *n_str, int base, __xdectoint_t min, __xdectoint_t max,
              const char *suffixes, const char *err, int err_exit)
@@ -77,7 +76,6 @@ __xnumtoint (const char *n_str, int base, __xdectoint_t min, __xdectoint_t max,
    Exit on parse error or if MIN or MAX are exceeded.
    Strings can have multiplicative SUFFIXES if specified.
    ERR is printed along with N_STR on error.  */
-
 __xdectoint_t
 __xdectoint (const char *n_str, __xdectoint_t min, __xdectoint_t max,
              const char *suffixes, const char *err, int err_exit)

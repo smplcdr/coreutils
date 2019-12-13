@@ -40,13 +40,13 @@
 #if 0
 #if defined(__x86_64__) || defined(__arch64__)
 /* Including on M$ Windows, where unsigned long is only 32 bits */
-typedef uint64_t word_t __attribute__ ((__aligned__ (sizeof (uintptr_t))));
+typedef uint64_t word_t;
 #else
 typedef unsigned long int word_t;
 #endif
 #endif
 
-verify (sizeof (void *) == sizeof (uintptr_t));
+/* Native word size == sizeof (pointer).  */
 typedef uintptr_t word_t;
 
 #define ALIGN_OFFSET(p) ((uintptr_t) (p) % sizeof (word_t))

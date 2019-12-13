@@ -4168,17 +4168,16 @@ set_ordering (const char *s, struct keyfield *key, enum blanktype blanktype)
         default:
           return (char *) s;
         }
-      ++s;
+      s++;
     }
   return (char *) s;
 }
 
 /* Initialize KEY.  */
-
 static struct keyfield *
 key_init (struct keyfield *key)
 {
-  memset (key, 0, sizeof *key);
+  memset (key, '\0', sizeof *key);
   key->eword = SIZE_MAX;
   return key;
 }
@@ -4222,7 +4221,7 @@ main (int argc, char **argv)
 
   /* Get locale's representation of the decimal point.  */
   {
-    struct lconv const *locale = localeconv ();
+    const struct lconv *locale = localeconv ();
 
     /* If the locale does not define a decimal point, or if the decimal
        point is multibyte, use the C locale's decimal point.  FIXME:
@@ -4242,7 +4241,7 @@ main (int argc, char **argv)
 
   {
     size_t i;
-    static int const sig[] =
+    static const int sig[] =
       {
         /* The usual suspects.  */
         SIGALRM, SIGHUP, SIGINT, SIGPIPE, SIGQUIT, SIGTERM,
@@ -4688,7 +4687,7 @@ main (int argc, char **argv)
 
   /* Need to re-check that we meet the minimum requirement for memory
      usage with the final value for NMERGE.  */
-  if (0 < sort_size)
+  if (sort_size > 0)
     sort_size = MAX (sort_size, MIN_SORT_SIZE);
 
   if (checkonly)
