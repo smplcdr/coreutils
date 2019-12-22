@@ -531,7 +531,7 @@ main (int argc, char **argv)
   else
     {
       specified_context = argv[optind++];
-      if (0 < is_selinux_enabled ()
+      if (is_selinux_enabled () > 0
           && security_check_context (se_const (specified_context)) < 0)
         die (EXIT_FAILURE, errno, _("invalid context: %s"),
              quote (specified_context));

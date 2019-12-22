@@ -50,6 +50,10 @@
  SET (SIGWINCH,  "SIGWINCH",  "Window size changed"),
  SET (SIGUSR1,   "SIGUSR1",   "User defined signal 1"),
  SET (SIGUSR2,   "SIGUSR2",   "User defined signal 2"),
+#ifdef SIGPWR
  SET (SIGPWR,    "SIGPWR",    "Power fail/restart"),
+#endif
+#ifdef SIGPOLL
  /* Similar to SIGIO.  Perhaps they should have the same number.  */
  SET (SIGPOLL,   "SIGPOLL",   "Pollable event occurred"),
+#endif

@@ -206,7 +206,7 @@
    + 1 /* Minimum filename length.  */)
 #elif HASH_ALGO_SHA3
 # define MIN_DIGEST_LINE_LENGTH \
-  (28  /* The minimum length of hexadecimal message digest (with '-l 224').  */ \
+  (SHA3_224_DIGEST_SIZE /* The minimum length of hexadecimal message digest (with '-l 224').  */ \
    + 2 /* Blank and binary indicator.  */ \
    + 1 /* Minimum filename length.  */)
 #else
@@ -317,7 +317,9 @@ static uintmax_t digest_max_len = 512 / 8;
    non-character as a pseudo short option, starting with CHAR_MAX + 1.  */
 enum
 {
-  IGNORE_MISSING_OPTION = CHAR_MAX + 1,
+  GITIGNORE_OPTION = CHAR_MAX + 1,
+  HIDE_OPTION,
+  IGNORE_MISSING_OPTION,
   STATUS_OPTION,
   QUIET_OPTION,
   STRICT_OPTION,
@@ -329,7 +331,8 @@ static const struct option long_options[] =
   {"all", no_argument, NULL, 'a'},
   {"binary", no_argument, NULL, 'b'},
   {"check", no_argument, NULL, 'c'},
-  {"hide", required_argument, NULL, 'H'},
+  {"gitignore", optional_argument, NULL, GITIGNORE_OPTION},
+  {"hide", required_argument, NULL, HIDE_OPTION},
   {"ignore", required_argument, NULL, 'I'},
   {"ignore-backups", no_argument, NULL, 'B'},
   {"ignore-missing", no_argument, NULL, IGNORE_MISSING_OPTION},
@@ -361,8 +364,8 @@ struct fileinfo
   /* For symbolic link, name of the file linked to, otherwise zero.  */
   char *linkname;
   struct stat stat;
-  enum filetype filetype;
-  bool stat_ok;
+  enum filetype filetype:2;
+  unsigned int stat_ok:1;
 };
 
 /* Initial size of hash table.
@@ -403,8 +406,8 @@ struct pending
      were told to list, 'realname' will contain the name of the symbolic
      link, otherwise zero.  */
   char *realname;
-  bool command_line_arg;
   struct pending *next;
+  unsigned int command_line_arg:1;
 };
 
 static struct pending *pending_dirs;
@@ -418,13 +421,10 @@ static struct obstack dev_ino_obstack;
 static void
 dev_ino_push (dev_t dev, ino_t ino)
 {
-  void *vdi;
   struct dev_ino *di;
-  unsigned int dev_ino_size = sizeof (struct dev_ino);
 
-  obstack_blank (&dev_ino_obstack, dev_ino_size);
-  vdi = obstack_next_free (&dev_ino_obstack);
-  di = vdi;
+  obstack_blank (&dev_ino_obstack, sizeof (*di));
+  di = obstack_next_free (&dev_ino_obstack);
   di--;
   di->st_dev = dev;
   di->st_ino = ino;
@@ -434,14 +434,11 @@ dev_ino_push (dev_t dev, ino_t ino)
 static struct dev_ino
 dev_ino_pop (void)
 {
-  void *vdi;
   struct dev_ino *di;
-  unsigned int dev_ino_size = sizeof (struct dev_ino);
-  assert (dev_ino_size <= obstack_object_size (&dev_ino_obstack));
+  assert (sizeof (*di) <= obstack_object_size (&dev_ino_obstack));
 
-  obstack_blank_fast (&dev_ino_obstack, -(int) dev_ino_size);
-  vdi = obstack_next_free (&dev_ino_obstack);
-  di = vdi;
+  obstack_blank_fast (&dev_ino_obstack, -sizeof (*di));
+  di = obstack_next_free (&dev_ino_obstack);
 
   return *di;
 }
@@ -548,8 +545,7 @@ patterns_match (const struct ignore_pattern *patterns, const char *file)
 static bool
 file_ignored (const char *file)
 {
-  return ((ignore_mode != IGNORE_MINIMAL
-           && file[0] == '.'
+  return ((ignore_mode != IGNORE_MINIMAL && file[0] == '.'
            && (ignore_mode == IGNORE_DEFAULT || file[1 + (file[1] == '.' ? 1 : 0)] == '\0'))
           || (ignore_mode == IGNORE_DEFAULT && patterns_match (hide_patterns, file))
           || patterns_match (ignore_patterns, file));
@@ -559,14 +555,10 @@ static struct stat dot_st;
 static struct stat dot_dot_st;
 
 /* Return true if the filename's inode same as '.' or '..' inode.  */
-static bool
+static inline bool
 is_dot_or_dotdot (const char *dirname, struct stat st)
 {
-  if (unlikely (stat (dirname, &st) != 0))
-    die (EXIT_FAILURE, errno, "%s", quotef (dirname));
-
-  return (st.st_dev == dot_st.st_dev     && st.st_ino == dot_st.st_ino)
-      || (st.st_dev == dot_dot_st.st_dev && st.st_ino == dot_dot_st.st_ino);
+  return SAME_INODE (st, dot_st) || SAME_INODE (st, dot_dot_st);
 }
 
 /* Return true if the last component of NAME is '.'
@@ -583,38 +575,11 @@ basename_is_dot (const char *name)
     return false;
 }
 
-/* Put DIRNAME/NAME into DEST, handling '.' and '/' properly.  */
-/* FIXME: maybe remove this function someday.  See about using a
-   non-malloc'ing version of file_name_concat.  */
-static void __nonnull ((1, 2, 3))
-attach (char *dest, const char *dirname, const char *name, bool force)
-{
-  if (*name == '/' || *dirname == '\0')
-    {
-      strcpy (dest, name);
-      return;
-    }
-
-  size_t i = 0;
-
-  /* Copy dirname if it is not "." or if we were asked to do this.  */
-  if (force || !basename_is_dot (dirname))
-    {
-      memcpy (dest, dirname, (i = strlen (dirname)));
-      /* Add '/' if 'dirname' does not already end with it.  */
-      if (dirname[i - 1] != '/')
-        dest[i++] = '/';
-    }
-
-  strcpy (dest + i, name);
-}
-
 /* Return true if F refers to a directory.  */
 static bool _GL_ATTRIBUTE_CONST
 is_directory (const struct fileinfo *f)
 {
-  return f->filetype == directory
-      || f->filetype == arg_directory;
+  return f->filetype == directory || f->filetype == arg_directory;
 }
 
 /* Request that the directory named NAME have its contents listed later.
@@ -696,8 +661,8 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
 
   if (unlikely (cwd_n_used == cwd_n_alloc))
     {
-      cwd_file = xnrealloc (cwd_file, cwd_n_alloc, 2 * sizeof (*cwd_file));
       cwd_n_alloc *= 2;
+      cwd_file = xnrealloc (cwd_file, cwd_n_alloc, sizeof (*cwd_file));
     }
 
   struct fileinfo *f = cwd_file + cwd_n_used;
@@ -705,9 +670,8 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
   f->stat.st_ino = inode;
   f->filetype = type;
 
-  if (unlikely (STREQ (name, "-") && *dirname == '\0'))
+  if (unlikely (STREQ (name, "-") && command_line_arg))
     {
-      assert (command_line_arg);
       f->name = xstrdup ("-");
       f->filetype = regular_file;
       f->stat_ok = true;
@@ -718,16 +682,10 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
   /* Absolute name of this file.  */
   char *full_name;
 
-  if (*name == '/' || *dirname == '\0')
-    {
-      full_name = xmalloc (strlen (name) + 1);
-      strcpy (full_name, name);
-    }
+  if (*name == '/' || *dirname == '\0' || basename_is_dot (dirname))
+    full_name = xstrdup (name);
   else
-    {
-      full_name = xmalloc (strlen (name) + strlen (dirname) + 2);
-      attach (full_name, dirname, name, false);
-    }
+    full_name = file_name_concat (dirname, name, NULL);
 
   if (unlikely (stat (full_name, &f->stat) != 0))
     {
@@ -900,8 +858,7 @@ Print or check %s (%i-bit) checksums.\n\
 #endif
 
       fputs (_("\
-      --hide=PATTERN   do not list implied entries matching shell PATTERN\
-\n\
+      --hide=PATTERN   do not list implied entries matching shell PATTERN\n\
                          (overridden by -a)\n\
 "), stdout);
 
@@ -925,6 +882,10 @@ Print or check %s (%i-bit) checksums.\n\
 "), stdout);
       fputs (_("\
   -r, --recursive      create checksums of directory's contents\n\
+"), stdout);
+      fputs (_("\
+      --gitignore[=FILE] do not list implied entries matching shell pattern\n\
+                           specified in .gitignore or in FILE\n\
 "), stdout);
       fputs (_("\
 \n\
@@ -976,10 +937,8 @@ filename_unescape (char *s, size_t s_len)
         {
         case '\\':
           if (i == s_len - 1)
-            {
-              /* File name ends with an unescaped backslash: invalid.  */
-              return NULL;
-            }
+            /* File name ends with an unescaped backslash: invalid.  */
+            return NULL;
           i++;
           switch (s[i])
             {
@@ -1010,7 +969,7 @@ filename_unescape (char *s, size_t s_len)
 
 /* Return true if S is a NUL-terminated string of DIGEST_HEX_BYTES hex digits.
    Otherwise, return false.  */
-static bool _GL_ATTRIBUTE_PURE
+static bool _GL_ATTRIBUTE_CONST
 hex_digits (const unsigned char *s)
 {
   size_t i;
@@ -1138,7 +1097,7 @@ split_3 (char *s, size_t s_len, unsigned char **hex_digest,
      Each line must have at least 'min_digest_line_length - 1' (or one more, if
      the first is a backslash) more characters to contain correct message digest
      information.  */
-  if (s_len - i < min_digest_line_length + (s[i] == '\\'))
+  if (s_len - i < min_digest_line_length + (s[i] == '\\' ? 1 : 0))
     return false;
 
   *hex_digest = (unsigned char *) &s[i];
@@ -1169,7 +1128,7 @@ split_3 (char *s, size_t s_len, unsigned char **hex_digest,
     return false;
 
   /* If "bsd reversed" format detected.  */
-  if ((s_len - i == 1) || (s[i] != ' ' && s[i] != '*'))
+  if (s_len - i == 1 || (s[i] != ' ' && s[i] != '*'))
     {
       /* Do not allow mixing bsd and standard formats,
          to minimize security issues with attackers
@@ -1226,7 +1185,7 @@ print_filename (const char *file, bool escape)
 }
 
 static void
-print_digest (char *file, int file_is_binary, unsigned char *bin_buffer)
+print_digest (const char *file, int file_is_binary, unsigned char *bin_buffer)
 {
   /* We do not really need to escape, and hence detect, the '\\'
      char, and not doing so should be both forwards and backwards
@@ -1273,30 +1232,25 @@ print_digest (char *file, int file_is_binary, unsigned char *bin_buffer)
   putchar (delim);
 }
 
-static bool digest_file (char *dirname, int *binary, unsigned char *bin_buffer, bool *missing);
-static void digest_directory (char *dirname, int *binary, unsigned char *bin_buffer, bool *missing);
+static bool digest_file (const char *dirname, int *binary, unsigned char *bin_buffer, bool *missing);
+static void digest_directory (const char *dirname, int *binary, unsigned char *bin_buffer, bool *missing);
 
 static void
 digest_current_files (int *binary, unsigned char *bin_buffer, bool *missing)
 {
+  char dirname[PATH_MAX];
   for (size_t i = 0; i < cwd_n_used; i++)
     {
-      char *file = cwd_file[i].name;
+      const char *file = cwd_file[i].name;
       if (cwd_file[i].filetype == directory || cwd_file[i].filetype == arg_directory)
         {
           if (!recursive)
             error (0, EISDIR, "%s", quotef (file));
           else
             {
-              char full_dirname[PATH_MAX];
-              if (getcwd (full_dirname, sizeof (full_dirname) - strlen (file) - 1 /* '/' */ - 1 /* '\0' */) == NULL)
-                {
-                  error (0, errno, "%s", quotef (file));
-                  continue;
-                }
-
-              attach (full_dirname, file, "", true);
-              digest_directory (full_dirname, binary, bin_buffer, missing);
+              /* We need to use temp array to save dirname after clear_files() in digest_directory().  */
+              strcpy (dirname, file);
+              digest_directory (dirname, binary, bin_buffer, missing);
             }
         }
       else
@@ -1319,7 +1273,7 @@ digest_current_files (int *binary, unsigned char *bin_buffer, bool *missing)
    Put true in *MISSING if the file can not be opened due to ENOENT.
    Return true if successful.  */
 static bool
-digest_file (char *filename, int *binary _GL_UNUSED, unsigned char *bin_buffer, bool *missing)
+digest_file (const char *filename, int *binary _GL_UNUSED, unsigned char *bin_buffer, bool *missing)
 {
   FILE *fp;
   int err;
@@ -1387,7 +1341,7 @@ digest_file (char *filename, int *binary _GL_UNUSED, unsigned char *bin_buffer, 
 }
 
 static void
-digest_directory (char *dirname, int *binary, unsigned char *bin_buffer, bool *missing)
+digest_directory (const char *dirname, int *binary, unsigned char *bin_buffer, bool *missing)
 {
   DIR *dirp;
   struct dirent *ent;
@@ -1584,12 +1538,12 @@ digest_check (char *checkfile_name)
       else
         {
           static const char bin2hex[] =
-          {
-            '0', '1', '2', '3',
-            '4', '5', '6', '7',
-            '8', '9', 'a', 'b',
-            'c', 'd', 'e', 'f'
-          };
+            {
+              '0', '1', '2', '3',
+              '4', '5', '6', '7',
+              '8', '9', 'a', 'b',
+              'c', 'd', 'e', 'f'
+            };
           bool ok;
           bool missing;
           /* Only escape in the edge case producing multiple lines,
@@ -1625,8 +1579,8 @@ digest_check (char *checkfile_name)
                  in check file.  Ignore case of hex digits.  */
               for (cnt = 0; cnt < digest_bin_bytes; cnt++)
                 {
-                  if (tolower (hex_digest[2 * cnt + 0]) != (bin2hex[bin_buffer[cnt] >> 0x04])
-                  ||  tolower (hex_digest[2 * cnt + 1]) != (bin2hex[bin_buffer[cnt] &  0x0F]))
+                  if (tolower (hex_digest[2 * cnt + 0]) != (bin2hex[bin_buffer[cnt] >> 4])
+                   || tolower (hex_digest[2 * cnt + 1]) != (bin2hex[bin_buffer[cnt] & 0xF]))
                     break;
                 }
               if (cnt != digest_bin_bytes)
@@ -1748,12 +1702,12 @@ main (int argc, char **argv)
 
 #if HASH_HAVE_VARIABLE_SIZE
   const char *digest_length_str = "";
-  const char *short_options = "abcl:rtwzBHI:R";
+  const char *short_options = "abcl:rtwzBI:R";
 #else
-  const char *short_options = "abcrtwzBHI:R";
+  const char *short_options = "abcrtwzBI:R";
 #endif
 
-  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL)) != -1)
+  while ((optc = getopt_long (argc, argv, short_options, long_options, NULL)) > 0)
     switch (optc)
       {
       case 'a':
@@ -1825,7 +1779,7 @@ main (int argc, char **argv)
         add_ignore_pattern ("*~");
         add_ignore_pattern (".*~");
         break;
-      case 'H':
+      case HIDE_OPTION:
         {
           struct ignore_pattern *hide = xmalloc (sizeof (*hide));
           hide->pattern = optarg;
@@ -1835,6 +1789,65 @@ main (int argc, char **argv)
         break;
       case 'I':
         add_ignore_pattern (optarg);
+        break;
+      case GITIGNORE_OPTION:
+        {
+          FILE *fp;
+          if (optarg == NULL)
+            {
+              fp = fopen (".gitignore", "r");
+              if (fp == NULL)
+                {
+                  struct stat root_st, st;
+                  if (stat ("/", &root_st) < 0)
+                    die (EXIT_FAILURE, errno, _("cannot stat %s"), quoteaf ("/"));
+                  char old_path[PATH_MAX];
+                  if (getcwd (old_path, sizeof (old_path)) == NULL)
+                    die (EXIT_FAILURE, errno, _("cannot get current working directory"));
+
+                  while ((fp = fopen (".gitignore", "r")) == NULL && stat (".", &st) >= 0 && !SAME_INODE (root_st, st))
+                    if (chdir ("..") != 0)
+                      die (EXIT_FAILURE, errno, _("cannot change dir"));
+
+                  if (fp == NULL)
+                    die (EXIT_FAILURE, errno, _("cannot find .gitignore (reached /)"));
+                  if (chdir (old_path) != 0)
+                    die (EXIT_FAILURE, errno, _("cannot come back to current working directory %s"), quoteaf (old_path));
+                }
+            }
+          else
+            {
+              fp = fopen (optarg, "r");
+              if (fp == NULL)
+                die (EXIT_FAILURE, errno, _("cannot find %s"), quoteaf (optarg));
+            }
+
+          errno = 0;
+          char *response = xmalloc (64); /* Will be better if we allocate it ones (not in cycle) here.  */
+          size_t response_size = 64; /* Guess, length of each string in .gitignore file less than 64.  */
+          while (true)
+            {
+              ssize_t response_len = getline (&response, &response_size, fp);
+
+              if (response_len < 0)
+                {
+                  if (errno != 0)
+                    die (EXIT_FAILURE, errno, "getline()");
+                  break;
+                }
+
+              /* Remove trailing '\n'.  */
+              response[response_len - 1] = '\0';
+
+              struct ignore_pattern *ignore = xmalloc (sizeof (*ignore));
+              ignore->pattern = response;
+              ignore->next = ignore_patterns;
+              ignore_patterns = ignore;
+            }
+
+          if (fclose (fp) != 0)
+            error (0, errno, "%s", quotef (".gitignore"));
+        }
         break;
       default:
         diagnose_leading_hyphen (argc, argv);

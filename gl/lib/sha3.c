@@ -20,6 +20,8 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+#include <config.h>
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -118,16 +120,16 @@ sha3_pad (uint64_t A[SHA3_STATE_LENGTH], size_t block_size, uint8_t *block, size
    endian (le) byte order, and truncating the result to LENGTH bytes.  */
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 static inline void
-write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
+write_le64 (uint8_t *dst, const uint64_t *src, size_t len)
 {
-  memcpy (dst, src, length);
+  memcpy (dst, src, len);
 }
 #else
 static inline void
-write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
+write_le64 (uint8_t *dst, const uint64_t *src, size_t len)
 {
-  size_t words = length / 8;
-  unsigned int leftover = length % 8;
+  size_t words = len / 8;
+  unsigned int leftover = len % 8;
 
   for (size_t i = 0; i < words; i++, dst += 8)
     LE_WRITE_UINT64 (dst, src[i]);
@@ -154,8 +156,8 @@ write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
                                                                         \
   void                                                                  \
   sha3_##bits##_update (struct sha3_##bits##_ctx *ctx,                  \
-                        size_t length,                                  \
-                        const uint8_t *data)                            \
+                        const uint8_t *data,                            \
+                        size_t length)                                  \
   {                                                                     \
     ctx->index = sha3_update (ctx->state.A, SHA3_##bits##_BLOCK_SIZE,   \
                               ctx->block, ctx->index, length,           \
@@ -164,12 +166,12 @@ write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
                                                                         \
    void                                                                 \
    sha3_##bits##_final (struct sha3_##bits##_ctx *ctx,                  \
-                        size_t length,                                  \
-                        uint8_t *digest)                                \
+                        uint8_t *digest,                                \
+                        size_t length)                                  \
    {                                                                    \
      sha3_pad (ctx->state.A, SHA3_##bits##_BLOCK_SIZE, ctx->block,      \
                ctx->index);                                             \
-     write_le64 (length, digest, ctx->state.A);                         \
+     write_le64 (digest, ctx->state.A, length);                         \
      sha3_##bits##_init (ctx);                                          \
    }                                                                    \
                                                                         \
@@ -179,7 +181,7 @@ write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
      uint8_t *in = malloc (bits);                                       \
                                                                         \
      if (in == NULL)                                                    \
-       return 1;                                                        \
+       return -1;                                                       \
                                                                         \
      size_t bytesread = 0;                                              \
      struct sha3_##bits##_ctx ctx;                                      \
@@ -187,9 +189,9 @@ write_le64 (size_t length, uint8_t *dst, const uint64_t *src)
      sha3_##bits##_init (&ctx);                                         \
                                                                         \
      while ((bytesread = fread (in, sizeof (char), bits, stream)) != 0) \
-       sha3_##bits##_update (&ctx, bytesread, in);                      \
+       sha3_##bits##_update (&ctx, in, bytesread);                      \
                                                                         \
-     sha3_##bits##_final (&ctx, bits / 8, resblock);                    \
+     sha3_##bits##_final (&ctx, resblock, bits / 8);                    \
                                                                         \
      free (in);                                                         \
                                                                         \

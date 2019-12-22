@@ -77,8 +77,8 @@ extern void sha3_pad (uint64_t A[SHA3_STATE_LENGTH], size_t block_size, uint8_t 
     uint8_t block[SHA3_##bits##_BLOCK_SIZE]; \
   }; \
   extern void sha3_##bits##_init (struct sha3_##bits##_ctx *ctx); \
-  extern void sha3_##bits##_update (struct sha3_##bits##_ctx *ctx, size_t length, const uint8_t *data); \
-  extern void sha3_##bits##_final (struct sha3_##bits##_ctx *ctx, size_t length, uint8_t *digest); \
+  extern void sha3_##bits##_update (struct sha3_##bits##_ctx *ctx, const uint8_t *data, size_t length); \
+  extern void sha3_##bits##_final (struct sha3_##bits##_ctx *ctx, uint8_t *digest, size_t length); \
   extern int  sha3_##bits##_stream (FILE *stream, void *resblock);
 
 sha3_xxx_decl (224)

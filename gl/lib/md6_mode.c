@@ -126,6 +126,8 @@ extern int md6_full_hash (int d,        /* hash bit length */
   );
 #endif
 
+#include <config.h>
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

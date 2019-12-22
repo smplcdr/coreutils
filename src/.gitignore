@@ -31,6 +31,7 @@ echo
 env
 expand
 expr
+exst
 factor
 false
 fmt
@@ -53,7 +54,10 @@ ln
 localedir.h
 logname
 ls
+md2sum
+md4sum
 md5sum
+md6sum
 mkdir
 mkfifo
 mknod
@@ -84,6 +88,7 @@ sha224sum
 sha256sum
 sha384sum
 sha512sum
+sha3sum
 shred
 shuf
 sleep
@@ -115,4 +120,5 @@ vdir
 wc
 who
 whoami
+xchg
 yes
