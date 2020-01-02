@@ -48,11 +48,11 @@ enum Shell_syntax
 
 #define APPEND_CHAR(C) obstack_1grow (&lsc_obstack, C)
 #define APPEND_TWO_CHAR_STRING(S)         \
-  do                  \
-    {                 \
-      APPEND_CHAR (S[0]);           \
-      APPEND_CHAR (S[1]);           \
-    }                 \
+  do                                      \
+    {                                     \
+      APPEND_CHAR (S[0]);                 \
+      APPEND_CHAR (S[1]);                 \
+    }                                     \
   while (0)
 
 /* Accumulate in this obstack the value for the LS_COLORS environment
@@ -62,30 +62,35 @@ static struct obstack lsc_obstack;
 static const char *const slack_codes[] =
 {
   "NORMAL", "NORM", "FILE", "RESET", "DIR", "LNK", "LINK",
-  "SYMLINK", "ORPHAN", "MISSING", "FIFO", "PIPE", "SOCK", "BLK", "BLOCK",
-  "CHR", "CHAR", "DOOR", "EXEC", "LEFT", "LEFTCODE", "RIGHT", "RIGHTCODE",
-  "END", "ENDCODE", "SUID", "SETUID", "SGID", "SETGID", "STICKY",
-  "OTHER_WRITABLE", "OWR", "STICKY_OTHER_WRITABLE", "OWT", "CAPABILITY",
-  "MULTIHARDLINK", "CLRTOEOL", NULL
+  "SYMLINK", "ORPHAN", "MISSING", "FIFO", "PIPE", "SOCK", "BLK",
+  "BLOCK", "CHR", "CHAR", "DOOR", "EXEC", "LEFT", "LEFTCODE",
+  "RIGHT", "RIGHTCODE", "END", "ENDCODE", "SUID", "SETUID", "SGID",
+  "SETGID", "STICKY", "OTHER_WRITABLE", "OWR", "STICKY_OTHER_WRITABLE", "OWT", "CAPABILITY",
+  "MULTIHARDLINK", "CLRTOEOL",
+  NULL
 };
 
 static const char *const ls_codes[] =
 {
-  "no", "no", "fi", "rs", "di", "ln", "ln", "ln", "or", "mi", "pi", "pi",
-  "so", "bd", "bd", "cd", "cd", "do", "ex", "lc", "lc", "rc", "rc", "ec", "ec",
-  "su", "su", "sg", "sg", "st", "ow", "ow", "tw", "tw", "ca", "mh", "cl", NULL
+  "no", "no", "fi", "rs", "di", "ln", "ln",
+  "ln", "or", "mi", "pi", "pi", "so", "bd",
+  "bd", "cd", "cd", "do", "ex", "lc", "lc",
+  "rc", "rc", "ec", "ec", "su", "su", "sg",
+  "sg", "st", "ow", "ow", "tw", "tw", "ca",
+  "mh", "cl",
+  NULL
 };
 verify (ARRAY_CARDINALITY (slack_codes) == ARRAY_CARDINALITY (ls_codes));
 
 static const struct option long_options[] =
-  {
-    {"bourne-shell", no_argument, NULL, 'b'},
-    {"sh", no_argument, NULL, 'b'},
-    {"csh", no_argument, NULL, 'c'},
-    {"c-shell", no_argument, NULL, 'c'},
-    {"print-database", no_argument, NULL, 'p'},
-    {NULL, 0, NULL, 0}
-  };
+{
+  {"bourne-shell", no_argument, NULL, 'b'},
+  {"sh", no_argument, NULL, 'b'},
+  {"csh", no_argument, NULL, 'c'},
+  {"c-shell", no_argument, NULL, 'c'},
+  {"print-database", no_argument, NULL, 'p'},
+  {NULL, 0, NULL, '\0'}
+};
 
 void
 usage (int status)
@@ -103,8 +108,10 @@ Determine format of output:\n\
   -c, --csh, --c-shell        output C shell code to set LS_COLORS\n\
   -p, --print-database        output defaults\n\
 "), stdout);
+
       fputs (HELP_OPTION_DESCRIPTION, stdout);
       fputs (VERSION_OPTION_DESCRIPTION, stdout);
+
       fputs (_("\
 \n\
 If FILE is specified, read it to determine which colors to use for which\n\
@@ -119,7 +126,6 @@ For details on the format of these files, run 'dircolors --print-database'.\n\
 
 /* If the SHELL environment variable is set to 'csh' or 'tcsh,'
    assume C shell.  Else Bourne shell.  */
-
 static enum Shell_syntax
 guess_shell_syntax (void)
 {
@@ -157,18 +163,14 @@ parse_line (const char *line, char **keyword, char **arg)
   keyword_start = p;
 
   while (!isspace (to_uchar (*p)) && *p != '\0')
-    {
-      ++p;
-    }
+    p++;
 
   *keyword = xstrndup (keyword_start, p - keyword_start);
   if (*p  == '\0')
     return;
 
   do
-    {
-      ++p;
-    }
+    p++;
   while (isspace (to_uchar (*p)));
 
   if (*p == '\0' || *p == '#')
@@ -177,18 +179,17 @@ parse_line (const char *line, char **keyword, char **arg)
   arg_start = p;
 
   while (*p != '\0' && *p != '#')
-    ++p;
+    p++;
 
-  for (--p; isspace (to_uchar (*p)); --p)
+  for (p--; isspace (to_uchar (*p)); p--)
     continue;
-  ++p;
+  p++;
 
   *arg = xstrndup (arg_start, p - arg_start);
 }
 
 /* FIXME: Write a string to standard out, while watching for "dangerous"
    sequences like unescaped : and = characters.  */
-
 static void
 append_quoted (const char *str)
 {
@@ -204,25 +205,22 @@ append_quoted (const char *str)
           APPEND_CHAR ('\'');
           need_backslash = true;
           break;
-
         case '\\':
         case '^':
           need_backslash = !need_backslash;
           break;
-
         case ':':
         case '=':
           if (need_backslash)
             APPEND_CHAR ('\\');
           FALLTHROUGH;
-
         default:
           need_backslash = true;
           break;
         }
 
       APPEND_CHAR (*str);
-      ++str;
+      str++;
     }
 }
 
@@ -232,7 +230,6 @@ append_quoted (const char *str)
    the global obstack LSC_OBSTACK.  Give a diagnostic
    upon failure (unrecognized keyword is the only way to fail here).
    Return true if successful.  */
-
 static bool
 dc_parse_stream (FILE *fp, const char *filename)
 {
@@ -257,9 +254,9 @@ dc_parse_stream (FILE *fp, const char *filename)
       char *keywd, *arg;
       bool unrecognized;
 
-      ++line_number;
+      line_number++;
 
-      if (fp)
+      if (fp != NULL)
         {
           if (getline (&input_line, &input_line_size, fp) <= 0)
             {
@@ -301,7 +298,7 @@ dc_parse_stream (FILE *fp, const char *filename)
       else
         {
           if (state == ST_TERMSURE)
-            state = ST_TERMYES; /* Another TERM can cancel */
+            state = ST_TERMYES; /* Another TERM can cancel.  */
 
           if (state != ST_TERMNO)
             {
@@ -325,6 +322,7 @@ dc_parse_stream (FILE *fp, const char *filename)
                        || c_strcasecmp (keywd, "EIGHTBIT") == 0)
                 {
                   /* Ignore.  */
+                  ;
                 }
               else
                 {
@@ -342,15 +340,11 @@ dc_parse_stream (FILE *fp, const char *filename)
                       APPEND_CHAR (':');
                     }
                   else
-                    {
-                      unrecognized = true;
-                    }
+                    unrecognized = true;
                 }
             }
           else
-            {
-              unrecognized = true;
-            }
+            unrecognized = true;
         }
 
       if (unrecognized && (state == ST_TERMSURE || state == ST_TERMYES))
@@ -432,9 +426,8 @@ main (int argc, char **argv)
      --bourne or --c-shell.  */
   if (print_database && syntax != SHELL_SYNTAX_UNKNOWN)
     {
-      error (0, 0,
-             _("the options to output dircolors' internal database and\n"
-               "to select a shell syntax are mutually exclusive"));
+      error (0, 0, _("the options to output dircolors' internal database and\n"
+                     "to select a shell syntax are mutually exclusive"));
       usage (EXIT_FAILURE);
     }
 

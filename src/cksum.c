@@ -46,7 +46,8 @@
 /* The official name of this program (e.g., no 'g' prefix).  */
 #define PROGRAM_NAME "cksum"
 
-#define AUTHORS proper_name ("Q. Frank Xia")
+#define AUTHORS \
+  proper_name ("Q. Frank Xia")
 
 #ifdef CRCTAB
 
@@ -55,10 +56,11 @@
 
 /* The generating polynomial is
 
-          32   26   23   22   16   12   11   10   8   7   5   4   2   1
-    G(X)=X  + X  + X  + X  + X  + X  + X  + X  + X + X + X + X + X + X + 1
+            32   26   23   22   16   12   11   10   8   7   5   4   2   1
+    G(X) = X  + X  + X  + X  + X  + X  + X  + X  + X + X + X + X + X + X + 1
 
-  The i bit in GEN is set if X^i is a summand of G(X) except X^32.  */
+                              i                             32
+  The i bit in GEN is set if X is a summand of G(X) except X  .  */
 
 # define GEN (BIT (26) | BIT (23) | BIT (22) | BIT (16) | BIT (12) \
               | BIT (11) | BIT (10) | BIT (8) | BIT (7) | BIT (5) \
@@ -193,7 +195,11 @@ cksum (const char *file, bool print_name)
     }
   else
     {
-      fp = fopen (file, (O_BINARY ? "rb" : "r"));
+#if O_BINARY
+      fp = fopen (file, "rb");
+#else
+      fp = fopen (file, "r");
+#endif
       if (fp == NULL)
         {
           error (0, errno, "%s", quotef (file));
@@ -203,7 +209,7 @@ cksum (const char *file, bool print_name)
 
   fadvise (fp, FADVISE_SEQUENTIAL);
 
-  while ((bytes_read = fread (buf, 1, BUFLEN, fp)) > 0)
+  while ((bytes_read = fread (buf, sizeof (char), BUFLEN, fp)) > 0)
     {
       unsigned char *cp = buf;
 
@@ -232,7 +238,7 @@ cksum (const char *file, bool print_name)
 
   hp = umaxtostr (length, length_buf);
 
-  for (; length; length >>= 8)
+  for (; length != 0; length >>= 8)
     crc = (crc << 8) ^ crctab[((crc >> 24) ^ length) & 0xFF];
 
   crc = ~crc & 0xFFFFFFFF;

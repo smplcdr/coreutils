@@ -446,16 +446,16 @@ dev_ino_pop (void)
 static size_t
 dev_ino_hash (const void *x, size_t table_size)
 {
-  const struct dev_ino *p = x;
-  return (size_t) p->st_ino % table_size;
+  const struct dev_ino *di = x;
+  return (size_t) di->st_ino % table_size;
 }
 
 static bool
 dev_ino_compare (const void *x, const void *y)
 {
-  const struct dev_ino *a = x;
-  const struct dev_ino *b = y;
-  return SAME_INODE (*a, *b);
+  const struct dev_ino *di1= x;
+  const struct dev_ino *di2 = y;
+  return SAME_INODE (*di1, *di2);
 }
 static void
 dev_ino_free (void *x)
@@ -624,7 +624,7 @@ extract_dirs_from_files (const char *dirname, bool command_line_arg)
      order.  */
   for (size_t i = cwd_n_used; i != 0; i--)
     {
-      struct fileinfo *f = cwd_file + i;
+      struct fileinfo *f = cwd_file + i - 1;
 
       if (is_directory (f)
           && (!ignore_dot_and_dot_dot || !is_dot_or_dotdot (f->name, f->stat)))
@@ -903,10 +903,14 @@ The following five options are useful only when verifying checksums:\n\
 
       fputs (_("\
 \n\
-The sums are computed as described in "DIGEST_REFERENCE".  When checking, the input\n\
-should be a former output of this program.  The default mode is to print a\n\
-line with checksum, a space, a character indicating input mode ('*' for binary,\n\
-' ' for text or where binary is insignificant), and name for each FILE.\n\
+The sums are computed as described in "DIGEST_REFERENCE".\n\
+"), stdout);
+
+      fputs (_("\
+When checking, the input should be a former output of this program.\n\
+The default mode is to print a line with checksum, a space, a character\n\
+indicating input mode ('*' for binary, ' ' for text or where binary is\n\
+insignificant), and name for each FILE.\n\
 \n\
 Note: There is no difference between binary mode and text mode on GNU systems.\n\
 "), stdout);
@@ -1238,6 +1242,7 @@ static void digest_directory (const char *dirname, int *binary, unsigned char *b
 static void
 digest_current_files (int *binary, unsigned char *bin_buffer, bool *missing)
 {
+  /* We need to use temp array to save dirname after clear_files() in digest_directory().  */
   char dirname[PATH_MAX];
   for (size_t i = 0; i < cwd_n_used; i++)
     {
@@ -1248,7 +1253,6 @@ digest_current_files (int *binary, unsigned char *bin_buffer, bool *missing)
             error (0, EISDIR, "%s", quotef (file));
           else
             {
-              /* We need to use temp array to save dirname after clear_files() in digest_directory().  */
               strcpy (dirname, file);
               digest_directory (dirname, binary, bin_buffer, missing);
             }
@@ -1360,11 +1364,11 @@ digest_directory (const char *dirname, int *binary, unsigned char *bin_buffer, b
   if (LOOP_DETECT)
     {
       struct stat dir_stat;
-      int fd = dirfd (dirp);
+      int dird = dirfd (dirp);
 
       /* If dirfd failed, endure the overhead of using stat.  */
-      if ((fd >= 0
-             ? fstat (fd, &dir_stat)
+      if ((dird >= 0
+             ? fstat (dird, &dir_stat)
              :  stat (dirname, &dir_stat)) < 0)
         {
           error (0, errno, _("cannot determine device and inode of %s"), quoteaf (dirname));
@@ -1723,7 +1727,6 @@ main (int argc, char **argv)
       case 'l':
         digest_length_str = optarg;
         digest_length = xdectoumax (optarg, 0, UINTMAX_MAX, "", _("invalid length"), 0);
-
 # if HASH_ALGO_SHA3
         if (digest_length != 224 && digest_length != 256
          && digest_length != 384 && digest_length != 512)
@@ -1738,7 +1741,6 @@ main (int argc, char **argv)
             die (EXIT_FAILURE, 0, _("length is not a multiple of 8"));
           }
 # endif
-
         break;
 #endif
       case STATUS_OPTION:
@@ -1805,26 +1807,36 @@ main (int argc, char **argv)
                   if (getcwd (old_path, sizeof (old_path)) == NULL)
                     die (EXIT_FAILURE, errno, _("cannot get current working directory"));
 
-                  while ((fp = fopen (".gitignore", "r")) == NULL && stat (".", &st) >= 0 && !SAME_INODE (root_st, st))
+                  while ((fp = fopen (".gitignore", "r")) == NULL && stat (".", &st) == 0 && !SAME_INODE (root_st, st))
                     if (chdir ("..") != 0)
                       die (EXIT_FAILURE, errno, _("cannot change dir"));
 
                   if (fp == NULL)
-                    die (EXIT_FAILURE, errno, _("cannot find .gitignore (reached /)"));
+                    die (EXIT_FAILURE, errno, _("cannot find %s (reached /)"), quoteaf (".gitignore"));
                   if (chdir (old_path) != 0)
                     die (EXIT_FAILURE, errno, _("cannot come back to current working directory %s"), quoteaf (old_path));
                 }
             }
           else
             {
-              fp = fopen (optarg, "r");
-              if (fp == NULL)
-                die (EXIT_FAILURE, errno, _("cannot find %s"), quoteaf (optarg));
+              struct stat st;
+              if (stat (optarg, &st) != 0)
+                die (EXIT_FAILURE, errno, _("cannot stat %s"), quoteaf (optarg));
+              if (S_ISDIR (st.st_mode))
+                {
+                  char *name = file_name_concat (optarg, ".gitignore", NULL);
+                  if ((fp = fopen (name, "r")) == NULL)
+                    die (EXIT_FAILURE, errno, _("cannot find %s"), quoteaf (name));
+                  free (name);
+                }
+              else
+                if ((fp = fopen (optarg, "r")) == NULL)
+                  die (EXIT_FAILURE, errno, _("cannot find %s"), quoteaf (optarg));
             }
 
           errno = 0;
-          char *response = xmalloc (64); /* Will be better if we allocate it ones (not in cycle) here.  */
           size_t response_size = 64; /* Guess, length of each string in .gitignore file less than 64.  */
+          char *response = xmalloc (response_size); /* Will be better if we allocate it ones (not in cycle) here.  */
           while (true)
             {
               ssize_t response_len = getline (&response, &response_size, fp);
@@ -1840,10 +1852,12 @@ main (int argc, char **argv)
               response[response_len - 1] = '\0';
 
               struct ignore_pattern *ignore = xmalloc (sizeof (*ignore));
-              ignore->pattern = response;
+              ignore->pattern = xstrdup (response);
               ignore->next = ignore_patterns;
               ignore_patterns = ignore;
             }
+
+          free (response);
 
           if (fclose (fp) != 0)
             error (0, errno, "%s", quotef (".gitignore"));

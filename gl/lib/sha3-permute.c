@@ -33,11 +33,11 @@
 # define ROTL64(n, x) _rotl64 (n, offset)
 #elif defined(__INTEL_COMPILER)
 # define ROTL64(n, x) _lrotl (n, x)
-#elif defined(__GNUC__) || defined(__TINYC__)
+#elif (defined(__GNUC__) || defined(__TINYC__)) && defined(__x86_64__)
 # define ROTL64(n, x) \
   ({ \
     register uint64_t __in = x, __out; \
-    __asm__ __volatile__ ("shld %2,%0,%0" : "=r"(__out) : "0"(__in), "i"(n)); \
+    __asm__ __volatile__ ("shld %2,%0,%0":"=r"(__out):"0"(__in),"i"(n)); \
     __out; \
   })
 #else
@@ -49,7 +49,7 @@ sha3_permute (uint64_t A[SHA3_STATE_LENGTH])
 {
   static const uint64_t rc[SHA3_ROUNDS] =
   {
-    UINT64_C (0x0000000000000001), UINT64_C (0X0000000000008082),
+    UINT64_C (0x0000000000000001), UINT64_C (0x0000000000008082),
     UINT64_C (0x800000000000808A), UINT64_C (0x8000000080008000),
     UINT64_C (0x000000000000808B), UINT64_C (0x0000000080000001),
     UINT64_C (0x8000000080008081), UINT64_C (0x8000000000008009),

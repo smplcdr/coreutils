@@ -15,11 +15,14 @@
    License along with the GNU C Library; if not, see
    <https://www.gnu.org/licenses/>.  */
 
-#include <string.h>
+#if !HAVE_STRLCPY
+# include <config.h>
 
-#include "strlcpy.h"
+# include <string.h>
 
-#undef strlcpy
+# include "strlcpy.h"
+
+# undef strlcpy
 
 /*
  * Safe strncpy, the result is always a valid
@@ -38,3 +41,6 @@ strlcpy (char *dst, const char *src, size_t n)
     }
   return 0;
 }
+#else
+typedef int dummy;
+#endif

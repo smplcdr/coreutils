@@ -54,19 +54,19 @@
 # include <sys/sysmacros.h>
 # define HAVE_MAJOR
 #endif
-#ifdef major      /* Might be defined in sys/types.h.  */
+#ifdef major /* Might be defined in sys/types.h.  */
 # define HAVE_MAJOR
 #endif
 
 #ifndef HAVE_MAJOR
-# define major(dev)  (((dev) >> 8) & 0xff)
-# define minor(dev)  ((dev) & 0xff)
-# define makedev(maj, min)  (((maj) << 8) | (min))
+# define major(dev)        (((dev) >> 8) & 0xFF)
+# define minor(dev)        ((dev) & 0xFF)
+# define makedev(maj, min) (((maj) << 8) | (min))
 #endif
 #undef HAVE_MAJOR
 
-#if ! defined makedev && defined mkdev
-# define makedev(maj, min)  mkdev (maj, min)
+#if !defined makedev && defined mkdev
+# define makedev(maj, min) mkdev (maj, min)
 #endif
 
 #include <string.h>
@@ -121,7 +121,7 @@ enum
 # define D_INO(dp) NOT_AN_INODE_NUMBER
 #endif
 
-/* include here for SIZE_MAX.  */
+/* Include here for SIZE_MAX.  */
 #include <inttypes.h>
 
 /* Redirection and wildcarding when done by the utility itself.

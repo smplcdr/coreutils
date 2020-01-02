@@ -18,9 +18,13 @@
 #ifndef _STRLCPY_H
 #define _STRLCPY_H 1
 
-#include <stddef.h>
+#if !HAVE_STRLCPY
+# include <config.h>
+
+# include <stddef.h>
 
 size_t strlcpy (char *dst, const char *src, size_t n)
   __THROW __nonnull ((1, 2));
+#endif
 
 #endif /* _STRLCPY_H */

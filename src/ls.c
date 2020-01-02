@@ -350,7 +350,6 @@ static size_t sorted_file_alloc;
    type of file it points to.  Otherwise, color them according to the 'ln'
    directive in LS_COLORS.  Dangling (orphan) symlinks are treated specially,
    regardless.  This is set when 'ln=target' appears in LS_COLORS.  */
-
 static bool color_symlink_as_referent;
 
 static const char *hostname;
@@ -567,17 +566,16 @@ enum Dereference_symlink
 enum indicator_no
 {
   C_LEFT, C_RIGHT, C_END, C_RESET, C_NORM, C_FILE, C_DIR, C_LINK,
-  C_FIFO, C_SOCK,
-  C_BLK, C_CHR, C_MISSING, C_ORPHAN, C_EXEC, C_DOOR, C_SETUID, C_SETGID,
-  C_STICKY, C_OTHER_WRITABLE, C_STICKY_OTHER_WRITABLE, C_CAP, C_MULTIHARDLINK,
-  C_CLR_TO_EOL
+  C_FIFO, C_SOCK, C_BLK, C_CHR, C_MISSING, C_ORPHAN, C_EXEC, C_DOOR,
+  C_SETUID, C_SETGID, C_STICKY, C_OTHER_WRITABLE, C_STICKY_OTHER_WRITABLE, C_CAP, C_MULTIHARDLINK, C_CLR_TO_EOL
 };
 
 static const char *const indicator_name[]=
 {
-  "lc", "rc", "ec", "rs", "no", "fi", "di", "ln", "pi", "so",
-  "bd", "cd", "mi", "or", "ex", "do", "su", "sg", "st",
-  "ow", "tw", "ca", "mh", "cl", NULL
+  "lc", "rc", "ec", "rs", "no", "fi", "di", "ln",
+  "pi", "so", "bd", "cd", "mi", "or", "ex", "do",
+  "su", "sg", "st", "ow", "tw", "ca", "mh", "cl",
+  NULL
 };
 
 struct color_ext_type
@@ -783,6 +781,7 @@ enum
   BLOCK_SIZE_OPTION,
   COLOR_OPTION,
   DEREFERENCE_COMMAND_LINE_SYMLINK_TO_DIR_OPTION,
+  EMPTY_FILES_ONLY_OPTION,
   FILE_TYPE_INDICATOR_OPTION,
   FORMAT_OPTION,
   FULL_TIME_OPTION,
@@ -2659,9 +2658,11 @@ file_failure (bool serious, const char *message, const char *file)
 static void
 queue_directory (const char *name, const char *realname, bool command_line_arg)
 {
-  struct pending *new = xmalloc (sizeof *new);
-  new->realname = realname ? xstrdup (realname) : NULL;
-  new->name = name ? xstrdup (name) : NULL;
+  struct pending *new;
+
+  new = xmalloc (sizeof (*new));
+  new->realname = realname != NULL ? xstrdup (realname) : NULL;
+  new->name = name != NULL ? xstrdup (name) : NULL;
   new->command_line_arg = command_line_arg;
   new->next = pending_dirs;
   pending_dirs = new;
@@ -2846,7 +2847,7 @@ add_ignore_pattern (const char *pattern)
 {
   struct ignore_pattern *ignore;
 
-  ignore = xmalloc (sizeof *ignore);
+  ignore = xmalloc (sizeof (*ignore));
   ignore->pattern = pattern;
   /* Add it to the head of the linked list.  */
   ignore->next = ignore_patterns;
@@ -2855,9 +2856,9 @@ add_ignore_pattern (const char *pattern)
 
 /* Return true if one of the PATTERNS matches FILE.  */
 static bool
-patterns_match (struct ignore_pattern const *patterns, const char *file)
+patterns_match (const struct ignore_pattern *patterns, const char *file)
 {
-  for (const struct ignore_pattern *p = patterns; p; p = p->next)
+  for (const struct ignore_pattern *p = patterns; p != NULL; p = p->next)
     if (fnmatch (p->pattern, file, FNM_PERIOD) == 0)
       return true;
   return false;
@@ -3061,10 +3062,7 @@ gobble_file (const char *name, enum filetype type, ino_t inode,
   assert (!command_line_arg || inode == NOT_AN_INODE_NUMBER);
 
   if (cwd_n_used == cwd_n_alloc)
-    {
-      cwd_file = xnrealloc (cwd_file, cwd_n_alloc, 2 * sizeof *cwd_file);
-      cwd_n_alloc *= 2;
-    }
+    cwd_file = xnrealloc (cwd_file, cwd_n_alloc *= 2, sizeof *cwd_file);
 
   f = &cwd_file[cwd_n_used];
   memset (f, '\0', sizeof *f);
@@ -3435,8 +3433,7 @@ make_link_name (const char *name, const char *linkname)
 static bool
 basename_is_dot_or_dotdot (const char *name)
 {
-  const char *base = last_component (name);
-  return dot_or_dotdot (base);
+  return dot_or_dotdot (last_component (name));
 }
 
 /* Remove any entries from CWD_FILE that are for directories,
@@ -3800,7 +3797,6 @@ print_current_files (void)
 /* Replace the first %b with precomputed aligned month names.
    Note on glibc-2.7 at least, this speeds up the whole 'ls -lU'
    process by around 17%, compared to letting strftime() handle the %b.  */
-
 static size_t
 align_nstrftime (char *buf, size_t size, bool recent, const struct tm *tm,
                  timezone_t tz, int ns)
@@ -3824,7 +3820,7 @@ long_time_expected_width (void)
       struct tm tm;
       char buf[TIME_STAMP_LEN_MAXIMUM + 1];
 
-      /* In case you're wondering if localtime_rz can fail with an input time_t
+      /* In case you are wondering if localtime_rz can fail with an input time_t
          value of 0, let's just say it is very unlikely, but not inconceivable.
          The TZ environment variable would have to specify a time zone that
          is 2**31-1900 years or more ahead of UTC.  This could happen only on
@@ -3862,7 +3858,7 @@ format_user_or_group (const char *name, unsigned long int id, int width)
 
       do
         putchar (' ');
-      while (pad--);
+      while (pad-- != 0);
     }
   else
     {
@@ -3878,18 +3874,20 @@ format_user_or_group (const char *name, unsigned long int id, int width)
 static void
 format_user (uid_t u, int width, bool stat_ok)
 {
-  format_user_or_group (!stat_ok
-                        ? "?"
-                        : (numeric_ids ? NULL : getuser (u)), u, width);
+  format_user_or_group (stat_ok
+                        ? (numeric_ids ? NULL : getuser (u))
+                        : "?",
+                        u, width);
 }
 
 /* Likewise, for groups.  */
 static void
 format_group (gid_t g, int width, bool stat_ok)
 {
-  format_user_or_group (!stat_ok
-                        ? "?"
-                        : (numeric_ids ? NULL : getgroup (g)), g, width);
+  format_user_or_group (stat_ok
+                        ? (numeric_ids ? NULL : getgroup (g))
+                        : "?",
+                        g, width);
 }
 
 /* Return the number of columns that format_user_or_group will print.  */
@@ -4510,7 +4508,7 @@ print_file_name_and_frills (const struct fileinfo *f, size_t start_col)
 
   if (print_inode)
     printf ("%*s ", format == with_commas ? 0 : inode_number_width,
-            format_inode (buf, sizeof buf, f));
+            format_inode (buf, sizeof (buf), f));
 
   if (print_block_size)
     printf ("%*s ", format == with_commas ? 0 : block_size_width,
@@ -4817,7 +4815,6 @@ print_horizontal (void)
           indent (pos + name_length, pos + max_name_length);
           pos += max_name_length;
         }
-
       f = sorted_file[filesno];
       print_file_name_and_frills (f, pos);
 
@@ -4858,10 +4855,10 @@ print_with_separator (char sep)
 
           putchar (sep);
           putchar (separator);
-        }
 
-      print_file_name_and_frills (f, pos);
-      pos += len;
+          print_file_name_and_frills (f, pos);
+          pos += len;
+        }
     }
   putchar ('\n');
 }

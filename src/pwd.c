@@ -84,7 +84,7 @@ file_name_free (struct file_name *p)
 static struct file_name *
 file_name_init (void)
 {
-  struct file_name *p = xmalloc (sizeof *p);
+  struct file_name *p = xmalloc (sizeof (*p));
 
   /* Start with a buffer larger than PATH_MAX, but beware of systems
      on which PATH_MAX is very large -- e.g., INT_MAX.  */
@@ -181,7 +181,7 @@ find_dir_entry (struct stat *dot_sb, struct file_name *file_name,
   found = false;
   while (true)
     {
-      struct dirent const *dp;
+      const struct dirent *dp;
       struct stat ent_sb;
       ino_t ino;
 

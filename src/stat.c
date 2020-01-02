@@ -213,7 +213,7 @@ static const char *const cached_args[] =
   "default", "never", "always", NULL
 };
 
-static enum cached_mode const cached_modes[] =
+static const enum cached_mode cached_modes[] =
 {
   cached_default, cached_never, cached_always
 };
@@ -226,7 +226,7 @@ static const struct option long_options[] =
   {"printf", required_argument, NULL, PRINTF_OPTION},
   {"terse", no_argument, NULL, 't'},
   {"cached", required_argument, NULL, 0},
-  {NULL, 0, NULL, 0}
+  {NULL, 0, NULL, '\0'}
 };
 
 /* Whether to follow symbolic links;  True for --dereference (-L).  */
@@ -246,7 +246,7 @@ static size_t decimal_point_len;
 
 static bool
 print_stat (char *pformat, size_t prefix_len, unsigned int m,
-            int fd, const char *filename, void const *data);
+            int fd, const char *filename, const void *data);
 
 /* Return the type of the specified file system.
    Some systems have statfvs.f_basetype[FSTYPSZ] (AIX, HP-UX, and Solaris).
@@ -539,8 +539,6 @@ human_fstype (STRUCT_STATVFS const *statfsbuf)
       return "zfs";
     case S_MAGIC_ZSMALLOC: /* 0x58295829 local */
       return "zsmallocfs";
-
-
 # elif __GNU__
     case FSTYPE_UFS:
       return "ufs";
@@ -815,7 +813,7 @@ out_file_context (char *pformat, size_t prefix_len, const char *filename)
   bool fail = false;
 
   if ((follow_links
-       ? getfilecon (filename, &scontext)
+       ?  getfilecon (filename, &scontext)
        : lgetfilecon (filename, &scontext)) < 0)
     {
       error (0, errno, _("failed to get security context of %s"),
@@ -836,7 +834,7 @@ print_statfs (char *pformat, size_t prefix_len, unsigned int m,
               int fd, const char *filename,
               void const *data)
 {
-  STRUCT_STATVFS const *statfsbuf = data;
+  const STRUCT_STATVFS *statfsbuf = data;
   bool fail = false;
 
   switch (m)
@@ -844,7 +842,6 @@ print_statfs (char *pformat, size_t prefix_len, unsigned int m,
     case 'n':
       out_string (pformat, prefix_len, filename);
       break;
-
     case 'i':
       {
 #if STRUCT_STATXFS_F_FSID_IS_INTEGER
@@ -869,7 +866,6 @@ print_statfs (char *pformat, size_t prefix_len, unsigned int m,
         out_uint_x (pformat, prefix_len, fsid);
       }
       break;
-
     case 'l':
       OUT_NAMEMAX (pformat, prefix_len, SB_F_NAMEMAX (statfsbuf));
       break;
@@ -979,7 +975,7 @@ out_mount_point (const char *filename, char *pformat, size_t prefix_len,
         }
       bp = find_bind_mount (resolved);
       free (resolved);
-      if (bp)
+      if (bp != NULL)
         {
           fail = false;
           goto print_mount_point;
@@ -1000,17 +996,16 @@ out_mount_point (const char *filename, char *pformat, size_t prefix_len,
     }
 
 print_mount_point:
-
   out_string (pformat, prefix_len, bp ? bp : mp ? mp : np);
   free (mp);
   return fail;
 }
 
-/* Map a TS with negative TS.tv_nsec to {0,0}.  */
+/* Map a TS with negative TS.tv_nsec to {0, 0}.  */
 static inline struct timespec
 neg_to_zero (struct timespec ts)
 {
-  if (0 <= ts.tv_nsec)
+  if (ts.tv_nsec >= 0)
     return ts;
   struct timespec z = {0, 0};
   return z;
@@ -1023,10 +1018,10 @@ static void
 getenv_quoting_style (void)
 {
   const char *q_style = getenv ("QUOTING_STYLE");
-  if (q_style)
+  if (q_style != NULL)
     {
       int i = ARGMATCH (q_style, quoting_style_args, quoting_style_vals);
-      if (0 <= i)
+      if (i >= 0)
         set_quoting_style (NULL, quoting_style_vals[i]);
       else
         {
@@ -1117,7 +1112,7 @@ print_it (const char *format, int fd, const char *filename,
   size_t n_alloc = strlen (format) + MAX_ADDITIONAL_BYTES + 1;
   char *dest = xmalloc (n_alloc);
   const char *b;
-  for (b = format; *b; b++)
+  for (b = format; *b != '\0'; b++)
     {
       switch (*b)
         {
@@ -1839,7 +1834,7 @@ main (int argc, char *argv[])
       case 't':
         terse = true;
         break;
-      case 0:
+      case '\0':
         switch (XARGMATCH ("--cached", optarg, cached_args, cached_modes))
           {
           case cached_never:
